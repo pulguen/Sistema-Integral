@@ -1,0 +1,56 @@
+/src
+  ├── /assets                       # Archivos estáticos como imágenes, iconos, fuentes, etc.
+  │   ├── /images                   # Imágenes del proyecto
+  │   └── /fonts                    # Fuentes del proyecto (si las hay)
+  ├── /components                   # Componentes reutilizables
+  │   ├── /common                   # Componentes comunes como botones, modales, etc.
+  │   └── /layout                   # Componentes relacionados con el layout general (Navbar, Footer)
+  ├── /features                     # Cada funcionalidad principal (sección del sistema)
+  │   ├── /auth                     # Login, Registro, Manejo de Sesiones
+  │   │   ├── Login.js              # Componente de login
+  │   │   └── Register.js           # Componente de registro (si existe)
+  │   ├── /facturacion              # Sistema de facturación
+  │   │   ├── CrearFactura.js       # Crear facturas
+  │   │   └── ListadoFacturas.js    # Listar todas las facturas
+  │   ├── /inventario               # Sistema de inventario
+  │   ├── /recursos-humanos         # Sistema de recursos humanos
+  ├── /hooks                        # Custom Hooks (por ejemplo, manejo de formularios, autenticación)
+  │   └── useAuth.js                # Hook personalizado para manejar la autenticación
+  ├── /pages                        # Vistas principales o páginas
+  │   ├── Home.js                   # Pantalla de selección de sistema
+  │   ├── NotFound.js               # Página 404 si no se encuentra una ruta
+  │   └── Dashboard.js              # Pantalla de dashboard general
+  ├── /services                     # Servicios para conectarse a APIs, autenticación, etc.
+  │   └── api.js                    # Funciones para hacer llamadas a tu API backend
+  ├── /store                        # Manejo del estado global (si usas Redux o Context API)
+  │   ├── store.js                  # Configuración de Redux o Context
+  │   └── /reducers                 # Reducers para manejar el estado
+  ├── /styles                       # Archivos de estilos globales o temáticos
+  │   ├── /components               # Estilos de componentes específicos
+  │   └── main.css                  # Archivo de estilos principales
+  ├── /utils                        # Funciones reutilizables y utilidades
+  │   └── utils.js                  # Funciones de ayuda generales (ej. formateo de datos, validaciones)
+  └── App.js                        # Punto de entrada de la aplicación
+  └── index.js                      # Archivo de entrada principal
+
+Manejo de componentes
+
+  /src
+  ├── /components                   # Componentes reutilizables en todo el sistema
+  │   ├── /common                   # Componentes comunes para todos los subsistemas
+  │   │   ├── Navbar.js             # Barra de navegación reutilizable en todo el sistema
+  │   │   ├── Modal.js              # Componente de modal reutilizable
+  │   │   └── Button.js             # Botón reutilizable en todo el sistema
+  │   └── /layout                   # Componentes relacionados con la estructura de la UI (Navbar, Sidebar, Footer)
+  ├── /features                     # Componentes específicos de cada subsistema
+  │   ├── /auth                     # Login, Registro, Manejo de Sesiones
+  │   ├── /facturacion              # Sistema de facturación
+  │   │   ├── /components           # Componentes específicos de facturación
+  │   │   │   ├── FacturaItem.js    # Componente específico de facturación
+  │   │   │   └── FacturaTable.js   # Tabla de facturas
+  │   ├── /inventario               # Sistema de inventario
+  │   │   ├── /components           # Componentes específicos de inventario
+  │   │   │   └── InventarioTable.js
+  │   ├── /recursos-humanos         # Sistema de recursos humanos
+  │   │   ├── /components           # Componentes específicos de recursos humanos
+  │   │   │   └── EmpleadoItem.js
