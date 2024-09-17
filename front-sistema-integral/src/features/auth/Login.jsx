@@ -1,17 +1,26 @@
 // src/features/auth/Login.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Form, Button, Container, Row, Col, InputGroup } from 'react-bootstrap';
 import { AuthContext } from '../../context/AuthContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import Swal from 'sweetalert2';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginForm() {
+  const { login, isAuthenticated } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberUser, setRememberUser] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0); // Intentos fallidos
-  const { login } = useContext(AuthContext);
+
+  // Redirigir si el usuario ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');  // Redirigir a la página de inicio si ya está logueado
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

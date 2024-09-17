@@ -1,7 +1,10 @@
 import React from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Home = () => {
+  const navigate = useNavigate(); // Para programáticamente navegar entre rutas
+
   return (
     <Container className="mt-5">
       <h2 className="text-center mb-4">Bienvenido al Sistema</h2>
@@ -12,7 +15,10 @@ const Home = () => {
             <Card.Body>
               <Card.Title>Sistema de Facturación</Card.Title>
               <Card.Text>Administra tus facturas y genera nuevas transacciones.</Card.Text>
-              <Button variant="primary" href="/facturacion">Ir a Facturación</Button>
+              {/* Opción 1: Usando `useNavigate` */}
+              <Button variant="primary" onClick={() => navigate('/facturacion')}>
+                Ir a Facturación
+              </Button>
             </Card.Body>
           </Card>
         </Col>
@@ -22,7 +28,10 @@ const Home = () => {
             <Card.Body>
               <Card.Title>Sistema de Inventario</Card.Title>
               <Card.Text>Gestiona el stock y tus productos disponibles.</Card.Text>
-              <Button variant="success" href="/inventario">Ir a Inventario</Button>
+              {/* Opción 2: Usando `Link` de react-router-dom */}
+              <Link to="/inventario" className="btn btn-success">
+                Ir a Inventario
+              </Link>
             </Card.Body>
           </Card>
         </Col>
@@ -32,7 +41,9 @@ const Home = () => {
             <Card.Body>
               <Card.Title>Sistema de Recursos Humanos</Card.Title>
               <Card.Text>Controla la información de tus empleados y nómina.</Card.Text>
-              <Button variant="warning" href="/recursos-humanos">Ir a Recursos Humanos</Button>
+              <Button variant="warning" onClick={() => navigate('/recursos-humanos')}>
+                Ir a Recursos Humanos
+              </Button>
             </Card.Body>
           </Card>
         </Col>

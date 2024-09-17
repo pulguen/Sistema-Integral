@@ -7,13 +7,12 @@
   │   └── /layout                   # Componentes relacionados con el layout general (Navbar, Footer)
   ├── /features                     # Cada funcionalidad principal (sección del sistema)
   │   ├── /auth                     # Login, Registro, Manejo de Sesiones
-  │   │   ├── Login.js              # Componente de login
-  │   │   └── Register.js           # Componente de registro (si existe)
+  │   │   ├── Login                 # Componente de login
+  │   │   └── Register              # Componente de registro (si existe)
   │   ├── /facturacion              # Sistema de facturación
-  │   │   ├── CrearFactura.js       # Crear facturas
-  │   │   └── ListadoFacturas.js    # Listar todas las facturas
+  │   │   ├── CrearFactura          # Crear facturas
+  │   │   └── ListadoFacturas       # Listar todas las facturas
   │   ├── /inventario               # Sistema de inventario
-  │   ├── /recursos-humanos         # Sistema de recursos humanos
   ├── /hooks                        # Custom Hooks (por ejemplo, manejo de formularios, autenticación)
   │   └── useAuth.js                # Hook personalizado para manejar la autenticación
   ├── /pages                        # Vistas principales o páginas
@@ -51,6 +50,3 @@ Manejo de componentes
   │   ├── /inventario               # Sistema de inventario
   │   │   ├── /components           # Componentes específicos de inventario
   │   │   │   └── InventarioTable.js
-  │   ├── /recursos-humanos         # Sistema de recursos humanos
-  │   │   ├── /components           # Componentes específicos de recursos humanos
-  │   │   │   └── EmpleadoItem.js

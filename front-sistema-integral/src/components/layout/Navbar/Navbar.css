@@ -1,0 +1,55 @@
+.navbar {
+    background-color: var(--ligth-color);
+}
+
+.brand-text {
+    font-weight: 500;
+    color: var(--secundary-color);
+}
+
+.nav-link {
+    font-weight: 400;
+    color: var(--secundary-color);
+}
+
+.nav-link:hover {
+    color: var(--primary-color); /* Cambia el color al color primario al hacer hover */
+}
+
+.navbar-toggler-icon {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px; /* Ancho del icono */
+    height: 18px; /* Altura total del icono */
+    background: transparent; /* Elimina cualquier fondo */
+}
+
+.navbar-toggler-icon div {
+    width: 100%;
+    height: 2px; /* Grosor de las barras */
+    background-color: #000; /* Color negro para las barras */
+}
+
+/* Botón de buscar */
+.btn-outline-success {
+    color: var(--secundary-color);
+    border-color: var(--secundary-color);
+}
+
+.btn-outline-success:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff; /* Color blanco para el texto */
+}
+
+/* Botón de cerrar sesión */
+.btn-outline-light {
+    color: var(--secundary-color);
+    border-color: var(--secundary-color);
+}
+
+.btn-outline-light:hover {
+    background-color: var(--primary-color);
+    color: #fff;
+}

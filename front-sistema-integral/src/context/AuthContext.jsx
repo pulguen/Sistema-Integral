@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -7,34 +6,39 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true); // Estado de carga
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      const tokenExpired = isTokenExpired(token); // Función que verifica la expiración del token
+      const tokenExpired = isTokenExpired(token);
       if (tokenExpired) {
         localStorage.removeItem('token');
         setIsAuthenticated(false);
         navigate('/login');
       } else {
         setIsAuthenticated(true);
+        setUser({ token });
       }
+    } else {
+      setIsAuthenticated(false);
     }
-  }, [navigate]);  // Agregar 'navigate' como dependencia
+    setLoading(false); // Terminamos la carga
+  }, [navigate]);
 
   const isTokenExpired = (token) => {
-    // Lógica para verificar si el token está expirado
-    // Retorna true si el token está expirado
+    // Aquí puedes verificar si el token está expirado
+    return !token;
   };
 
   const login = async (email, password) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);  // Timeout de 5 segundos
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout de 5 segundos
 
     try {
-      const response = await fetch('http://10.0.0.17/municipalidad/public/login', {
+      const response = await fetch('http://10.0.0.17/municipalidad/public/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,14 +47,14 @@ export const AuthProvider = ({ children }) => {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);  // Limpiar el timeout si la solicitud fue exitosa
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
         localStorage.setItem('token', data.token);
         setIsAuthenticated(true);
-        setUser(data.user);
-        navigate('/');  // Redirige a la página protegida
+        setUser({ token: data.token });
+        navigate('/'); // Redirige a la página protegida
         return true;
       } else if (response.status === 401) {
         Swal.fire({
@@ -99,8 +103,12 @@ export const AuthProvider = ({ children }) => {
     navigate('/login');
   };
 
+  if (loading) {
+    return <div>Cargando...</div>; // Indicador de carga opcional
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,0 +1,61 @@
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 10px;
+    padding: 20px;
+  }
+  
+  .sidebar {
+    grid-column: span 2;
+    background-color: var(--secundary-color); /* Fondo del aside usando el color secundario */
+    padding: 15px 15px 10px 8px;
+  }
+  
+  .titulo-slidebar {
+    font-size: 1.2em;
+    color: var(--ligth-color); /* Título en color claro para contraste */
+  }
+  
+  .sidebar ul {
+    list-style-type: none; /* Elimina los puntos en las listas */
+    padding-left: 0;       /* Elimina el padding izquierdo predeterminado */
+  }
+  
+  .sidebar ul li {
+    margin-bottom: 10px; /* Añade espacio entre los elementos de la lista */
+  }
+  
+  .sidebar .nav-link {
+    color: var(--ligth-color); /* Mismo color que los enlaces del menú */
+    font-size: 1em;
+    font-weight: 400; /* Igual peso que los enlaces del navbar */
+    padding: 10px 15px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  .sidebar .nav-link:hover {
+    background-color: var(--primary-color); /* Fondo al hacer hover igual al botón de cerrar sesión */
+    color: #fff; /* Texto en blanco al hacer hover */
+  }
+  
+  .sidebar .nav-link:active {
+    background-color: #c0c0c0;
+    color: var(--secundary-color);
+  }
+  
+  .main-content {
+    grid-column: span 10;
+    background-color: var(--ligth-color); /* Fondo claro para el contenido principal */
+    padding: 15px;
+  }
+  
+  @media (max-width: 760px) {
+    .sidebar {
+      grid-column: span 12;
+    }
+  
+    .main-content {
+      grid-column: span 12;
+    }
+  }
+  
