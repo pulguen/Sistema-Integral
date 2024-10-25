@@ -1,0 +1,39 @@
+/* Estilos generales del botón */
+.custom-button {
+  background-color: var(--secundary-color); /* Color secundario por defecto */
+  color: var(--ligth-color); /* Texto claro */
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: var(--tamaño-fuente);
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover general */
+.custom-button:hover {
+  background-color: var(--primary-color); /* Hover en color primario */
+  color: var(--ligth-color); /* Texto claro */
+}
+
+/* Botón de peligro para eliminar */
+.custom-button.danger {
+  background-color: var(--danger-color); /* Color de peligro */
+  color: var(--ligth-color); /* Texto claro */
+}
+
+.custom-button.danger:hover {
+  background-color: var(--primary-color); /* Hover en color primario */
+  color: var(--ligth-color); /* Texto claro */
+}
+
+/* Variantes específicas */
+.custom-button.primary {
+  background-color: var(--secundary-color); /* Color secundario */
+  color: var(--ligth-color); /* Texto claro */
+}
+
+.custom-button.primary:hover {
+  background-color: var(--primary-color); /* Hover en color primario */
+  color: var(--ligth-color); /* Texto claro */
+}

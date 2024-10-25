@@ -1,10 +1,12 @@
-// src/features/auth/Login.jsx
+// LoginForm.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { Form, Button, Container, Row, Col, InputGroup } from 'react-bootstrap';
+import { Form, Container, Row, Col, InputGroup, Button } from 'react-bootstrap';
 import { AuthContext } from '../../context/AuthContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import Footer from '../../components/layout/Footer/Footer';
+import CustomButton from '../../components/common/botons/CustomButton.jsx';
 
 export default function LoginForm() {
   const { login, isAuthenticated } = useContext(AuthContext);
@@ -13,19 +15,17 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberUser, setRememberUser] = useState(false);
-  const [loginAttempts, setLoginAttempts] = useState(0); // Intentos fallidos
-
-  // Redirigir si el usuario ya está autenticado
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');  // Redirigir a la página de inicio si ya está logueado
+      navigate('/'); // Redirigir a la página de inicio si ya está logueado
     }
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Limitar intentos de login
     if (loginAttempts >= 3) {
       Swal.fire({
         icon: 'error',
@@ -35,7 +35,6 @@ export default function LoginForm() {
       return;
     }
 
-    // Validación de campos vacíos
     if (!email || !password) {
       Swal.fire({
         icon: 'warning',
@@ -45,7 +44,6 @@ export default function LoginForm() {
       return;
     }
 
-    // Validar formato del correo electrónico
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email)) {
       Swal.fire({
@@ -56,7 +54,6 @@ export default function LoginForm() {
       return;
     }
 
-    // Validar que la contraseña tenga al menos 8 caracteres
     if (password.length < 8) {
       Swal.fire({
         icon: 'error',
@@ -66,18 +63,12 @@ export default function LoginForm() {
       return;
     }
 
-    // Intentar el login
     try {
       const success = await login(email, password);
       if (!success) {
-        setLoginAttempts(prev => prev + 1); // Aumentar intentos fallidos
-        Swal.fire({
-          icon: 'error',
-          title: 'Datos incorrectos',
-          text: 'El correo o la contraseña son incorrectos.',
-        });
+        setLoginAttempts((prev) => prev + 1);
       } else {
-        setLoginAttempts(0); // Reiniciar intentos si el login es exitoso
+        setLoginAttempts(0);
       }
     } catch (err) {
       Swal.fire({
@@ -93,57 +84,86 @@ export default function LoginForm() {
   };
 
   return (
-    <Container className="mt-5">
-      <Row className="justify-content-md-center">
-        <Col md={6}>
-          <h1 className="text-center mb-4 mt-4">Inicio de Sesión</h1>
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3" controlId="formEmail">
-              <Form.Label>Correo Electrónico</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="Ingresa tu correo"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3" controlId="formPassword">
-              <Form.Label>Contraseña</Form.Label>
-              <InputGroup>
+    <>
+      <Container className="mt-5 mb-5">
+        <Row className="justify-content-md-center">
+          <Col md={6}>
+            <h1 className="text-center mb-4 mt-4">Inicio de Sesión</h1>
+            <Form onSubmit={handleSubmit}>
+              <Form.Group className="mb-3" controlId="formEmail">
+                <Form.Label>Correo Electrónico</Form.Label>
                 <Form.Control
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Ingresa tu contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type="email"
+                  placeholder="Ingresa tu correo"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+              </Form.Group>
+
+              <Form.Group className="mb-3" controlId="formPassword">
+                <Form.Label>Contraseña</Form.Label>
+                <InputGroup>
+                  <Form.Control
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Ingresa tu contraseña"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <CustomButton
+                    variant="secondary"
+                    onClick={togglePasswordVisibility}
+                    style={{ borderLeft: 'none' }}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </CustomButton>
+                </InputGroup>
+              </Form.Group>
+
+              <Form.Group className="mb-3" controlId="formRememberUser">
+                <Form.Check
+                  type="checkbox"
+                  label="Recordame"
+                  checked={rememberUser}
+                  onChange={(e) => setRememberUser(e.target.checked)}
+                />
+              </Form.Group>
+
+              <CustomButton type="submit" className="w-100 mb-3 primary">
+                Ingresar
+              </CustomButton>
+
+              <div className="d-flex justify-content-between mb-4">
                 <Button
-                  variant="outline-secondary"
-                  onClick={togglePasswordVisibility}
-                  style={{ borderLeft: 'none' }}
+                  variant="link"
+                  className="p-0"
+                  style={{
+                    fontSize: '14px',
+                    textDecoration: 'none',
+                    color: 'var(--secundary-color)',
+                  }}
                 >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  ¿Olvidaste tu contraseña?
                 </Button>
-              </InputGroup>
-            </Form.Group>
+                <Button
+                  variant="link"
+                  className="p-0"
+                  style={{
+                    fontSize: '14px',
+                    textDecoration: 'none',
+                    color: 'var(--secundary-color)',
+                  }}
+                >
+                  ¿Necesitás ayuda?
+                </Button>
+              </div>
+            </Form>
+          </Col>
+        </Row>
+      </Container>
 
-            <Form.Group className="mb-3" controlId="formRememberUser">
-              <Form.Check
-                type="checkbox"
-                label="Recordame"
-                checked={rememberUser}
-                onChange={(e) => setRememberUser(e.target.checked)}
-              />
-            </Form.Group>
-
-            <Button variant="primary" type="submit" className="w-100 mb-3">
-              Ingresar
-            </Button>
-          </Form>
-        </Col>
-      </Row>
-    </Container>
+      <Footer />
+    </>
   );
 }

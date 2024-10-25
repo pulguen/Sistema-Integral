@@ -1,3 +1,4 @@
+// AuthContext.jsx
 import React, { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -5,110 +6,100 @@ import Swal from 'sweetalert2';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true); // Estado de carga
-  const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!token);
+  const [user, setUser] = useState(null);
 
+  // Actualiza el estado cuando cambia el token
   useEffect(() => {
-    const token = localStorage.getItem('token');
     if (token) {
-      const tokenExpired = isTokenExpired(token);
-      if (tokenExpired) {
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        navigate('/login');
-      } else {
-        setIsAuthenticated(true);
-        setUser({ token });
-      }
+      setIsAuthenticated(true);
+      localStorage.setItem('token', token);
+      // Aquí puedes obtener información del usuario si es necesario
     } else {
       setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      setUser(null);
     }
-    setLoading(false); // Terminamos la carga
+  }, [token]);
+
+  // Maneja la expiración del token
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      setToken(null);
+      navigate('/login');
+      Swal.fire({
+        icon: 'error',
+        title: 'Sesión expirada',
+        text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
+      });
+    };
+
+    window.addEventListener('tokenExpired', handleTokenExpired);
+
+    return () => {
+      window.removeEventListener('tokenExpired', handleTokenExpired);
+    };
   }, [navigate]);
 
-  const isTokenExpired = (token) => {
-    // Aquí puedes verificar si el token está expirado
-    return !token;
-  };
-
   const login = async (email, password) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout de 5 segundos
-
     try {
       const response = await fetch('http://10.0.0.17/municipalidad/public/api/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-        signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.token);
-        setIsAuthenticated(true);
-        setUser({ token: data.token });
-        navigate('/'); // Redirige a la página protegida
-        return true;
+        const token = data.token?.plainTextToken;
+
+        if (token) {
+          setToken(token);
+          navigate('/');
+          return true;
+        } else {
+          throw new Error('No se recibió un token válido del servidor.');
+        }
       } else if (response.status === 401) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Datos incorrectos',
-          text: 'El correo o la contraseña son incorrectos.',
-        });
+        Swal.fire({ icon: 'error', title: 'Datos incorrectos', text: 'El correo o la contraseña son incorrectos.' });
         return false;
-      } else if (response.status === 403) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Acceso denegado',
-          text: 'No tienes permiso para acceder a este recurso.',
-        });
-        return false;
-      } else if (response.status >= 500) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error del servidor',
-          text: 'Hubo un problema en el servidor. Intenta nuevamente más tarde.',
-        });
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error durante el inicio de sesión.' });
         return false;
       }
     } catch (error) {
-      if (error.name === 'AbortError') {
-        Swal.fire({
-          icon: 'error',
-          title: 'Tiempo de espera agotado',
-          text: 'El servidor tardó demasiado en responder. Intenta nuevamente más tarde.',
-        });
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de conexión',
-          text: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
-        });
-      }
+      Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor.' });
       return false;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    setUser(null);
-    navigate('/login');
+  const logout = async () => {
+    if (!token) {
+      setToken(null);
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await fetch('http://10.0.0.17/municipalidad/public/api/logout', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      // Manejar error si es necesario
+    } finally {
+      setToken(null);
+      navigate('/login');
+    }
   };
 
-  if (loading) {
-    return <div>Cargando...</div>; // Indicador de carga opcional
-  }
-
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

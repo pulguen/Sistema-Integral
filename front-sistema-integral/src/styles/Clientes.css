@@ -1,0 +1,67 @@
+/* Sección general para clientes */
+.clientes-section {
+  background-color: var(--ligth-color); /* Fondo claro */
+  padding: 20px;
+  border-radius: 8px; /* Esquinas redondeadas */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra suave */
+  border: 1px solid var(--secundary-color); /* Borde con color secundario */
+}
+
+/* Título de la sección */
+.section-title {
+  font-weight: bold;
+  color: var(--secundary-color); /* Título en color secundario */
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+/* Estilo para el campo de búsqueda */
+.search-input {
+  border: 1px solid var(--secundary-color); /* Borde del input */
+  padding: 10px;
+  border-radius: 5px;
+  color: var(--dark-color); /* Texto oscuro */
+  margin-bottom: 15px;
+}
+
+/* Estilo de la tabla */
+.custom-table {
+  background-color: var(--ligth-color); /* Fondo claro */
+  border: 1px solid var(--secundary-color);
+  border-radius: 5px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Cabecera de la tabla */
+.custom-table thead th {
+  background-color: var(--secundary-color); /* Fondo secundario */
+  color: var(--ligth-color); /* Texto claro */
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Estilo de las filas alternas */
+.custom-table tbody tr:nth-child(even) {
+  background-color: var(--alternative-color); /* Color alternativo para filas */
+}
+
+/* Borde redondeado para la cabecera y la tabla */
+.custom-table th:first-child, .custom-table td:first-child {
+  border-top-left-radius: 5px;
+}
+
+.custom-table th:last-child, .custom-table td:last-child {
+  border-top-right-radius: 5px;
+}
+
+/* Estilo de los botones dentro de la tabla */
+.custom-table tbody tr td .custom-button {
+  margin-right: 5px;
+}
+
+.custom-table tbody tr td .custom-button:last-child {
+  margin-right: 0;
+}

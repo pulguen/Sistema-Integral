@@ -1,5 +1,6 @@
 import React from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
+import { Link } from 'react-router-dom';  // Importamos Link
 
 function Footer() {
   return (
@@ -16,9 +17,9 @@ function Footer() {
           <Col md="3">
             <h5>Enlaces</h5>
             <ul className="list-unstyled">
-              <li><a href="/" className="text-black">Home</a></li>
-              <li><a href="/about" className="text-black">About</a></li>
-              <li><a href="/soporte" className="text-black">Contact</a></li>
+              <li><Link to="/" className="text-black">Home Principal</Link></li>
+              <li><Link to="/about" className="text-black">Acerca de</Link></li>
+              <li><a href="https://wa.me/5492942539980" className="text-black">Contacto Sistemas</a></li> {/* Enlace telefónico */}
             </ul>
           </Col>
           <Col md="3">
@@ -29,7 +30,7 @@ function Footer() {
               Dirección: Av. San Martín 215, Q8340 Zapala, Neuquén
             </p>
           </Col>
-          <Col md="3" >
+          <Col md="3">
             <h5>Ubicación</h5>
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3144.7628319267367!2d-70.06320042509646!3d-38.9038941611497!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x960af8f93e0f3207%3A0xa034391fd98b6205!2sAv.%20San%20Martin%20215%2C%20Q8340%20Zapala%2C%20Neuqu%C3%A9n!5e0!3m2!1ses-419!2sar!4v1693588473075!5m2!1ses-419!2sar"
@@ -38,7 +39,7 @@ function Footer() {
               style={{ border: 0 }}
               allowFullScreen=""
               loading="lazy"
-              title="Mapa de Zapala">                
+              title="Mapa de Zapala">
             </iframe>
           </Col>
         </Row>

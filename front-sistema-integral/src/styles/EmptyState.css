@@ -1,0 +1,22 @@
+/* EmptyState.css */
+.empty-state-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+  }
+  
+  .empty-state-icon {
+    font-size: 4rem;
+  }
+  
+  .empty-state-container h4 {
+    font-size: 1.5rem;
+  }
+  
+  .empty-state-container p {
+    font-size: 1rem;
+  }
+  

@@ -15,55 +15,122 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
     f_nacimiento: '',
   });
 
-  const onSubmit = (e) => {
+  // Validar campos
+  const validateFields = () => {
+    if (
+      !newClient.nombre ||
+      !newClient.apellido ||
+      !newClient.dni ||
+      !newClient.email ||
+      !newClient.telefono ||
+      !newClient.altura ||
+      !newClient.calle ||
+      !newClient.f_nacimiento
+    ) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos vacíos',
+        text: 'Por favor, completa todos los campos.',
+      });
+      return false;
+    }
+
+    // Validar email
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(newClient.email)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Correo inválido',
+        text: 'Por favor, ingresa un correo electrónico válido.',
+      });
+      return false;
+    }
+
+    // Validar DNI
+    if (!/^\d+$/.test(newClient.dni)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'DNI inválido',
+        text: 'El DNI solo debe contener números.',
+      });
+      return false;
+    }
+
+    // Validar teléfono
+    if (!/^\d+$/.test(newClient.telefono)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Teléfono inválido',
+        text: 'El teléfono solo debe contener números.',
+      });
+      return false;
+    }
+
+    // Validar altura
+    if (isNaN(newClient.altura)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Altura inválida',
+        text: 'La altura debe ser un número.',
+      });
+      return false;
+    }
+
+    return true; // Campos válidos
+  };
+
+  const onSubmit = async (e) => {
     e.preventDefault();
 
-    // Mostrar SweetAlert para confirmar la acción
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: '¿Estás seguro de que quieres agregar este cliente?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, agregar',
-      cancelButtonText: 'Cancelar',
-    }).then((result) => {
+    // Validar campos
+    if (!validateFields()) return;
+
+    try {
+      // Confirmar antes de enviar
+      const result = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: '¿Estás seguro de que quieres agregar este cliente?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, agregar',
+        cancelButtonText: 'Cancelar',
+      });
+
       if (result.isConfirmed) {
-        // Si el usuario confirma, se ejecuta el proceso para agregar el cliente
-        handleSubmit(newClient)
-          .then(() => {
-            // Mostrar SweetAlert de éxito si se agrega correctamente
-            Swal.fire({
-              icon: 'success',
-              title: 'Cliente agregado',
-              text: 'El cliente ha sido agregado exitosamente!',
-            }).then(() => {
-              // Reseteamos el formulario y cerramos el modal después de confirmar en SweetAlert
-              setNewClient({
-                nombre: '',
-                apellido: '',
-                dni: '',
-                email: '',
-                telefono: '',
-                tipo_cliente: 'fisico',
-                altura: '',
-                calle: '',
-                f_nacimiento: '',
-              });
-              handleClose(); // Cierra el modal
-            });
-          })
-          .catch((error) => {
-            // Mostrar SweetAlert de error si hay algún problema
-            Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: 'No se pudo agregar el cliente. Intenta nuevamente.',
-            });
-          });
+        // Llamar a la función de envío del cliente
+        await handleSubmit(newClient);
+
+        // Mostrar éxito
+        await Swal.fire({
+          icon: 'success',
+          title: 'Cliente agregado',
+          text: 'El cliente ha sido agregado exitosamente!',
+        });
+
+        // Reiniciar el formulario y cerrar el modal
+        setNewClient({
+          nombre: '',
+          apellido: '',
+          dni: '',
+          email: '',
+          telefono: '',
+          tipo_cliente: 'fisico',
+          altura: '',
+          calle: '',
+          f_nacimiento: '',
+        });
+        handleClose();
       }
-    });
+    } catch (error) {
+      // Manejo de error
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo agregar el cliente. Intenta nuevamente.',
+      });
+    }
   };
 
   return (
@@ -94,7 +161,7 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
           </Form.Group>
 
           <Form.Group controlId="dni">
-            <Form.Label>DNI</Form.Label>
+            <Form.Label>DNI/CIUT</Form.Label>
             <Form.Control
               type="text"
               value={newClient.dni}

@@ -13,7 +13,8 @@
     --secundary-color: #1E2F58;
     --alternative-color: #DADADA;
     --dark-color: #1F191A;
-    --ligth-color: #FCFCFC; 
+    --ligth-color: #FCFCFC;
+    --danger-color:#e63552; 
     --tamaño-fuente: 12pt;
    }
 
@@ -26,6 +27,3 @@
 a{
     text-decoration: none;
 }
-
-/*aside sistemas*/
-

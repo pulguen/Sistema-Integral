@@ -1,9 +1,13 @@
 import React from 'react';
 import { Container } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import { useAsideLinks } from '../../../context/AsideLinksContext'; // Importar el contexto de los enlaces
 import '../../../styles/MainLayout.css';
 
-const MainLayout = ({ children, asideLinks }) => {
+const MainLayout = ({ children, section }) => {
+  const links = useAsideLinks(); // Obtener los enlaces del contexto
+  const asideLinks = links[section] || []; // Enlaces correspondientes a la sección del subsistema
+
   return (
     <Container fluid className="grid-container">
       <aside className="sidebar">
@@ -18,9 +22,7 @@ const MainLayout = ({ children, asideLinks }) => {
           ))}
         </ul>
       </aside>
-      <main className="main-content">
-        {children}
-      </main>
+      <main className="main-content">{children}</main>
     </Container>
   );
 };

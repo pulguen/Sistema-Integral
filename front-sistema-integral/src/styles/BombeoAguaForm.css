@@ -1,0 +1,66 @@
+.bombeo-agua-form {
+  background-color: var(--ligth-color); /* Fondo claro */
+  border-radius: 8px; /* Esquinas redondeadas */
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra suave */
+  border: 1px solid var(--secundary-color); /* Borde con color secundario */
+}
+
+.bombeo-agua-form h2 {
+  font-weight: bold;
+  color: var(--secundary-color); /* Título en color secundario */
+  text-align: center;
+}
+
+.form-control, .form-select {
+  border: 1px solid var(--secundary-color); /* Borde del input */
+  color: var(--dark-color); /* Texto oscuro */
+}
+
+.input-group-text {
+  background-color: var(--alternative-color); /* Fondo de los adornos de los inputs */
+  border: 1px solid var(--secundary-color); /* Borde con color secundario */
+}
+
+button {
+  background-color: var(--primary-color); /* Color primario inicial */
+  color: var(--ligth-color); /* Texto claro */
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: var(--tamaño-fuente);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button[type="submit"]:hover,
+button[type="reset"]:hover,
+button.btn-success:hover,
+button.btn-danger:hover {
+  background-color: var(--primary-color); /* Color primario en hover */
+  color: var(--ligth-color); /* Texto claro */
+}
+
+button[type="reset"] {
+  background-color: var(--alternative-color);
+  color: var(--dark-color);
+}
+
+button[type="reset"]:hover {
+  background-color: var(--primary-color);
+  color: var(--ligth-color);
+}
+
+/* Estilos para el dropdown de clientes */
+.client-container {
+  position: relative; /* Asegura que la lista desplegable se ajuste al contenedor padre */
+  width: 100%; /* El contenedor debe tener un ancho del 100% */
+}
+
+.client-dropdown {
+  width: 100%; /* Aseguramos que la lista desplegable tenga el mismo ancho que el input */
+  z-index: 1000; /* Aseguramos que esté sobre otros elementos */
+  border: 1px solid var(--secundary-color); /* Agregar el mismo borde que el input */
+  border-top: none; /* Remover el borde superior para que se vea como una continuación del input */
+  box-sizing: border-box; /* Asegura que el padding y border estén incluidos en el ancho total */
+}

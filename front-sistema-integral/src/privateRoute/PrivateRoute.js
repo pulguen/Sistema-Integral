@@ -1,16 +1,18 @@
 import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { Navigate, Outlet } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext.jsx';
+import Loading from '../components/common/loading/Loading.jsx';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useContext(AuthContext);
 
-  // Si aún está cargando el estado de autenticación, mostramos un loading
+  // Mostrar un loading si aún está cargando el estado de autenticación
   if (loading) {
-    return <div>Cargando...</div>; // Muestra un indicador de carga
+    return <Loading />; 
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  // Redirigir a login si no está autenticado
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace={true} />;
 };
 
 export default PrivateRoute;
