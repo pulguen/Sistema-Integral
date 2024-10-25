@@ -252,7 +252,7 @@ const BombeoAguaForm = () => {
                   type="text"
                   value={searchTerm}
                   placeholder="Buscar cliente por nombre o DNI/CUIT"
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value)}ññ
                   onClick={() => setShowClientList(true)}
                   required
                   className="rounded"
