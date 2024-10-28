@@ -1,5 +1,5 @@
 // src/features/facturacion/components/BombeoAgua/BombeoAguaForm.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react'; 
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react'; 
 import { Form, Row, Col, Card, InputGroup, ListGroup, Table, Spinner } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import CustomButton from '../../../../components/common/botons/CustomButton';
@@ -8,7 +8,7 @@ import { BombeoAguaContext } from '../../../../context/BombeoAguaContext.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
 
 const BombeoAguaForm = () => {
-  const { handleCreateInvoice } = React.useContext(BombeoAguaContext);
+  const { handleCreateInvoice } = useContext(BombeoAguaContext);
 
   const [clients, setClients] = useState([]);
   const [client, setClient] = useState('');
@@ -30,7 +30,6 @@ const BombeoAguaForm = () => {
   const [periodos, setPeriodos] = useState([]);
   const [loadingPeriodos, setLoadingPeriodos] = useState(false);
   const [recordsLimit, setRecordsLimit] = useState(6);
-
 
   const clientDropdownRef = useRef(null);
 
@@ -87,26 +86,24 @@ const BombeoAguaForm = () => {
     setLoadingPeriodos(true);
     setPeriodos([]); // Limpiar períodos al iniciar una nueva llamada
     try {
-        const data = await customFetch(`http://10.0.0.17/municipalidad/public/api/cuentas?cliente_id=${cliente_id}`);
-        
-        // Filtrar periodos específicamente para el cliente seleccionado
-        const periodosCliente = (data[0] || []).filter(periodo => periodo.cliente_id === parseInt(cliente_id));
-        
-        const periodosUnicos = Array.from(new Set(periodosCliente.map(JSON.stringify))).map(JSON.parse); // Eliminar duplicados
-        setPeriodos(periodosUnicos);
+      const data = await customFetch(`http://10.0.0.17/municipalidad/public/api/cuentas?cliente_id=${cliente_id}`);
+      
+      // Filtrar periodos específicamente para el cliente seleccionado
+      const periodosCliente = (data[0] || []).filter(periodo => periodo.cliente_id === parseInt(cliente_id));
+      
+      const periodosUnicos = Array.from(new Set(periodosCliente.map(JSON.stringify))).map(JSON.parse); // Eliminar duplicados
+      setPeriodos(periodosUnicos);
     } catch (error) {
-        console.error('Error al obtener los períodos:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Hubo un problema al obtener los períodos del cliente.',
-        });
+      console.error('Error al obtener los períodos:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Hubo un problema al obtener los períodos del cliente.',
+      });
     } finally {
-        setLoadingPeriodos(false);
+      setLoadingPeriodos(false);
     }
-};
-
-  
+  };
 
   useEffect(() => {
     fetchModuleValue();
@@ -116,7 +113,7 @@ const BombeoAguaForm = () => {
   useEffect(() => {
     setFilteredClients(
       clients.filter(client => {
-        const clientName = `${client.persona?.nombre || ''} ${client.persona?.apellido || ''}`.toLowerCase();
+        const clientName = `${client.persona?.nombre} ${client.persona?.apellido}`.toLowerCase();
         const clientDNI = client.persona?.dni ? client.persona.dni.toString() : '';
 
         return (
@@ -252,7 +249,7 @@ const BombeoAguaForm = () => {
                   type="text"
                   value={searchTerm}
                   placeholder="Buscar cliente por nombre o DNI/CUIT"
-                  onChange={(e) => setSearchTerm(e.target.value)}ññ
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   onClick={() => setShowClientList(true)}
                   required
                   className="rounded"
