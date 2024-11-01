@@ -14,6 +14,7 @@ const ClienteDetalle = () => {
   const [cliente, setCliente] = useState(null);
   const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
   const [serviciosAsignados, setServiciosAsignados] = useState([]);
+  const [tributos, setTributos] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editedCliente, setEditedCliente] = useState({
     nombre: '',
@@ -34,16 +35,8 @@ const ClienteDetalle = () => {
   useEffect(() => {
     const fetchCliente = async () => {
       try {
-        const data = await customFetch(
-          `http://10.0.0.17/municipalidad/public/api/clientes/${id}`
-        );
-
-        // Aplanar los datos de 'persona' y 'cliente' en un solo objeto
-        const combinedData = {
-          ...data,
-          ...data.persona,
-        };
-
+        const data = await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${id}`);
+        const combinedData = { ...data, ...data.persona };
         setCliente(combinedData);
         setEditedCliente({
           nombre: combinedData.nombre || '',
@@ -60,50 +53,54 @@ const ClienteDetalle = () => {
           f_nacimiento: combinedData.f_nacimiento || '',
           tipo_cliente: combinedData.tipo_cliente || 'fisico',
         });
-
-        const serviciosAsignadosIds = data.servicios.map(
-          (servicio) => servicio.id
-        );
-        setServiciosAsignados(serviciosAsignadosIds);
+        setServiciosAsignados(data.servicios.map((servicio) => servicio.id));
       } catch (error) {
-        console.error(
-          'Error al obtener el cliente:',
-          error
-        );
+        console.error('Error al obtener el cliente:', error);
         Swal.fire('Error', 'Error al obtener el cliente.', 'error');
       }
     };
 
     const fetchServicios = async () => {
       try {
-        const data = await customFetch(
-          'http://10.0.0.17/municipalidad/public/api/servicios'
-        );
+        const data = await customFetch('http://10.0.0.17/municipalidad/public/api/servicios');
         setServiciosDisponibles(data);
+        console.log(data)
       } catch (error) {
         Swal.fire('Error', 'Error al obtener los servicios.', 'error');
       }
     };
 
+    const fetchTributos = async () => {
+      try {
+        const data = await customFetch('http://10.0.0.17/municipalidad/public/api/tributos');
+        setTributos(data);
+      } catch (error) {
+        Swal.fire('Error', 'Error al obtener los tributos.', 'error');
+      }
+    };
+
     fetchCliente();
     fetchServicios();
+    fetchTributos();
   }, [id]);
 
+  const getTributoNameById = (tributoId) => {
+    const tributo = tributos.find((t) => t.id === tributoId);
+    return tributo ? tributo.nombre : 'Tributo desconocido';
+  };
+
   const handleAsignarServicios = async () => {
+    if (!serviciosAsignados || serviciosAsignados.length === 0) {
+      Swal.fire('Error', 'Debe seleccionar al menos un servicio.', 'error');
+      return;
+    }
+
     try {
-      await customFetch(
-        `http://10.0.0.17/municipalidad/public/api/clientes/${id}/serv-sinc`,
-        'POST',
-        JSON.stringify({
-          servicios: serviciosAsignados,
-        })
-      );
+      await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${id}/serv-sinc`, 'POST', { servicios: serviciosAsignados });
       Swal.fire('Éxito', 'Servicios asignados correctamente.', 'success');
       setCliente((prev) => ({
         ...prev,
-        servicios: serviciosDisponibles.filter((serv) =>
-          serviciosAsignados.includes(serv.id)
-        ),
+        servicios: serviciosDisponibles.filter((serv) => serviciosAsignados.includes(serv.id)),
       }));
     } catch (error) {
       Swal.fire('Error', 'Hubo un problema al asignar los servicios.', 'error');
@@ -132,10 +129,7 @@ const ClienteDetalle = () => {
       });
 
       if (confirmResult.isConfirmed) {
-        await customFetch(
-          `http://10.0.0.17/municipalidad/public/api/clientes/${id}`,
-          'DELETE'
-        );
+        await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${id}`, 'DELETE');
         Swal.fire('Eliminado', 'El cliente ha sido eliminado.', 'success');
         navigate('/facturacion/clientes');
       }
@@ -145,7 +139,6 @@ const ClienteDetalle = () => {
   };
 
   const handleEditCliente = async () => {
-    console.log('handleEditCliente called');
     try {
       const updatedData = {
         id: cliente.id,
@@ -164,11 +157,7 @@ const ClienteDetalle = () => {
         f_nacimiento: editedCliente.f_nacimiento,
       };
 
-      await customFetch(
-        `http://10.0.0.17/municipalidad/public/api/clientes/${id}`,
-        'PUT',
-        JSON.stringify(updatedData)
-      );
+      await customFetch(`http://10.0.0.17/municipalidad/public/api/clientes/${id}`, 'PUT', updatedData);
 
       Swal.fire('Éxito', 'Cliente modificado correctamente.', 'success');
       setEditMode(false);
@@ -460,26 +449,16 @@ const ClienteDetalle = () => {
               <thead>
                 <tr>
                   <th>#</th>
+                  <th>Tributo</th>
                   <th>Servicio</th>
-                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {cliente.servicios.map((servicio, index) => (
                   <tr key={servicio.id}>
                     <td>{index + 1}</td>
+                    <td>{getTributoNameById(servicio.tributo_id)}</td>
                     <td>{servicio.nombre}</td>
-                    <td>
-                      <CustomButton
-                        variant="danger"
-                        size="sm"
-                        onClick={() => {
-                          // Lógica para eliminar servicio
-                        }}
-                      >
-                        <FaTrash /> Eliminar
-                      </CustomButton>
-                    </td>
                   </tr>
                 ))}
               </tbody>

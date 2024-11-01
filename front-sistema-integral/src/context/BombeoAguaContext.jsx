@@ -3,57 +3,87 @@ import React, { createContext, useState } from 'react';
 export const BombeoAguaContext = createContext();
 
 export const BombeoAguaProvider = ({ children }) => {
-  const [facturas, setFacturas] = useState([]);
-  const [recibos, setRecibos] = useState([]); // Estado para los recibos
+  const [periodos, setPeriodos] = useState([]);
+  const [recibos, setRecibos] = useState([]);
+  const [homePeriodos, setHomePeriodos] = useState([]);
+  const [loadingHomePeriodos, setLoadingHomePeriodos] = useState(false);
+  const [servicios, setServicios] = useState([]);
 
-  // Función para manejar creación de facturas
-  const handleCreateInvoice = (newInvoice) => {
-    setFacturas((prevFacturas) => [...prevFacturas, newInvoice]);
+  const handleCreatePeriodo = (newPeriodo) => {
+    if (!newPeriodo || typeof newPeriodo !== 'object' || !newPeriodo.clientName) {
+      console.warn('Error: el periodo proporcionado no es válido.');
+      return;
+    }
+    setPeriodos((prevPeriodos) => [...prevPeriodos, newPeriodo]);
+    console.log('Periodo creado:', newPeriodo);
   };
 
-  // Función para confirmar una factura
-  const handleConfirmInvoice = (factura) => {
-    const updatedFacturas = facturas.filter(f => f !== factura);
-    setFacturas(updatedFacturas);
-    console.log('Factura confirmada:', factura);
+  const handleConfirmPeriodo = (periodo) => {
+    if (!periodo || !periodos.includes(periodo)) {
+      console.warn('Error: el periodo no es válido o no existe.');
+      return;
+    }
+    setPeriodos((prevPeriodos) => prevPeriodos.filter((p) => p !== periodo));
+    console.log('Periodo confirmado:', periodo);
   };
 
-  // Función para eliminar una factura
-  const handleDeleteInvoice = (factura) => {
-    const updatedFacturas = facturas.filter(f => f !== factura);
-    setFacturas(updatedFacturas);
+  const handleDeletePeriodo = (periodo) => {
+    if (!periodo || !periodos.includes(periodo)) {
+      console.warn('Error: el periodo no es válido o no existe.');
+      return;
+    }
+    setPeriodos((prevPeriodos) => prevPeriodos.filter((p) => p !== periodo));
+    console.log('Periodo eliminado:', periodo);
   };
 
-  // Función para agregar un recibo
   const handleCreateRecibo = (newRecibo) => {
+    if (!newRecibo || typeof newRecibo !== 'object' || typeof newRecibo.totalAmount !== 'number') {
+      console.warn('Error: el recibo proporcionado no es válido.');
+      return;
+    }
     setRecibos((prevRecibos) => [...prevRecibos, newRecibo]);
+    console.log('Recibo creado:', newRecibo);
   };
 
-  // Función para confirmar un recibo
   const handleConfirmRecibo = (recibo) => {
-    const updatedRecibos = recibos.filter(r => r !== recibo);
-    setRecibos(updatedRecibos);
+    if (!recibo || !recibos.includes(recibo)) {
+      console.warn('Error: el recibo no es válido o no existe.');
+      return;
+    }
+    setRecibos((prevRecibos) => prevRecibos.filter((r) => r !== recibo));
     console.log('Recibo confirmado:', recibo);
   };
 
-  // Función para eliminar un recibo
   const handleDeleteRecibo = (recibo) => {
-    const updatedRecibos = recibos.filter(r => r !== recibo);
-    setRecibos(updatedRecibos);
+    if (!recibo || !recibos.includes(recibo)) {
+      console.warn('Error: el recibo no es válido o no existe.');
+      return;
+    }
+    setRecibos((prevRecibos) => prevRecibos.filter((r) => r !== recibo));
     console.log('Recibo eliminado:', recibo);
   };
 
   return (
-    <BombeoAguaContext.Provider value={{
-      facturas,
-      recibos,
-      handleCreateInvoice,
-      handleConfirmInvoice,
-      handleDeleteInvoice,
-      handleCreateRecibo, // Añadido para recibos
-      handleConfirmRecibo, // Añadido para recibos
-      handleDeleteRecibo, // Añadido para recibos
-    }}>
+    <BombeoAguaContext.Provider
+      value={{
+        periodos,
+        setPeriodos,
+        recibos,
+        setRecibos,
+        handleCreatePeriodo,
+        handleConfirmPeriodo,
+        handleDeletePeriodo,
+        handleCreateRecibo,
+        handleConfirmRecibo,
+        handleDeleteRecibo,
+        homePeriodos,
+        setHomePeriodos,
+        loadingHomePeriodos,
+        setLoadingHomePeriodos,
+        servicios,
+        setServicios,
+      }}
+    >
       {children}
     </BombeoAguaContext.Provider>
   );

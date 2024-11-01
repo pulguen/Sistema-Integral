@@ -1,3 +1,4 @@
+// src/App.jsx
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/App.css';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -12,11 +13,6 @@ import MainLayout from './components/layout/MainLayout/MainLayput.jsx';
 import Clientes from './features/facturacion/components/Clientes/Clientes.jsx';
 import ClienteDetalle from './features/facturacion/components/Clientes/ClienteDetalle.jsx';
 import BombeoAgua from './features/facturacion/components/BombeoAgua/BombeoAgua.jsx';
-import HomeBombeoAgua from './features/facturacion/components/BombeoAgua/HomeBombeoAgua.jsx';
-import BombeoAguaForm from './features/facturacion/components/BombeoAgua/BombeoAguaForm.jsx';
-import PeriodosBombeoList from './features/facturacion/components/BombeoAgua/PeriodosBombeoList.jsx';
-import RecibosBombeo from './features/facturacion/components/BombeoAgua/RecibosBombeo.jsx';
-import { BombeoAguaProvider } from './context/BombeoAguaContext'; // Importa el contexto
 import About from './components/layout/Footer/About.jsx';
 
 function AppContent() {
@@ -61,7 +57,6 @@ function AppContent() {
               </GlobalLayout>
             }
           />
-
           <Route
             path="/facturacion/clientes/:id"
             element={
@@ -75,35 +70,15 @@ function AppContent() {
 
           {/* Ruta de Bombeo de Agua */}
           <Route
-            path="/facturacion/bombeo-agua"
+            path="/facturacion/bombeo-agua/*"
             element={
               <GlobalLayout>
                 <MainLayout section="facturacion">
-                  {/* Envolvemos las rutas de bombeo de agua dentro del proveedor */}
-                  <BombeoAguaProvider>
-                    <BombeoAgua />
-                  </BombeoAguaProvider>
+                  <BombeoAgua />
                 </MainLayout>
               </GlobalLayout>
             }
-          >
-            {/* Rutas Anidadas para Bombeo de Agua */}
-            <Route index element={<HomeBombeoAgua />} />
-            <Route path="home" element={<HomeBombeoAgua />} />
-            <Route
-              path="periodos"
-              element={
-                <>
-                  <BombeoAguaForm />
-                  <PeriodosBombeoList />
-                </>
-              }
-            />
-            <Route
-              path="recibos"
-              element={<RecibosBombeo />} // Usa el componente RecibosBombeo aquí
-            />
-          </Route>
+          />
 
           {/* Ruta de Inventario */}
           <Route
@@ -118,6 +93,7 @@ function AppContent() {
           />
         </Route>
 
+        {/* Ruta About */}
         <Route
           path="/about"
           element={

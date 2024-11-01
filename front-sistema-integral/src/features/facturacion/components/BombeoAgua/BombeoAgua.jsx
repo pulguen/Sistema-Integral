@@ -1,17 +1,17 @@
-// src/features/facturacion/components/BombeoAgua/BombeoAgua.jsx
 import React, { useState, useEffect } from 'react';
 import { Breadcrumb, Tabs, Tab } from 'react-bootstrap';
-import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Routes, Route } from 'react-router-dom';
 import { BombeoAguaProvider } from '../../../../context/BombeoAguaContext';
+import HomeBombeoAgua from './HomeBombeoAgua';
+import PeriodosBombeo from './PeriodosBombeo';
+import RecibosBombeo from './RecibosBombeo';
 
 const BombeoAgua = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Obtener la pestaña activa desde la ruta
   const pathParts = location.pathname.split('/');
   const activeTab = pathParts[pathParts.length - 1] || 'home';
-
   const [key, setKey] = useState(activeTab);
 
   useEffect(() => {
@@ -23,9 +23,8 @@ const BombeoAgua = () => {
     navigate(`/facturacion/bombeo-agua/${k}`);
   };
 
-  // Mapear las claves de las pestañas a títulos para las migas de pan
   const tabTitles = {
-    home: 'Home',
+    home: 'Inicio',
     periodos: 'Periodos',
     recibos: 'Recibos',
   };
@@ -35,7 +34,7 @@ const BombeoAgua = () => {
       <div>
         <Breadcrumb>
           <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>
-            Home
+            Inicio
           </Breadcrumb.Item>
           <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/facturacion' }}>
             Facturación
@@ -49,21 +48,19 @@ const BombeoAgua = () => {
         </Breadcrumb>
 
         <h1>Facturación - Bombeo de Agua</h1>
-        
-        {/* Pestañas para Home, Periodos y Recibos */}
-        <Tabs
-          id="bombeo-agua-tabs"
-          activeKey={key}
-          onSelect={handleSelect}
-          className="mb-3"
-        >
-          <Tab eventKey="home" title="Home" />
+
+        <Tabs id="bombeo-agua-tabs" activeKey={key} onSelect={handleSelect} className="mb-3">
+          <Tab eventKey="home" title="Inicio" />
           <Tab eventKey="periodos" title="Periodos" />
           <Tab eventKey="recibos" title="Recibos" />
         </Tabs>
 
-        {/* Aquí se renderizan las rutas anidadas utilizando Outlet */}
-        <Outlet />
+        <Routes>
+          <Route path="home" element={<HomeBombeoAgua />} />
+          <Route path="periodos" element={<PeriodosBombeo />} />
+          <Route path="recibos" element={<RecibosBombeo />} />
+          <Route path="" element={<HomeBombeoAgua />} />
+        </Routes>
       </div>
     </BombeoAguaProvider>
   );

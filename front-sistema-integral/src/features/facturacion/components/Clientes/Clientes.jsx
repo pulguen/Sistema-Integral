@@ -79,7 +79,7 @@ export default function Clientes() {
 
   const handleAddClient = async (newClient) => {
     try {
-      await customFetch('http://10.0.0.17/municipalidad/public/api/clientes', 'POST', JSON.stringify(newClient));
+      await customFetch('http://10.0.0.17/municipalidad/public/api/clientes', 'POST', newClient);
       await fetchClientes();
       setShowAddModal(false);
       Swal.fire('Éxito', 'Cliente agregado exitosamente.', 'success');

@@ -64,3 +64,24 @@ button[type="reset"]:hover {
   border-top: none; /* Remover el borde superior para que se vea como una continuación del input */
   box-sizing: border-box; /* Asegura que el padding y border estén incluidos en el ancho total */
 }
+
+/* Agregar scroll horizontal a la tabla para evitar desbordamiento */
+.table-responsive {
+  overflow-x: auto;
+  max-width: 100%;
+  /*border: 1px solid var(--secundary-color); /* Borde con color secundario para mantener consistencia */
+  border-radius: 5px; /* Opcional: esquinas redondeadas */
+  margin-top: 15px; /* Espacio arriba de la tabla */
+}
+
+/* Ajustar tamaño de fuente y espaciado en la tabla */
+.table-responsive table {
+  width: 100%;
+  font-size: var(--tamaño-fuente); /* Ajusta según el tamaño de fuente definido */
+}
+
+.table-responsive th, .table-responsive td {
+  white-space: nowrap; /* Evita que el contenido se ajuste en varias líneas */
+  padding: 8px; /* Espacio interno de las celdas */
+  text-align: center; /* Centra el texto */
+}

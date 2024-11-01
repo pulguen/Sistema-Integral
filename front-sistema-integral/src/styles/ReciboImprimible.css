@@ -1,0 +1,79 @@
+.recibo {
+  width: 793px; /* A5 landscape width */
+  height: 559px; /* A5 landscape height */
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid #000;
+  font-family: Arial, sans-serif;
+}
+
+.recibo-columnas {
+  display: flex;
+  width: 100%;
+}
+
+.columna {
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.columna.izquierda {
+  width: 499px;
+  border-right: 1px dashed #000; /* Separador entre las dos secciones */
+}
+
+.header, .section, .footer {
+  padding: 5px 0;
+  margin-bottom: 5px;
+}
+
+.header {
+  text-align: center;
+}
+
+.municipality-info {
+  font-size: 12px;
+}
+
+.tributo-info, .periodos-info {
+  margin-top: 10px;
+}
+
+.periodo-item {
+  list-style-type: none;
+}
+
+.observaciones {
+  height: 40px;
+}
+
+@media print {
+  @page {
+    size: A5 landscape;
+    margin: 0;
+  }
+  body, html {
+    width: 793px;
+    height: 559px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .columna.izquierda {
+    border-right: none;
+  }
+}
+
+/* Estilos para el modal de tamaño A5 */
+.a5-modal .modal-dialog {
+  max-width: 793px;
+  width: 100%;
+  margin: 30px auto;
+}
+
+.a5-modal .modal-content {
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+}

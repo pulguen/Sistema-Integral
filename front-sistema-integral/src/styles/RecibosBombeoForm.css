@@ -1,30 +1,35 @@
+/* src/styles/RecibosBombeoForm.css */
+
+/* Estilos principales del formulario */
 .recibos-bombeo-form {
-  background-color: var(--ligth-color);
-  border-radius: 8px;
+  background-color: var(--ligth-color); /* Fondo claro */
+  border-radius: 8px; /* Esquinas redondeadas */
   padding: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--secundary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra suave */
+  border: 1px solid var(--secundary-color); /* Borde con color secundario */
 }
 
 .recibos-bombeo-form h2 {
   font-weight: bold;
-  color: var(--secundary-color);
+  color: var(--secundary-color); /* Título en color secundario */
   text-align: center;
 }
 
+/* Estilos para campos de formulario */
 .form-control, .form-select {
-  border: 1px solid var(--secundary-color);
-  color: var(--dark-color);
+  border: 1px solid var(--secundary-color); /* Borde del input */
+  color: var(--dark-color); /* Texto oscuro */
 }
 
 .input-group-text {
-  background-color: var(--alternative-color);
-  border: 1px solid var(--secundary-color);
+  background-color: var(--alternative-color); /* Fondo de los adornos de los inputs */
+  border: 1px solid var(--secundary-color); /* Borde con color secundario */
 }
 
+/* Estilos para botones */
 button {
-  background-color: var(--primary-color);
-  color: var(--ligth-color);
+  background-color: var(--primary-color); /* Color primario inicial */
+  color: var(--ligth-color); /* Texto claro */
   border: none;
   padding: 10px 15px;
   border-radius: 5px;
@@ -37,8 +42,8 @@ button[type="submit"]:hover,
 button[type="reset"]:hover,
 button.btn-success:hover,
 button.btn-danger:hover {
-  background-color: var(--primary-color);
-  color: var(--ligth-color);
+  background-color: var(--primary-color); /* Color primario en hover */
+  color: var(--ligth-color); /* Texto claro */
 }
 
 button[type="reset"] {
@@ -64,3 +69,44 @@ button[type="reset"]:hover {
   border-top: none; /* Remover el borde superior para que se vea como una continuación del input */
   box-sizing: border-box; /* Asegura que el padding y border estén incluidos en el ancho total */
 }
+
+/* Estilos para tablas */
+.table-responsive {
+  overflow-x: auto; /* Permite el desplazamiento horizontal */
+  max-width: 100%;
+  border-radius: 5px; /* Opcional: esquinas redondeadas */
+  margin-top: 15px; /* Espacio arriba de la tabla */
+}
+
+.table-responsive table {
+  width: 100%;
+  font-size: var(--tamaño-fuente); /* Ajusta según el tamaño de fuente definido */
+}
+
+.table-responsive th, .table-responsive td {
+  white-space: nowrap; /* Evita que el contenido se ajuste en varias líneas */
+  padding: 8px; /* Espacio interno de las celdas */
+  text-align: center; /* Centra el texto */
+  border-color: var(--secundary-color); /* Color de borde para celdas */
+}
+
+/* Estilos para títulos de secciones */
+.form-section h4 {
+  color: var(--secondary-color);
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+/* Estilo de la tabla para períodos impagos */
+.table-responsive .table {
+  background-color: var(--ligth-color); /* Fondo claro para la tabla */
+}
+
+.table-responsive .table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05); /* Alternar color de fondo */
+}
+
+.table-responsive .table-hover tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.08); /* Color de fondo al pasar el ratón */
+}
+

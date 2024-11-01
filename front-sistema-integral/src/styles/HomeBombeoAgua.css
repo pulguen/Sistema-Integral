@@ -1,0 +1,111 @@
+/* src/styles/HomeBombeoAgua.css */
+
+.home-bombeo-agua {
+    padding: 20px;
+    background-color: var(--alternative-color);
+  }
+  
+  .home-bombeo-agua .card {
+    margin-bottom: 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--ligth-color);
+  }
+  
+  .home-bombeo-agua .card h5 {
+    font-size: 1.2rem;
+    color: var(--secundary-color);
+    font-weight: 600;
+  }
+  
+  .home-bombeo-agua .card h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+  }
+  
+  .home-bombeo-agua .form-group label {
+    font-weight: 600;
+    color: var(--secundary-color);
+  }
+  
+  .home-bombeo-agua .form-control {
+    border-radius: 5px;
+    box-shadow: none;
+    font-size: var(--tamaño-fuente);
+  }
+  
+  .home-bombeo-agua .table {
+    margin-top: 20px;
+    background-color: var(--ligth-color);
+  }
+  
+  .home-bombeo-agua .table th {
+    background-color: var(--primary-color);
+    color: var(--ligth-color);
+    font-weight: 600;
+    text-align: center;
+  }
+  
+  .home-bombeo-agua .table td {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--dark-color);
+  }
+  
+  .home-bombeo-agua .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(193, 209, 1, 0.1); /* Color primario en transparencia */
+  }
+  
+  .home-bombeo-agua .table-striped tbody tr:hover {
+    background-color: rgba(193, 209, 1, 0.2); /* Color primario en hover */
+  }
+  
+  .home-bombeo-agua .chart-container {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  
+  .home-bombeo-agua .pie-chart-container,
+  .home-bombeo-agua .bar-chart-container,
+  .home-bombeo-agua .line-chart-container {
+    padding: 20px;
+    background-color: var(--ligth-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .home-bombeo-agua h2,
+  .home-bombeo-agua h5 {
+    color: var(--secundary-color);
+  }
+  
+  .home-bombeo-agua .display-4 {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    font-weight: 700;
+  }
+  
+  .home-bombeo-agua .text-primary {
+    color: var(--primary-color) !important;
+  }
+  
+  .card {
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+  }
+  
+  .card-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--secundary-color);
+  }
+  
+  .card-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  
