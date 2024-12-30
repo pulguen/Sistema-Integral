@@ -108,13 +108,10 @@ export default function Clientes() {
 
   /**
    * Definir las columnas para React Table.
+   * Se elimina la columna ID para que no se muestre en la tabla.
    */
   const columns = React.useMemo(
     () => [
-      {
-        Header: 'ID',
-        accessor: 'id',
-      },
       {
         Header: 'Nombre',
         accessor: 'persona.nombre',
@@ -353,7 +350,8 @@ export default function Clientes() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center">
+                  {/* Ajustar colSpan a 6 porque ahora tenemos 6 columnas */}
+                  <td colSpan="6" className="text-center">
                     No se encontraron clientes.
                   </td>
                 </tr>

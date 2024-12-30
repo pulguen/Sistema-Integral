@@ -40,8 +40,9 @@ const RecibosBombeoForm = () => {
   const [showClientList, setShowClientList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState({});
-  const clientDropdownRef = useRef(null);
   const [observaciones, setObservaciones] = useState('');
+
+  const clientDropdownRef = useRef(null);
 
   // Función para obtener el nombre del servicio según el cliente
   const getServiceNameByClientId = useCallback(
@@ -55,25 +56,19 @@ const RecibosBombeoForm = () => {
   );
 
   // Función para parsear fechas a un Date con año, mes, día (usado para validaciones)
-  // Ojo: Si tu fecha es YYYY-MM-DD, esto está bien. Si fuera DD/MM/YYYY, ajustá.
   const parseLocalDate = (dateString) => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
 
-// Suponiendo que periodo.f_vencimiento es algo como "2024-12-31T03:00:00.000000Z"
-const formatVencimiento = (isoDateString) => {
-  if (!isoDateString) return 'Sin fecha';
-  
-  // 1) Separar por la 'T' para quedarnos sólo con "YYYY-MM-DD"
-  const [fullDate] = isoDateString.split('T'); // => "2024-12-31"
-  
-  // 2) Separar por '-' para extraer [year, month, day]
-  const [year, month, day] = fullDate.split('-'); // => ["2024", "12", "31"]
+  // Función para formatear f_vencimiento tipo 2024-12-31T03:00:00.000000Z a dd/mm/yyyy
+  const formatVencimiento = (isoDateString) => {
+    if (!isoDateString) return 'Sin fecha';
 
-  // 3) Devolver en formato DD/MM/AAAA
-  return `${day}/${month}/${year}`;
-};
+    const [fullDate] = isoDateString.split('T'); // => "YYYY-MM-DD"
+    const [year, month, day] = fullDate.split('-'); // => ["YYYY", "MM", "DD"]
+    return `${day}/${month}/${year}`;
+  };
 
   // Obtener clientes de los servicios
   const fetchClients = useCallback(async () => {
@@ -84,17 +79,15 @@ const formatVencimiento = (isoDateString) => {
         (servicio) => servicio.clientes
       );
 
+      // Eliminar clientes duplicados usando su ID
       const uniqueClients = Array.from(
         new Map(clientesFromServices.map((c) => [c.id, c])).values()
       );
 
+      // Ordenar los clientes alfabéticamente
       uniqueClients.sort((a, b) => {
-        const nameA = `${a.persona?.nombre || ''} ${
-          a.persona?.apellido || ''
-        }`.toLowerCase();
-        const nameB = `${b.persona?.nombre || ''} ${
-          b.persona?.apellido || ''
-        }`.toLowerCase();
+        const nameA = `${a.persona?.nombre || ''} ${a.persona?.apellido || ''}`.toLowerCase();
+        const nameB = `${b.persona?.nombre || ''} ${b.persona?.apellido || ''}`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
 
@@ -114,6 +107,7 @@ const formatVencimiento = (isoDateString) => {
     fetchClients();
   }, [fetchClients]);
 
+  // Filtra la lista de clientes a medida que el usuario escribe
   useEffect(() => {
     const filtered = allClients.filter((client) => {
       const fullName = `${client.persona?.nombre || ''} ${
@@ -136,7 +130,7 @@ const formatVencimiento = (isoDateString) => {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
       console.log('Datos recibidos:', data);
 
-      // data usualmente es un array con [responseData, statusCode], etc.
+      // data es un array con [responseData, statusCode], etc.
       const [responseData] = data;
 
       if (responseData && responseData.length > 0) {
@@ -167,9 +161,11 @@ const formatVencimiento = (isoDateString) => {
         (c) => c.id === parseInt(clientId)
       );
       setClient(clientId);
-      setSearchTerm(
-        `${selectedClientData.persona?.nombre} ${selectedClientData.persona?.apellido}`
-      );
+
+      const nombre = selectedClientData.persona?.nombre || '';
+      const apellido = selectedClientData.persona?.apellido || '';
+      setSearchTerm(`${nombre} ${apellido}`.trim());
+
       setSelectedClient({
         ...selectedClientData.persona,
         calle: selectedClientData?.persona?.calle || '',
@@ -205,22 +201,20 @@ const formatVencimiento = (isoDateString) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validar si se seleccionaron períodos
     if (selectedPeriodos.length === 0) {
       Swal.fire('Error', 'Debe seleccionar al menos un periodo.', 'error');
       return;
     }
 
-    // Validar fecha de vencimiento para que no sea anterior a hoy
+    // Validar fecha de vencimiento no anterior a hoy
     const currentDate = new Date();
     const selectedDate = parseLocalDate(vencimiento);
-
-    // Comparar solo la parte de la fecha (sin hora)
     const today = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
       currentDate.getDate()
     );
-
     if (selectedDate < today) {
       Swal.fire(
         'Error',
@@ -309,10 +303,10 @@ const formatVencimiento = (isoDateString) => {
   return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">
       <h2 className="text-center mb-5 text-primary font-weight-bold">
-        <FontAwesomeIcon 
-          icon={faFileInvoiceDollar} 
-          size="1x"          // Aumenta el tamaño del ícono
-          className="me-2"   // Espacio a la derecha
+        <FontAwesomeIcon
+          icon={faFileInvoiceDollar}
+          size="1x"
+          className="me-2"
         />
         Generar Recibo de Bombeo de Agua
       </h2>
@@ -351,18 +345,26 @@ const formatVencimiento = (isoDateString) => {
                     role="listbox"
                   >
                     {filteredClients.length > 0 ? (
-                      filteredClients.map((client) => (
-                        <ListGroup.Item
-                          key={client.id}
-                          action
-                          onClick={() => handleClientSelect(client.id)}
-                          role="option"
-                          aria-selected={client.id === client}
-                        >
-                          {client.persona?.nombre} {client.persona?.apellido} -{' '}
-                          {client.persona?.dni}
-                        </ListGroup.Item>
-                      ))
+                      filteredClients.map((clientItem) => {
+                        const nombreClient =
+                          clientItem.persona?.nombre || '';
+                        const apellidoClient =
+                          clientItem.persona?.apellido || '';
+                        const dniClient =
+                          clientItem.persona?.dni || 'Sin DNI';
+
+                        return (
+                          <ListGroup.Item
+                            key={clientItem.id}
+                            action
+                            onClick={() => handleClientSelect(clientItem.id)}
+                            role="option"
+                            aria-selected={clientItem.id === client}
+                          >
+                            {nombreClient} {apellidoClient} - {dniClient}
+                          </ListGroup.Item>
+                        );
+                      })
                     ) : (
                       <ListGroup.Item disabled>
                         No se encontraron clientes.
@@ -375,7 +377,7 @@ const formatVencimiento = (isoDateString) => {
           </Row>
         </section>
 
-        {/* Solo mostrar el resto si hay un cliente seleccionado */}
+        {/* Mostrar el resto si hay un cliente seleccionado */}
         {client && (
           <>
             {/* Periodos Disponibles */}
@@ -413,47 +415,51 @@ const formatVencimiento = (isoDateString) => {
                         </td>
                       </tr>
                     ) : periodos.length > 0 ? (
-                      periodos.map((periodo, index) => (
-                        <tr key={index}>
-                          <td>{index + 1}</td>
-                          <td>
-                            {periodo.cliente?.persona?.nombre}{' '}
-                            {periodo.cliente?.persona?.apellido}
-                          </td>
-                          <td>{periodo.cliente?.persona?.dni}</td>
-                          <td>{periodo.mes}</td>
-                          <td>{periodo.año}</td>
-                          <td>{periodo.cuota}</td>
-                          <td>{parseFloat(periodo.i_debito).toFixed(2)}</td>
-                          <td>{parseFloat(periodo.i_descuento).toFixed(2)}</td>
-                          <td>
-                            {parseFloat(
-                              periodo.i_recargo_actualizado
-                            ).toFixed(2)}
-                          </td>
-                          <td>
-                            {`AR$ ${(
-                              parseFloat(periodo.i_debito) -
-                              parseFloat(periodo.i_descuento) +
-                              parseFloat(periodo.i_recargo_actualizado)
-                            ).toFixed(2)}`}
-                          </td>
-                          <td>
-                            {/* Aquí usamos nuestra función formatVencimiento */}
-                            {periodo.f_vencimiento
-                              ? formatVencimiento(periodo.f_vencimiento)
-                              : 'Sin fecha'}
-                          </td>
-                          <td>
-                            <Form.Check
-                              type="checkbox"
-                              onChange={() => handlePeriodSelection(periodo)}
-                              checked={selectedPeriodos.includes(periodo)}
-                              aria-label={`Seleccionar periodo ${periodo.mes}/${periodo.año}`}
-                            />
-                          </td>
-                        </tr>
-                      ))
+                      periodos.map((periodo, index) => {
+                        const nombrePer =
+                          periodo.cliente?.persona?.nombre || '';
+                        const apellidoPer =
+                          periodo.cliente?.persona?.apellido || '';
+                        const dniPer =
+                          periodo.cliente?.persona?.dni || 'Sin DNI';
+
+                        const importDebito = parseFloat(periodo.i_debito).toFixed(2);
+                        const importDescuento = parseFloat(periodo.i_descuento).toFixed(2);
+                        const importRecargo = parseFloat(periodo.i_recargo_actualizado).toFixed(2);
+                        const total = (
+                          parseFloat(periodo.i_debito) -
+                          parseFloat(periodo.i_descuento) +
+                          parseFloat(periodo.i_recargo_actualizado)
+                        ).toFixed(2);
+
+                        return (
+                          <tr key={index}>
+                            <td>{index + 1}</td>
+                            <td>{`${nombrePer} ${apellidoPer}`.trim()}</td>
+                            <td>{dniPer}</td>
+                            <td>{periodo.mes}</td>
+                            <td>{periodo.año}</td>
+                            <td>{periodo.cuota}</td>
+                            <td>{importDebito}</td>
+                            <td>{importDescuento}</td>
+                            <td>{importRecargo}</td>
+                            <td>{`AR$ ${total}`}</td>
+                            <td>
+                              {periodo.f_vencimiento
+                                ? formatVencimiento(periodo.f_vencimiento)
+                                : 'Sin fecha'}
+                            </td>
+                            <td>
+                              <Form.Check
+                                type="checkbox"
+                                onChange={() => handlePeriodSelection(periodo)}
+                                checked={selectedPeriodos.includes(periodo)}
+                                aria-label={`Seleccionar periodo ${periodo.mes}/${periodo.año}`}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="12" className="text-center text-muted">
@@ -512,10 +518,11 @@ const formatVencimiento = (isoDateString) => {
                       AR$ {totalAmount.toFixed(2)}
                     </h1>
                     <p className="text-muted">
-                      Cliente: {selectedClient?.nombre}{' '}
-                      {selectedClient?.apellido}
+                      {/* Fallback: si no hay nombre/apellido/dni que no muestre "null" */}
+                      Cliente: {selectedClient?.nombre || ''}{' '}
+                      {selectedClient?.apellido || ''}
                       <br />
-                      DNI/CUIT: {selectedClient?.dni}
+                      DNI/CUIT: {selectedClient?.dni || 'Sin DNI'}
                       <br />
                       Periodos Seleccionados:{' '}
                       {selectedPeriodos
@@ -524,8 +531,7 @@ const formatVencimiento = (isoDateString) => {
                       <br />
                       Fecha de Vencimiento:{' '}
                       {vencimiento
-                        ? // Mostramos con toLocaleDateString o la misma función formatVencimiento
-                          parseLocalDate(vencimiento).toLocaleDateString()
+                        ? parseLocalDate(vencimiento).toLocaleDateString()
                         : 'No asignada'}{' '}
                       <br />
                     </p>

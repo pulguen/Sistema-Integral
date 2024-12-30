@@ -1,4 +1,5 @@
 // src/features/facturacion/components/Clientes/ClienteDetalle.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, Table, Form, Breadcrumb, Row, Col } from 'react-bootstrap';
@@ -96,11 +97,15 @@ const ClienteDetalle = () => {
     }
 
     try {
-      await customFetch(`/clientes/${id}/serv-sinc`, 'POST', { servicios: serviciosAsignados });
+      await customFetch(`/clientes/${id}/serv-sinc`, 'POST', {
+        servicios: serviciosAsignados,
+      });
       Swal.fire('Éxito', 'Servicios asignados correctamente.', 'success');
       setCliente((prev) => ({
         ...prev,
-        servicios: serviciosDisponibles.filter((serv) => serviciosAsignados.includes(serv.id)),
+        servicios: serviciosDisponibles.filter((serv) =>
+          serviciosAsignados.includes(serv.id)
+        ),
       }));
     } catch (error) {
       Swal.fire('Error', 'Hubo un problema al asignar los servicios.', 'error');
@@ -167,7 +172,11 @@ const ClienteDetalle = () => {
       }));
     } catch (error) {
       console.error('Error al modificar el cliente:', error);
-      Swal.fire('Error', `Hubo un problema al modificar el cliente: ${error.message}`, 'error');
+      Swal.fire(
+        'Error',
+        `Hubo un problema al modificar el cliente: ${error.message}`,
+        'error'
+      );
     }
   };
 
@@ -177,8 +186,13 @@ const ClienteDetalle = () => {
     <Card className="p-4">
       {/* Breadcrumb para navegación con nombre del cliente */}
       <Breadcrumb>
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>Home</Breadcrumb.Item>
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/facturacion/clientes' }}>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>
+          Home
+        </Breadcrumb.Item>
+        <Breadcrumb.Item
+          linkAs={Link}
+          linkProps={{ to: '/facturacion/clientes' }}
+        >
           Gestión de Clientes
         </Breadcrumb.Item>
         <Breadcrumb.Item active>
@@ -252,7 +266,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.nombre}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, nombre: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          nombre: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -264,7 +281,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.apellido}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, apellido: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          apellido: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -278,7 +298,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.dni}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, dni: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          dni: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -290,7 +313,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.telefono}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, telefono: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          telefono: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -302,7 +328,10 @@ const ClienteDetalle = () => {
                   type="email"
                   value={editedCliente.email}
                   onChange={(e) =>
-                    setEditedCliente({ ...editedCliente, email: e.target.value })
+                    setEditedCliente({
+                      ...editedCliente,
+                      email: e.target.value,
+                    })
                   }
                 />
               </Form.Group>
@@ -314,7 +343,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.calle}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, calle: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          calle: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -326,7 +358,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.altura}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, altura: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          altura: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -340,7 +375,10 @@ const ClienteDetalle = () => {
                       type="text"
                       value={editedCliente.piso}
                       onChange={(e) =>
-                        setEditedCliente({ ...editedCliente, piso: e.target.value })
+                        setEditedCliente({
+                          ...editedCliente,
+                          piso: e.target.value,
+                        })
                       }
                     />
                   </Form.Group>
@@ -477,6 +515,10 @@ const ClienteDetalle = () => {
                 {serviciosDisponibles.map((servicio) => (
                   <Col md={6} key={servicio.id}>
                     <Form.Check
+                      /* id y name únicos por cada check */
+                      id={`servicio-${servicio.id}`}
+                      name={`servicio-${servicio.id}`}
+
                       type="checkbox"
                       label={servicio.nombre}
                       value={servicio.id}
