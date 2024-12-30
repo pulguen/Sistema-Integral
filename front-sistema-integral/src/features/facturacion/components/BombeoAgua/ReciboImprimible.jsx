@@ -1,129 +1,190 @@
 import React, { useRef, useEffect } from 'react';
-import html2canvas from 'html2canvas';
+// eslint-disable-next-line
+import html2pdf from 'html2pdf.js';
+import JsBarcode from 'jsbarcode';
 import '../../../../styles/ReciboImprimible.css';
 
 const ReciboImprimible = ({ recibo, handlePrint }) => {
   const reciboRef = useRef();
+  const barcodeRef = useRef();
 
   useEffect(() => {
-    handlePrint.current = async () => {
-      const canvas = await html2canvas(reciboRef.current, { scale: 1 });
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Recibo Imprimible</title>
-            <style>
-              @media print {
-                @page {
-                  size: 210mm 148mm; /* A5 en orientación horizontal (landscape) */
-                  margin: 0;
-                }
-                body, html {
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 210mm;
-                  height: 148mm;
-                  margin: 0;
-                  padding: 0;
-                  overflow: hidden;
-                }
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-            </style>
-          </head>
-          <body>
-            <!-- Imagen en tamaño A5 horizontal sin rotación -->
-            <img src="${canvas.toDataURL('image/png')}" style="width: 210mm; height: 148mm; display: block;" />
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+    if (recibo.barcode) {
+      JsBarcode(barcodeRef.current, recibo.barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 40,
+        displayValue: false,
+      });
+    }
 
-      printWindow.onload = () => {
-        printWindow.print();
+    handlePrint.current = () => {
+      const element = reciboRef.current;
+      const columnaIzquierda = element.querySelector('.columna-izquierda');
+      columnaIzquierda.style.borderRight = 'none';
 
-        // Cerrar la ventana después de completar la impresión
-        printWindow.addEventListener('afterprint', () => {
-          printWindow.close();
+      html2pdf()
+        .set({
+          margin: 0,
+          filename: 'recibo.pdf',
+          image: { type: 'jpeg', quality: 1 },
+          html2canvas: { scale: 4 },
+          jsPDF: { unit: 'mm', format: [210, 148], orientation: 'landscape' },
+        })
+        .from(element)
+        .outputPdf('blob')
+        .then((pdfBlob) => {
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          window.open(pdfUrl, '_blank');
         });
-      };
     };
-  }, [handlePrint]);
+  }, [recibo, handlePrint]);
+
+  /**
+   * Esta función asume que la fecha llega como "YYYY-MM-DD"
+   * y simplemente invierte el orden para mostrar "DD/MM/YYYY".
+   */
+  const formatFecha = (fechaString) => {
+    if (!fechaString) return 'N/A';
+    const [year, month, day] = fechaString.split('-'); 
+    return `${day}/${month}/${year}`;
+  };
+
+  // Si querés tener una "fecha corta" igual, podés repetir la lógica 
+  // o usar la misma función. Aquí la dejo por separado a modo de ejemplo:
+  const formatFechaCorta = (fechaString) => {
+    return formatFecha(fechaString);
+  };
 
   return (
     <div ref={reciboRef} className="recibo">
       <div className="recibo-columnas">
-        <div className="columna izquierda">
-          <div className="header">
-            <p><strong>{recibo.n_recibo || ''}</strong></p>
-            <p><strong></strong> {recibo.created_at ? new Date(recibo.created_at).toLocaleDateString() : 'N/A'}</p>
+        {/* Columna izquierda */}
+        <div className="columna-izquierda">
+          <div className="header-izquierda sector1">
+            <div className="barcode-container">
+              <canvas ref={barcodeRef} />
+            </div>
+            <p className="num-recibo-izq"><strong>{recibo.n_recibo || ''}</strong></p>
+            {/* Usamos formatFecha en lugar de crear un Date */}
+            <p>{recibo.created_at ? formatFecha(recibo.created_at) : 'N/A'}</p>
           </div>
-          <div className="section">
-            <p>{recibo.cliente_nombre} {recibo.cliente_apellido}</p>
-            <p><strong>Domicilio:</strong> {recibo.cliente_calle || ''}</p>
+
+          <div className="sector2-izq">
+            <p>
+              {recibo.cliente_nombre} {recibo.cliente_apellido} 
+              Dir: {recibo.cliente_calle || 'calle'} {recibo.cliente_altura || 'n°'}
+            </p>
           </div>
-          <div className="section tributo-info">
-            <p><strong>Detalle del Tributo:</strong> {recibo.tributo || ''}</p>
+
+          <div className="sector3-izq">
+            <p><strong>Bombeo Agua a {recibo.servicio_nombre || 'BOMBEO DE AGUA'}</strong></p>
           </div>
-          <div className="section periodos-info">
-            <h4>Períodos</h4>
-            <ul>
+
+          <div className="sector4-izq">
+            <div className="periodos-list">
               {recibo.periodos.map((periodo, i) => (
-                <li key={i} className="periodo-item">
-                  {periodo.mes}/{periodo.año} - AR$ {periodo.i_debito.toFixed(2)}
-                </li>
+                <span key={i} className="periodo-item">
+                  {periodo.mes}/{periodo.año} - ${periodo.i_debito.toFixed(2)}
+                  {i < recibo.periodos.length - 1 && ', '}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
-          <div className="section observaciones">
-            <strong>Observaciones:</strong>
-          </div>
-          <div className="footer">
-            <p><strong>Total:</strong> AR$ {recibo.totalAmount.toFixed(2)}</p>
-            <p><strong>Agente Emisor:</strong> {recibo.agente_emisor || ''}</p>
-            <p><strong>Fecha:</strong> {new Date(recibo.fecha || new Date()).toLocaleDateString()}</p>
+
+          <div className="sector5-izq">
+            <div className="observaciones-column-izq">
+              <p>{recibo.observaciones || 'sin observaciones'}</p>
+              <p className="emisor-izq">{recibo.agente_emisor || 'Nombre Emisor'}</p>
+            </div>
+            <div className="totales-column-izq">
+              <div className="totales-flex-izq">
+                <p className="importe-izq">Importe: ${recibo.importe.toFixed(2)}</p>
+                {recibo.descuento > 0 && (
+                  <p className="descuento-izq">
+                    Descuento: ${recibo.descuento.toFixed(2)}
+                  </p>
+                )}
+                {recibo.recargo > 0 && (
+                  <p className="recargo-izq">
+                    Recargo: ${recibo.recargo.toFixed(2)}
+                  </p>
+                )}
+                <p className="total-final-izq">
+                  <strong>${recibo.total.toFixed(2)}</strong>
+                </p>
+              </div>
+              <div className="totales-footer-izq">
+                <p className="vencimiento-izq">
+                  Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="columna derecha">
-          <div className="header">
-            <p><strong>Recibo Nº: {recibo.n_recibo || ''}</strong></p>
-            <p><strong>Fecha de Creación:</strong> {recibo.created_at ? new Date(recibo.created_at).toLocaleDateString() : 'N/A'}</p>
+        {/* Columna derecha */}
+        <div className="columna-derecha">
+          <div className="sector1-der">
+            <p>{recibo.created_at ? formatFecha(recibo.created_at) : 'N/A'}</p>
           </div>
-          <div className="section">
-            <p><strong>Contribuyente:</strong> {recibo.cliente_nombre} {recibo.cliente_apellido}</p>
-            <p><strong>Domicilio:</strong> {recibo.cliente_domicilio || ''}</p>
+
+          <div className="sector2-der">
+            <p><strong>Bombeo Agua a {recibo.servicio_nombre || 'BOMBEO DE AGUA'}</strong></p>
           </div>
-          <div className="section tributo-info">
-            <p><strong>Detalle del Tributo:</strong> {recibo.tributo || ''}</p>
+
+          <div className="sector3-der">
+            <p>
+              {recibo.cliente_nombre} {recibo.cliente_apellido} 
+              Dir: {recibo.cliente_calle || 'calle'} {recibo.cliente_altura || 'n°'}
+            </p>
           </div>
-          <div className="section periodos-info">
-            <h4>Períodos</h4>
-            <ul>
+
+          <div className="sector4-der">
+            <div className="periodos-list">
               {recibo.periodos.map((periodo, i) => (
-                <li key={i} className="periodo-item">
-                  {periodo.mes}/{periodo.año} - AR$ {periodo.i_debito.toFixed(2)}
-                </li>
+                <span key={i} className="periodo-item">
+                  {periodo.mes}/{periodo.año} - ${periodo.i_debito.toFixed(2)}
+                  {i < recibo.periodos.length - 1 && ', '}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
-          <div className="section observaciones">
-            <strong>Observaciones:</strong>
-          </div>
-          <div className="footer">
-            <p><strong>Total:</strong> AR$ {recibo.totalAmount.toFixed(2)}</p>
-            <p><strong>Agente Emisor:</strong> {recibo.agente_emisor || ''}</p>
-            <p><strong>Fecha:</strong> {new Date(recibo.fecha || new Date()).toLocaleDateString()}</p>
+
+          <div className="sector5-der">
+            <div
+              className="totales-flex-der"
+              style={{ alignItems: 'center', textAlign: 'center' }}
+            >
+              <p className="importe-der">
+                Importe: ${recibo.importe.toFixed(2)}
+              </p>
+              {recibo.descuento > 0 && (
+                <p className="descuento-der">
+                  Descuento: ${recibo.descuento.toFixed(2)}
+                </p>
+              )}
+              {recibo.recargo > 0 && (
+                <p className="recargo-der">
+                  Recargo: ${recibo.recargo.toFixed(2)}
+                </p>
+              )}
+            </div>
+            <div
+              className="totales-footer-der"
+              style={{ alignItems: 'center', textAlign: 'center' }}
+            >
+              <p className="total-final-der">
+                <strong>${recibo.total.toFixed(2)}</strong>
+              </p>
+              <p>
+                <strong>{recibo.n_recibo || ''}</strong>
+              </p>
+              <p>{recibo.agente_emisor || 'Nombre Emisor'}</p>
+              <p className="vencimiento-der">
+                Vencimiento: {recibo.vencimiento ? formatFechaCorta(recibo.vencimiento) : 'N/A'}
+              </p>
+            </div>
           </div>
         </div>
       </div>

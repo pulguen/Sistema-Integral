@@ -1,10 +1,13 @@
 .recibo {
-  width: 793px; /* A5 landscape width */
-  height: 559px; /* A5 landscape height */
-  padding: 10px;
+  width: 793px;
+  height: 559px;
+  padding: 0;
   box-sizing: border-box;
   border: 1px solid #000;
   font-family: Arial, sans-serif;
+  font-size: 8pt;
+  display: flex;
+  overflow-y: auto;
 }
 
 .recibo-columnas {
@@ -12,39 +15,192 @@
   width: 100%;
 }
 
-.columna {
-  padding: 10px;
+/* Columnas generales */
+.columna-izquierda, .columna-derecha {
+  padding: 0 10px;
   box-sizing: border-box;
 }
 
-.columna.izquierda {
-  width: 499px;
-  border-right: 1px dashed #000; /* Separador entre las dos secciones */
+.columna-izquierda {
+  width: 500px;
+  border-right: 1px dashed #000;
+  display: flex;
+  flex-direction: column;
+  padding-left: 45px;
+  padding-right: 38px;
 }
 
-.header, .section, .footer {
-  padding: 5px 0;
-  margin-bottom: 5px;
-}
-
-.header {
+.columna-derecha {
+  width: 293px;
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.2cm;
+  padding-right: 1.2cm;
+  align-items: center;
   text-align: center;
 }
 
-.municipality-info {
-  font-size: 12px;
+/* Secciones de la columna izquierda */
+.header-izquierda {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
-.tributo-info, .periodos-info {
-  margin-top: 10px;
+.sector1 {
+  height: 3.5cm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.num-recibo-izq {
+  padding-top: 0.2cm;
+}
+
+.sector2-izq, .sector3-izq, .sector4-izq {
+  text-align: left;
+}
+
+.sector2-izq {
+  height: 1.6cm;
+  display: flex;
+  justify-content: left;
+  padding-top: 1.2cm;
+}
+
+.sector3-izq {
+  height: 1.8cm;
+  display: flex;
+  align-items: flex-start;
+  font-weight: bold;
+  padding-top: 1cm;
+}
+
+.sector4-izq {
+  height: 3.5cm;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 1cm;
+}
+
+.periodos-list {
+  display: inline;
 }
 
 .periodo-item {
   list-style-type: none;
+  display: inline;
 }
 
-.observaciones {
+/* Sección de totales columna izquierda */
+.sector5-izq {
+  display: flex;
+  justify-content: space-between;
+  flex-grow: 2;
+
+}
+
+.observaciones-column-izq {
+  width: 45%;
+  text-align: left;
+  padding-top: 1cm;
+}
+
+.emisor-izq {
+  padding-left: 1.7cm;
+}
+
+.totales-column-izq {
+  width: 45%;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+
+}
+
+.totales-flex-izq {
+  height: 2.3cm;
+  padding-top: 0.3cm;
+  display: flex;
+  flex-direction: column;
+  line-height: 0.5; /* Ajusta la interlinea aquí si deseas menos espacio entre elementos */
+
+}
+
+.total-final-izq {
+  font-weight: bold;
+  margin-top: 10px;
+  
+}
+
+.vencimiento-izq {
+  margin-top: 5px;
+
+}
+
+/* Columnas Derecha */
+.sector1-der, .sector2-der, .sector3-der, .sector4-der, .sector5-der {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sector1-der {
+  height: 4cm;
+  padding-top: 1cm;
+}
+
+.sector2-der {
+  height: 1.3cm;
+  font-weight: bold;
+  padding-top: 0.5cm;
+}
+
+.sector3-der {
+  height: 1.6cm;
+  padding-top: 0.5cm;
+}
+
+.sector4-der {
+  height: 3.5cm;
+  padding-top: 0.5cm;
+}
+
+.sector5-der {
+  margin-bottom: 1cm;
+  flex-grow: 1;
+}
+
+/* Totales columna derecha */
+.totales-flex-der {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.2; /* Ajusta la interlinea aquí también si deseas menos espacio entre elementos */
+}
+
+.total-final-der {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+
+/* Estilos generales */
+.barcode-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+canvas {
+  max-width: 350px;
   height: 40px;
+}
+
+.footer p {
+  margin: 3px 0;
 }
 
 @media print {
@@ -59,12 +215,11 @@
     padding: 0;
     overflow: hidden;
   }
-  .columna.izquierda {
-    border-right: none;
+  .columna-izquierda {
+    border-right: none !important;
   }
 }
 
-/* Estilos para el modal de tamaño A5 */
 .a5-modal .modal-dialog {
   max-width: 793px;
   width: 100%;

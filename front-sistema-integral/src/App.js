@@ -1,4 +1,3 @@
-// src/App.jsx
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/App.css';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -6,7 +5,7 @@ import { AsideLinksProvider } from './context/AsideLinksContext';
 import PrivateRoute from './privateRoute/PrivateRoute.js';
 import Login from './features/auth/Login.jsx';
 import Home from './pages/home/Home.jsx';
-import Facturacion from './features/facturacion/components/Facturacion.jsx';
+import Facturacion from './features/facturacion/components/HomeFacturacion/HomeFacturacion.jsx';
 import Inventario from './features/Inventario/components/Inventario.jsx';
 import GlobalLayout from './components/layout/GlobalLayout/GlobalLayout.jsx';
 import MainLayout from './components/layout/MainLayout/MainLayput.jsx';
@@ -14,6 +13,17 @@ import Clientes from './features/facturacion/components/Clientes/Clientes.jsx';
 import ClienteDetalle from './features/facturacion/components/Clientes/ClienteDetalle.jsx';
 import BombeoAgua from './features/facturacion/components/BombeoAgua/BombeoAgua.jsx';
 import About from './components/layout/Footer/About.jsx';
+import Usuarios from './features/Users/Components/Usuarios.jsx';
+import PeriodosHistorial from './features/facturacion/components/Periodos/PeriodosHistorial.jsx';
+import Roles from './features/Users/Components/Roles.jsx';
+import Permisos from './features/Users/Components/Permisos.jsx';
+import RecibosHistorial from './features/facturacion/components/Recibos/RecibosHistorial.jsx';
+import HomeCaja from './features/caja/HomeCaja.jsx';
+
+// Importamos los Proveedores
+import { FacturacionProvider } from './context/FacturacionContext';
+import { BombeoAguaProvider } from './context/BombeoAguaContext';
+import { UsersProvider } from './context/UsersContext.jsx';
 
 function AppContent() {
   return (
@@ -34,49 +44,39 @@ function AppContent() {
             }
           />
 
-          {/* Ruta Facturación */}
+          {/* Ruta Facturación con subrutas */}
           <Route
-            path="/facturacion"
+            path="/facturacion/*"
             element={
-              <GlobalLayout>
-                <MainLayout section="facturacion">
-                  <Facturacion />
-                </MainLayout>
-              </GlobalLayout>
-            }
-          />
-
-          {/* Rutas Clientes */}
-          <Route
-            path="/facturacion/clientes"
-            element={
-              <GlobalLayout>
-                <MainLayout section="facturacion">
-                  <Clientes />
-                </MainLayout>
-              </GlobalLayout>
-            }
-          />
-          <Route
-            path="/facturacion/clientes/:id"
-            element={
-              <GlobalLayout>
-                <MainLayout section="facturacion">
-                  <ClienteDetalle />
-                </MainLayout>
-              </GlobalLayout>
-            }
-          />
-
-          {/* Ruta de Bombeo de Agua */}
-          <Route
-            path="/facturacion/bombeo-agua/*"
-            element={
-              <GlobalLayout>
-                <MainLayout section="facturacion">
-                  <BombeoAgua />
-                </MainLayout>
-              </GlobalLayout>
+              <FacturacionProvider>
+                <GlobalLayout>
+                  <MainLayout section="facturacion">
+                    <Routes>
+                      <Route index element={<Facturacion />} />
+                      {/* Rutas Clientes */}
+                      <Route path="clientes" element={<Clientes />} />
+                      <Route path="clientes/:id" element={<ClienteDetalle />} />
+                      
+                      {/* Ruta de Bombeo de Agua */}
+                      <Route
+                        path="bombeo-agua/*"
+                        element={
+                          <BombeoAguaProvider>
+                            <BombeoAgua />
+                          </BombeoAguaProvider>
+                        }
+                      />
+                      
+                      {/* Ruta de Periodos */}
+                      <Route path="periodos" element={<PeriodosHistorial />} />
+                      
+                      {/* Ruta de Recibos */}
+                      <Route path="recibos" element={<RecibosHistorial />} />
+                      {/* Puedes agregar más subrutas aquí */}
+                    </Routes>
+                  </MainLayout>
+                </GlobalLayout>
+              </FacturacionProvider>
             }
           />
 
@@ -87,6 +87,37 @@ function AppContent() {
               <GlobalLayout>
                 <MainLayout section="inventario">
                   <Inventario />
+                </MainLayout>
+              </GlobalLayout>
+            }
+          />
+
+          {/* Rutas Usuarios */}
+          <Route
+            path="/usuarios/*"
+            element={
+              <UsersProvider>
+                <GlobalLayout>
+                  <MainLayout section="usuarios">
+                    <Routes>
+                      <Route index element={<Usuarios />} />
+                      <Route path="roles" element={<Roles />} />
+                      <Route path="permisos" element={<Permisos />} />
+                      {/* Puedes agregar más subrutas aquí */}
+                    </Routes>
+                  </MainLayout>
+                </GlobalLayout>
+              </UsersProvider>
+            }
+          />
+
+          {/* Ruta Caja */}
+          <Route
+            path="/caja"
+            element={
+              <GlobalLayout>
+                <MainLayout section="caja">
+                  <HomeCaja />
                 </MainLayout>
               </GlobalLayout>
             }

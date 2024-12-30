@@ -59,3 +59,7 @@
     }
   }
   
+  .user-welcome {
+    color: var(--secondary-color);
+    font-weight: 500;
+}

@@ -6,12 +6,11 @@ import { AuthContext } from '../../../context/AuthContext.jsx';
 import Image from 'react-bootstrap/Image';
 import logo from '../../../assets/images/logonav.png';
 import Swal from 'sweetalert2'; // Importa Swal
-import './Navbar.css';
+import '../../../styles/Navbar.css';
 
 const NavBar = () => {
-  const { logout } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const location = useLocation();
-
   const handleLogout = async () => {
     // Mostrar alerta de confirmación
     const result = await Swal.fire({
@@ -74,10 +73,17 @@ const NavBar = () => {
               <Nav.Link as={Link} to="/facturacion">Facturación</Nav.Link>
               <Nav.Link as={Link} to="/inventario">Inventario</Nav.Link>
               <Nav.Link as={Link} to="/recursos-humanos">Recursos Humanos</Nav.Link>
+              <Nav.Link as={Link} to="/usuarios">Usuarios</Nav.Link>
             </Nav>
           )}
 
-          <Nav className="ms-auto">
+          <Nav className="ms-auto align-items-center">
+            {/* Mostrar el nombre del usuario con saludo */}
+            {user && (
+              <Nav.Item className="me-3 user-welcome">
+                {`${user.name}, bienvenido/a`}
+              </Nav.Item>
+            )}
             <Button variant="outline-light" onClick={handleLogout}>
               Salir
             </Button>

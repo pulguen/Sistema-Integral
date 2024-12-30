@@ -1,33 +1,72 @@
-// AuthContext.jsx
+// AuthProvider.jsx
 import React, { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import customFetch from './CustomFetch';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!token);
-  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState({
+    id: localStorage.getItem('userId') || null,
+    name: localStorage.getItem('userName') || null,
+  });
+  const [loading, setLoading] = useState(true);
 
-  // Actualiza el estado cuando cambia el token
+  // Verificación inicial del token al cargar el componente
   useEffect(() => {
-    if (token) {
-      setIsAuthenticated(true);
-      localStorage.setItem('token', token);
-      // Aquí puedes obtener información del usuario si es necesario
-    } else {
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
-      setUser(null);
-    }
-  }, [token]);
+    // Mover fetchUserData dentro del useEffect
+    const fetchUserData = async (userId) => {
+      try {
+        const data = await customFetch(`/users/${userId}`, 'GET');
+        setUser({ id: userId, name: data.name });
+        localStorage.setItem('userName', data.name);
+      } catch (error) {
+        console.error('Error al obtener los datos del usuario:', error);
+        setToken(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        setIsAuthenticated(false);
+        navigate('/login');
+      }
+    };
 
-  // Maneja la expiración del token
+    const validateToken = async () => {
+      if (!token) {
+        setIsAuthenticated(false);
+        setLoading(false);
+        return;
+      }
+
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        await fetchUserData(userId);
+        setIsAuthenticated(true);
+      } else {
+        setToken(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        setIsAuthenticated(false);
+        navigate('/login');
+      }
+      setLoading(false);
+    };
+
+    validateToken();
+  }, [token, navigate]);
+
   useEffect(() => {
     const handleTokenExpired = () => {
       setToken(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      setIsAuthenticated(false);
       navigate('/login');
       Swal.fire({
         icon: 'error',
@@ -45,62 +84,58 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://10.0.0.17/municipalidad/public/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await customFetch('/login', 'POST', { email, password });
+      const token = data.token?.plainTextToken;
+      const userId = data.token?.accessToken?.tokenable_id;
 
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.token?.plainTextToken;
-
-        if (token) {
-          setToken(token);
-          navigate('/');
-          return true;
-        } else {
-          throw new Error('No se recibió un token válido del servidor.');
-        }
-      } else if (response.status === 401) {
-        Swal.fire({ icon: 'error', title: 'Datos incorrectos', text: 'El correo o la contraseña son incorrectos.' });
-        return false;
+      if (token && userId) {
+        setToken(token);
+        localStorage.setItem('token', token);
+        localStorage.setItem('userId', userId);
+        // Obtener los datos del usuario después del login
+        const userData = await customFetch(`/users/${userId}`, 'GET');
+        setUser({ id: userId, name: userData.name });
+        localStorage.setItem('userName', userData.name);
+        setIsAuthenticated(true);
+        navigate('/');
+        return true;
       } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error durante el inicio de sesión.' });
-        return false;
+        throw new Error('No se recibió un token válido o ID de usuario del servidor.');
       }
     } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor.' });
+      console.error('Error en login:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: 'No se pudo conectar con el servidor.',
+      });
       return false;
     }
   };
 
   const logout = async () => {
-    if (!token) {
-      setToken(null);
-      navigate('/login');
-      return;
-    }
-
     try {
-      await fetch('http://10.0.0.17/municipalidad/public/api/logout', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      await customFetch('/logout', 'GET');
     } catch (error) {
-      // Manejar error si es necesario
+      console.error('Error durante el logout:', error.message);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de Cierre de Sesión',
+        text: 'Hubo un problema al cerrar tu sesión. Inténtalo de nuevo.',
+      });
     } finally {
       setToken(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      setIsAuthenticated(false);
       navigate('/login');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
-      {children}
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

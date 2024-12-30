@@ -1,43 +1,56 @@
+// src/components/common/modals/NewClientModal.jsx
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 
 export default function NewClientModal({ show, handleClose, handleSubmit }) {
   const [newClient, setNewClient] = useState({
+    tipo_cliente: '',
     nombre: '',
     apellido: '',
     dni: '',
     email: '',
     telefono: '',
-    tipo_cliente: 'fisico',
     altura: '',
     calle: '',
     f_nacimiento: '',
   });
 
+  // Manejar cambios en los campos del formulario
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setNewClient((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   // Validar campos
   const validateFields = () => {
+    const { tipo_cliente, nombre, apellido, dni, email, telefono, altura, calle, f_nacimiento } = newClient;
+
     if (
-      !newClient.nombre ||
-      !newClient.apellido ||
-      !newClient.dni ||
-      !newClient.email ||
-      !newClient.telefono ||
-      !newClient.altura ||
-      !newClient.calle ||
-      !newClient.f_nacimiento
+      !tipo_cliente ||
+      !nombre ||
+      (tipo_cliente === 'fisico' && !apellido) ||
+      !dni ||
+      !email ||
+      !telefono ||
+      !altura ||
+      !calle ||
+      !f_nacimiento
     ) {
       Swal.fire({
         icon: 'warning',
         title: 'Campos vacíos',
-        text: 'Por favor, completa todos los campos.',
+        text: 'Por favor, completa todos los campos requeridos.',
       });
       return false;
     }
 
     // Validar email
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(newClient.email)) {
+    if (!emailPattern.test(email)) {
       Swal.fire({
         icon: 'error',
         title: 'Correo inválido',
@@ -46,18 +59,18 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
       return false;
     }
 
-    // Validar DNI
-    if (!/^\d+$/.test(newClient.dni)) {
+    // Validar DNI/CUIT
+    if (!/^\d+$/.test(dni)) {
       Swal.fire({
         icon: 'error',
-        title: 'DNI inválido',
-        text: 'El DNI solo debe contener números.',
+        title: 'DNI/CUIT inválido',
+        text: 'El DNI/CUIT solo debe contener números.',
       });
       return false;
     }
 
     // Validar teléfono
-    if (!/^\d+$/.test(newClient.telefono)) {
+    if (!/^\d+$/.test(telefono)) {
       Swal.fire({
         icon: 'error',
         title: 'Teléfono inválido',
@@ -67,11 +80,11 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
     }
 
     // Validar altura
-    if (isNaN(newClient.altura)) {
+    if (isNaN(altura) || parseInt(altura, 10) <= 0) {
       Swal.fire({
         icon: 'error',
         title: 'Altura inválida',
-        text: 'La altura debe ser un número.',
+        text: 'La altura debe ser un número positivo.',
       });
       return false;
     }
@@ -110,17 +123,7 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
         });
 
         // Reiniciar el formulario y cerrar el modal
-        setNewClient({
-          nombre: '',
-          apellido: '',
-          dni: '',
-          email: '',
-          telefono: '',
-          tipo_cliente: 'fisico',
-          altura: '',
-          calle: '',
-          f_nacimiento: '',
-        });
+        handleReset();
         handleClose();
       }
     } catch (error) {
@@ -133,108 +136,204 @@ export default function NewClientModal({ show, handleClose, handleSubmit }) {
     }
   };
 
+  const handleReset = () => {
+    setNewClient({
+      tipo_cliente: '',
+      nombre: '',
+      apellido: '',
+      dni: '',
+      email: '',
+      telefono: '',
+      altura: '',
+      calle: '',
+      f_nacimiento: '',
+    });
+  };
+
+  // Función para manejar el cierre del modal y resetear el formulario
+  const handleModalClose = () => {
+    handleReset();
+    handleClose();
+  };
+
   return (
-    <Modal show={show} onHide={handleClose}>
+    <Modal show={show} onHide={handleModalClose} centered>
       <Modal.Header closeButton>
         <Modal.Title>Agregar Cliente</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={onSubmit}>
-          <Form.Group controlId="nombre">
-            <Form.Label>Nombre</Form.Label>
-            <Form.Control
-              type="text"
-              value={newClient.nombre}
-              onChange={(e) => setNewClient({ ...newClient, nombre: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="apellido">
-            <Form.Label>Apellido</Form.Label>
-            <Form.Control
-              type="text"
-              value={newClient.apellido}
-              onChange={(e) => setNewClient({ ...newClient, apellido: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="dni">
-            <Form.Label>DNI/CIUT</Form.Label>
-            <Form.Control
-              type="text"
-              value={newClient.dni}
-              onChange={(e) => setNewClient({ ...newClient, dni: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="email">
-            <Form.Label>Email</Form.Label>
-            <Form.Control
-              type="email"
-              value={newClient.email}
-              onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="telefono">
-            <Form.Label>Teléfono</Form.Label>
-            <Form.Control
-              type="text"
-              value={newClient.telefono}
-              onChange={(e) => setNewClient({ ...newClient, telefono: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="calle">
-            <Form.Label>Calle</Form.Label>
-            <Form.Control
-              type="text"
-              value={newClient.calle}
-              onChange={(e) => setNewClient({ ...newClient, calle: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="altura">
-            <Form.Label>Altura</Form.Label>
-            <Form.Control
-              type="number"
-              value={newClient.altura}
-              onChange={(e) => setNewClient({ ...newClient, altura: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="f_nacimiento">
-            <Form.Label>Fecha de Nacimiento</Form.Label>
-            <Form.Control
-              type="date"
-              value={newClient.f_nacimiento}
-              onChange={(e) => setNewClient({ ...newClient, f_nacimiento: e.target.value })}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group controlId="tipo_cliente">
-            <Form.Label>Tipo de Cliente</Form.Label>
+          {/* Tipo de Cliente - Primer campo */}
+          <Form.Group controlId="tipo_cliente" className="mb-3">
+            <Form.Label className="font-weight-bold">
+              Tipo de Cliente <span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               as="select"
+              name="tipo_cliente"
               value={newClient.tipo_cliente}
-              onChange={(e) => setNewClient({ ...newClient, tipo_cliente: e.target.value })}
+              onChange={handleChange}
               required
+              className="rounded"
+              aria-label="Seleccione el tipo de cliente"
             >
+              <option value="">Seleccione el tipo de cliente</option>
               <option value="fisico">Físico</option>
               <option value="juridico">Jurídico</option>
             </Form.Control>
           </Form.Group>
-          <Button variant="primary" type="submit" className="mt-3">
-            Guardar Cliente
-          </Button>
+
+          {/* Solo mostrar el resto del formulario si hay un tipo de cliente seleccionado */}
+          {newClient.tipo_cliente && (
+            <>
+              {/* Nombre */}
+              <Form.Group controlId="nombre" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Nombre <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="nombre"
+                  value={newClient.nombre}
+                  onChange={handleChange}
+                  placeholder="Ingrese el nombre"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese el nombre del cliente"
+                />
+              </Form.Group>
+
+              {/* Apellido - Condicional */}
+              {newClient.tipo_cliente === 'fisico' && (
+                <Form.Group controlId="apellido" className="mb-3">
+                  <Form.Label className="font-weight-bold">
+                    Apellido <span className="text-danger">*</span>
+                  </Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="apellido"
+                    value={newClient.apellido}
+                    onChange={handleChange}
+                    placeholder="Ingrese el apellido"
+                    required={newClient.tipo_cliente === 'fisico'}
+                    className="rounded"
+                    aria-label="Ingrese el apellido del cliente"
+                  />
+                </Form.Group>
+              )}
+
+              {/* DNI/CUIT */}
+              <Form.Group controlId="dni" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  DNI/CUIT <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="dni"
+                  value={newClient.dni}
+                  onChange={handleChange}
+                  placeholder="Ingrese el DNI o CUIT"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese el DNI o CUIT del cliente"
+                />
+              </Form.Group>
+
+              {/* Email */}
+              <Form.Group controlId="email" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Email <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="email"
+                  name="email"
+                  value={newClient.email}
+                  onChange={handleChange}
+                  placeholder="Ingrese el correo electrónico"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese el correo electrónico del cliente"
+                />
+              </Form.Group>
+
+              {/* Teléfono */}
+              <Form.Group controlId="telefono" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Teléfono <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="telefono"
+                  value={newClient.telefono}
+                  onChange={handleChange}
+                  placeholder="Ingrese el teléfono"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese el teléfono del cliente"
+                />
+              </Form.Group>
+
+              {/* Calle */}
+              <Form.Group controlId="calle" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Calle <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="calle"
+                  value={newClient.calle}
+                  onChange={handleChange}
+                  placeholder="Ingrese la calle"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese la calle del cliente"
+                />
+              </Form.Group>
+
+              {/* Altura */}
+              <Form.Group controlId="altura" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Altura <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  name="altura"
+                  value={newClient.altura}
+                  onChange={handleChange}
+                  placeholder="Ingrese la altura"
+                  required
+                  className="rounded"
+                  aria-label="Ingrese la altura del cliente"
+                />
+              </Form.Group>
+
+              {/* Fecha de Nacimiento */}
+              <Form.Group controlId="f_nacimiento" className="mb-3">
+                <Form.Label className="font-weight-bold">
+                  Fecha de Nacimiento <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="date"
+                  name="f_nacimiento"
+                  value={newClient.f_nacimiento}
+                  onChange={handleChange}
+                  required
+                  className="rounded"
+                  aria-label="Seleccione la fecha de nacimiento del cliente"
+                />
+              </Form.Group>
+
+              {/* Botones de Acción */}
+              <div className="d-flex justify-content-end mt-4">
+                <Button variant="secondary" onClick={handleModalClose} className="me-3">
+                  Cancelar
+                </Button>
+                <Button variant="primary" type="submit">
+                  Guardar Cliente
+                </Button>
+              </div>
+            </>
+          )}
         </Form>
       </Modal.Body>
     </Modal>

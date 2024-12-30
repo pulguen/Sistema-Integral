@@ -1,0 +1,29 @@
+/* PeriodosBombeoList.css */
+
+.table-responsive {
+    margin-bottom: 1rem;
+  }
+  
+  .table-responsive table {
+    min-width: 100%;
+  }
+  
+  .table-responsive th,
+  .table-responsive td {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+  
+  .table-responsive th {
+    background-color: #f8f9fa; /* Opcional: color de fondo para los encabezados */
+  }
+  
+  .empty-state-container {
+    padding: 20px;
+  }
+  
+  .empty-state-icon {
+    color: #6c757d; /* Color gris para el ícono */
+  }
+  
