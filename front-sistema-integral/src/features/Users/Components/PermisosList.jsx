@@ -1,165 +1,120 @@
-// src/features/Users/Components/Permisos.jsx
-
-import React, { useState, useEffect } from 'react';
-import { Breadcrumb, Form, Button, ListGroup } from 'react-bootstrap';
+import React, { useState, useContext } from 'react';
+import { Form, Button, ListGroup } from 'react-bootstrap';
 import Swal from 'sweetalert2';
-import customFetch from '../../../context/CustomFetch.js';
 import Loading from '../../../components/common/loading/Loading.jsx';
+import { UsersContext } from '../../../context/UsersContext.jsx'; // Importamos el contexto
+import customFetch from '../../../context/CustomFetch.js'; // Importación de customFetch
 
-export default function Permisos() {
-  const [usuarios, setUsuarios] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredUsuarios, setFilteredUsuarios] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [permisosDisponibles, setPermisosDisponibles] = useState([]);
-  const [userPermissions, setUserPermissions] = useState([]);
-  const [cargandoUsuarios, setCargandoUsuarios] = useState(true);
-  const [cargandoPermisos, setCargandoPermisos] = useState(false);
+export default function PermisosList() {
+  const { roles, cargandoRoles, permisos, cargandoPermisos, fetchRoles, fetchPermisos } = useContext(UsersContext);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [rolePermissions, setRolePermissions] = useState([]); // Permisos seleccionados para sincronizar
+  const [cargandoAsignacion, setCargandoAsignacion] = useState(false);
+  const [cargandoPermisosRol, setCargandoPermisosRol] = useState(false);
 
-  // Obtener lista de usuarios
-  useEffect(() => {
-    const fetchUsuarios = async () => {
-      try {
-        const data = await customFetch('/users', 'GET');
-        setUsuarios(data);
-        setFilteredUsuarios(data);
-      } catch (error) {
-        console.error('Error al obtener usuarios:', error);
-        Swal.fire('Error', 'No se pudieron obtener los usuarios.', 'error');
-      } finally {
-        setCargandoUsuarios(false);
-      }
-    };
-
-    fetchUsuarios();
-  }, []);
-
-  // Manejar búsqueda de usuarios
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = usuarios.filter((usuario) =>
-        usuario.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        usuario.email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredUsuarios(filtered);
-    } else {
-      setFilteredUsuarios(usuarios);
-    }
-  }, [searchTerm, usuarios]);
-
-  // Obtener lista de permisos disponibles
-  useEffect(() => {
-    const fetchPermisos = async () => {
-      try {
-        const data = await customFetch('/permisos', 'GET');
-        setPermisosDisponibles(data);
-      } catch (error) {
-        console.error('Error al obtener permisos:', error);
-        Swal.fire('Error', 'No se pudieron obtener los permisos.', 'error');
-      }
-    };
-
-    fetchPermisos();
-  }, []);
-
-  // Manejar selección de usuario
-  const handleUserSelect = async (usuario) => {
-    setSelectedUser(usuario);
-    setCargandoPermisos(true);
+  // Manejar la selección de un rol
+  const handleRoleSelect = async (role) => {
+    setSelectedRole(role);
+    setCargandoPermisosRol(true);
 
     try {
-      // Obtener los permisos del usuario seleccionado
-      const data = await customFetch(`/users/${usuario.id}/permisos`, 'GET');
-      setUserPermissions(data.map((permiso) => permiso.id));
+      // Obtener los permisos actuales del rol desde la API `/roles/{id}`
+      const data = await customFetch(`/roles/${role.id}`, 'GET');
+      console.log('Respuesta JSON al seleccionar un rol:', data); // Log detallado
+
+      if (data && Array.isArray(data.permissions)) {
+        setRolePermissions(data.permissions.map((permiso) => permiso.id)); // Cargar los permisos actuales del rol
+      } else {
+        console.warn('El rol no tiene permisos asignados o la respuesta no contiene permisos.');
+        setRolePermissions([]); // Si no tiene permisos, lista vacía
+      }
     } catch (error) {
-      console.error('Error al obtener permisos del usuario:', error);
-      Swal.fire('Error', 'No se pudieron obtener los permisos del usuario.', 'error');
+      console.error('Error al obtener permisos del rol:', error);
+      Swal.fire('Error', 'No se pudieron obtener los permisos del rol.', 'error');
+      setRolePermissions([]); // Reiniciar la lista en caso de error
     } finally {
-      setCargandoPermisos(false);
+      setCargandoPermisosRol(false);
     }
   };
 
-  // Manejar cambio en los checkboxes
+  // Cambiar permisos (checkbox)
   const handlePermissionChange = (permisoId) => {
-    if (userPermissions.includes(permisoId)) {
-      setUserPermissions(userPermissions.filter((id) => id !== permisoId));
-    } else {
-      setUserPermissions([...userPermissions, permisoId]);
+    setRolePermissions((prevPermissions) =>
+      prevPermissions.includes(permisoId)
+        ? prevPermissions.filter((id) => id !== permisoId) // Quitar permiso si ya estaba
+        : [...prevPermissions, permisoId] // Agregar permiso si no estaba
+    );
+  };
+
+  // Sincronizar permisos
+  const handleSaveChanges = async () => {
+    if (!selectedRole) return;
+
+    const body = {
+      rol_id: selectedRole.id.toString(),
+      permisos: rolePermissions.map((permiso) => permiso.toString()), // Convertir a string para el body
+    };
+
+    setCargandoAsignacion(true);
+    try {
+      await customFetch('/roles/sync/permisos', 'POST', body); // Envío del body para sincronización
+      Swal.fire('Éxito', 'Permisos sincronizados correctamente.', 'success');
+      await fetchRoles(); // Actualizar roles después de sincronizar
+      await fetchPermisos(); // Refrescar permisos
+    } catch (error) {
+      console.error('Error al sincronizar permisos:', error);
+      Swal.fire('Error', 'No se pudieron sincronizar los permisos.', 'error');
+    } finally {
+      setCargandoAsignacion(false);
     }
   };
 
-  // Guardar cambios
-  const handleSave = async () => {
-    try {
-      await customFetch(`/users/${selectedUser.id}/permisos`, 'PUT', { permisos: userPermissions });
-      Swal.fire('Éxito', 'Permisos actualizados correctamente.', 'success');
-    } catch (error) {
-      console.error('Error al actualizar permisos del usuario:', error);
-      Swal.fire('Error', 'No se pudieron actualizar los permisos del usuario.', 'error');
-    }
-  };
+  if (cargandoRoles || cargandoPermisos) {
+    return <Loading />;
+  }
 
   return (
     <div className="permisos-section">
-      {/* Migas de Pan */}
-      <Breadcrumb>
-        <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
-        <Breadcrumb.Item href="/usuarios">Usuarios</Breadcrumb.Item>
-        <Breadcrumb.Item active>Permisos</Breadcrumb.Item>
-      </Breadcrumb>
+      <h4 className="mt-3">Lista de Roles</h4>
+      <h6>Seleccionar un Rol para gestionar sus permisos</h6>
+      <ListGroup className="mb-3">
+        {roles.map((role) => (
+          <ListGroup.Item
+            key={role.id}
+            action
+            active={selectedRole && selectedRole.id === role.id}
+            onClick={() => handleRoleSelect(role)}
+          >
+            {role.name} - {role.description || 'Sin descripción'}
+          </ListGroup.Item>
+        ))}
+      </ListGroup>
 
-      {/* Título de la Sección */}
-      <h3 className="section-title">Asignar Permisos a Usuarios</h3>
-
-      {/* Campo de Búsqueda de Usuarios */}
-      <Form.Control
-        type="text"
-        placeholder="Buscar usuario por nombre o email"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="mb-3"
-        aria-label="Buscar Usuario"
-      />
-
-      {/* Lista de Usuarios */}
-      {cargandoUsuarios ? (
-        <Loading />
-      ) : (
-        <ListGroup>
-          {filteredUsuarios.map((usuario) => (
-            <ListGroup.Item
-              key={usuario.id}
-              action
-              active={selectedUser && selectedUser.id === usuario.id}
-              onClick={() => handleUserSelect(usuario)}
-            >
-              {usuario.name} - {usuario.email}
-            </ListGroup.Item>
-          ))}
-        </ListGroup>
-      )}
-
-      {/* Lista de Permisos con Checkboxes */}
-      {selectedUser && (
+      {selectedRole && (
         <div className="mt-4">
-          <h5>Permisos de {selectedUser.name}</h5>
-          {cargandoPermisos ? (
+          <h5>Asignar Permisos al Rol: {selectedRole.name}</h5>
+          {cargandoPermisosRol ? (
             <Loading />
           ) : (
-            <Form>
-              {permisosDisponibles.map((permiso) => (
-                <Form.Check
-                  key={permiso.id}
-                  type="checkbox"
-                  label={permiso.name}
-                  checked={userPermissions.includes(permiso.id)}
-                  onChange={() => handlePermissionChange(permiso.id)}
-                />
-              ))}
-            </Form>
+          <Form>
+            {permisos.map((permiso) => (
+              <Form.Check
+                key={permiso.id}
+                type="checkbox"
+                label={
+                  <>
+                    <strong>{permiso.description}  </strong>
+                    <small className="text-muted">{permiso.name || 'Sin descripción'}</small>
+                  </>
+                }
+                checked={rolePermissions.includes(permiso.id)}
+                onChange={() => handlePermissionChange(permiso.id)}
+              />
+            ))}
+          </Form>
           )}
-          <Button variant="primary" className="mt-3" onClick={handleSave}>
-            Guardar Cambios
+          <Button variant="primary" className="mt-3" onClick={handleSaveChanges} disabled={cargandoAsignacion}>
+            {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}
           </Button>
         </div>
       )}

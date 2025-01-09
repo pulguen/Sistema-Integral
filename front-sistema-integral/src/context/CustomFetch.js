@@ -43,6 +43,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
         headers: Object.fromEntries(response.headers.entries()),
         body: responseText,
       });
+      console.log(response);
     }
 
     // Verifica si la respuesta es HTML, lo que podría indicar redirección

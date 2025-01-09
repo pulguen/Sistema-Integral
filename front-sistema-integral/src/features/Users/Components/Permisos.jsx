@@ -1,11 +1,9 @@
 // src/features/Users/Components/Permisos.jsx
-
 import React from 'react';
 import { Breadcrumb } from 'react-bootstrap';
-import PermisosList from './PermisosList.jsx'; // Un componente que crearemos para listar permisos
+import PermisosList from './PermisosList.jsx';
 
 export default function Permisos() {
-
   return (
     <div className="permisos-section">
       {/* Migas de Pan */}

@@ -163,7 +163,7 @@ export default function Roles() {
             aria-label="Agregar Rol"
           >
             <FaPlus className="me-2" />
-            Agregar Rol
+            Crear Rol
           </CustomButton>
         </Col>
 

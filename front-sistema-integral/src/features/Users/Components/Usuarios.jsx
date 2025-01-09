@@ -83,14 +83,6 @@ export default function Usuarios() {
             : 'Sin roles',
       },
       {
-        Header: 'Permisos',
-        accessor: 'permissions',
-        Cell: ({ value }) =>
-          Array.isArray(value) && value.length > 0
-            ? value.join(', ')
-            : 'Sin permisos',
-      },
-      {
         Header: 'Acciones',
         accessor: 'acciones',
         disableSortBy: true,
@@ -241,7 +233,7 @@ export default function Usuarios() {
               })
             ) : (
               <tr>
-                <td colSpan="5" className="text-center">
+                <td colSpan="4" className="text-center">
                   No se encontraron usuarios.
                 </td>
               </tr>

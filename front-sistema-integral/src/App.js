@@ -19,6 +19,7 @@ import Roles from './features/Users/Components/Roles.jsx';
 import Permisos from './features/Users/Components/Permisos.jsx';
 import RecibosHistorial from './features/facturacion/components/Recibos/RecibosHistorial.jsx';
 import HomeCaja from './features/caja/HomeCaja.jsx';
+import Unauthorized from './pages/Unauthorized/Unauthorized.jsx';
 
 // Importamos los Proveedores
 import { FacturacionProvider } from './context/FacturacionContext';
@@ -123,6 +124,16 @@ function AppContent() {
             }
           />
         </Route>
+
+        {/* Ruta de Acceso Denegado */}
+        <Route
+          path="/unauthorized"
+          element={
+            <GlobalLayout>
+              <Unauthorized />
+            </GlobalLayout>
+          }
+        />
 
         {/* Ruta About */}
         <Route

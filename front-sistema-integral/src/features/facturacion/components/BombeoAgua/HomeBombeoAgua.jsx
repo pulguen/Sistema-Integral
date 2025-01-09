@@ -256,7 +256,7 @@ const HomeBombeoAgua = () => {
                       <td>{index + 1}</td>
                       <td>
                         {periodo.cliente && periodo.cliente.persona
-                          ? `${periodo.cliente.persona.nombre} ${periodo.cliente.persona.apellido}`
+                          ? `${periodo.cliente.persona.nombre || ''} ${periodo.cliente.persona.apellido || ''}`.trim()
                           : 'Cliente desconocido'}
                       </td>
                       <td>{periodo.cliente?.persona?.dni ?? 'N/A'}</td>

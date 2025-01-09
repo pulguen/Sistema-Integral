@@ -1,7 +1,9 @@
 // src/context/AsideLinksContext.js
 import React, { createContext, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarCheck, faFileInvoiceDollar, faMoneyBillWave, faUsersViewfinder, faFireBurner, faBus, faFaucetDrip  } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarCheck, faFileInvoiceDollar, faMoneyBillWave,
+         faUsersViewfinder, faFireBurner, faBus, faFaucetDrip,
+         faAddressCard, faUserTie, faListCheck } from '@fortawesome/free-solid-svg-icons';
 
 const AsideLinksContext = createContext();
 
@@ -99,9 +101,42 @@ export const AsideLinksProvider = ({ children }) => {
       { href: '/inventario/stock', label: 'Ver Stock' },
     ],
     usuarios: [
-      { href: '/usuarios', label: 'Usuarios' },
-      { href: '/usuarios/roles', label: 'Roles' },
-      { href: '/usuarios/permisos', label: 'Permisos' },
+      { href: '/usuarios',
+        label: (
+          <>
+          <FontAwesomeIcon
+            icon={faAddressCard}
+            size="1x"  // Tamaño del ícono
+            className="me-2"
+          />
+          Usuarios
+        </>
+        )
+      },
+      { href: '/usuarios/roles',
+        label:(
+          <>
+          <FontAwesomeIcon
+            icon={faUserTie}
+            size="1x"  // Tamaño del ícono
+            className="me-2"
+          />
+          Roles
+        </>
+        )
+      },
+      { href: '/usuarios/permisos',
+        label:(
+          <>
+          <FontAwesomeIcon
+            icon={faListCheck}
+            size="1x"  // Tamaño del ícono
+            className="me-2"
+          />
+          Permisos
+        </>
+        )
+      },
     ],
   };
   
