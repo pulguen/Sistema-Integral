@@ -51,20 +51,15 @@ const BombeoAguaForm = () => {
 
   const clientDropdownRef = useRef(null);
 
-  // Función para obtener el nombre completo del cliente
   const getFullName = (persona) => {
     const nombre = persona?.nombre || "";
     const apellido = persona?.apellido || "";
     return `${nombre} ${apellido}`.trim();
   };
 
-  // Función para formatear fechas a dd-mm-aaaa (para la tabla)
   const formatDate = (dateString) => {
     if (!dateString) return "Sin fecha";
-
     const date = new Date(dateString);
-
-    // Asegurarse de que la fecha es válida
     if (isNaN(date)) return "Fecha inválida";
 
     const day = String(date.getUTCDate()).padStart(2, "0");
@@ -74,14 +69,12 @@ const BombeoAguaForm = () => {
     return `${day}-${month}-${year}`;
   };
 
-  // Función para formatear la fecha de vencimiento en DD/MM/AAAA
   const formatLocalDate = (dateString) => {
     if (!dateString) return "Sin fecha";
     const [year, month, day] = dateString.split("-");
     return `${day}/${month}/${year}`;
   };
 
-  // Obtener el valor del módulo
   const fetchModuleValue = useCallback(async () => {
     try {
       const data = await customFetch("/general");
@@ -96,7 +89,6 @@ const BombeoAguaForm = () => {
     }
   }, []);
 
-  // Obtener clientes y servicios
   const fetchTributoData = useCallback(async () => {
     try {
       const data = await customFetch("/tributos/1");
@@ -105,14 +97,12 @@ const BombeoAguaForm = () => {
         (servicio) => servicio.clientes
       );
 
-      // Eliminar clientes duplicados usando su ID
       const uniqueClientsMap = new Map();
       clientesFromServices.forEach((client) => {
         uniqueClientsMap.set(client.id, client);
       });
       const uniqueClients = Array.from(uniqueClientsMap.values());
 
-      // Ordenar los clientes alfabéticamente por nombre y apellido
       uniqueClients.sort((a, b) => {
         const nameA = `${a.persona?.nombre || ""} ${a.persona?.apellido || ""}`.toLowerCase();
         const nameB = `${b.persona?.nombre || ""} ${b.persona?.apellido || ""}`.toLowerCase();
@@ -132,7 +122,6 @@ const BombeoAguaForm = () => {
     }
   }, []);
 
-  // Obtener períodos
   const fetchPeriodos = useCallback(async (cliente_id) => {
     setLoadingPeriodos(true);
     setPeriodosLocal([]);
@@ -206,7 +195,6 @@ const BombeoAguaForm = () => {
       if (clientData && clientData.persona) {
         setSelectedClient({
           ...clientData.persona,
-          // Asegurarse de que apellido y dni no sean null o undefined
           apellido: clientData.persona.apellido || "",
           dni: clientData.persona.dni || "Sin DNI",
         });
@@ -216,7 +204,6 @@ const BombeoAguaForm = () => {
         setShowClientList(false);
         fetchPeriodos(clientId);
       } else {
-        // Manejar el caso donde no se encuentra el cliente
         setSelectedClient({});
         setClient("");
         setSearchTerm("");
@@ -289,7 +276,6 @@ const BombeoAguaForm = () => {
       return;
     }
 
-    // Verificar si ya existe un periodo con la misma combinación
     const isDuplicate = periodosLocal.some(
       (p) =>
         p.cliente_id === parseInt(client) &&
@@ -320,7 +306,7 @@ const BombeoAguaForm = () => {
       cuota: parseInt(cuota),
       month,
       year,
-      vencimiento, // Mantener "YYYY-MM-DD" para guardarlo
+      vencimiento,
     };
 
     handleCreatePeriodo(periodoData);
@@ -351,9 +337,21 @@ const BombeoAguaForm = () => {
   };
 
   const handleVolumeChange = (e) => {
-    const value = Math.max(0, e.target.value);
-    setVolume(value);
+    let value = e.target.value;
+  
+    // Si el campo está vacío, se establece como una cadena vacía
+    if (value === "") {
+      setVolume("");
+      return;
+    }
+  
+    // Convertir a número y asegurar que no sea menor que 0
+    value = Math.max(0, parseFloat(value));
+  
+    // Actualizar el volumen con el valor válido
+    setVolume(value.toString());
   };
+  
 
   const handleCuotaChange = (e) => {
     const value = Math.max(1, e.target.value);
@@ -393,10 +391,10 @@ const BombeoAguaForm = () => {
       <h2 className="text-center mb-5 text-primary font-weight-bold">
         <FontAwesomeIcon 
           icon={faCalendarCheck} 
-          size="1x"          // Aumenta el tamaño del ícono
-          className="me-2"   // Espacio a la derecha
+          size="1x"
+          className="me-2"
         />
-        Generar Recibo de Bombeo de Agua
+        Generar Periodo de Bombeo de Agua
       </h2>
 
       <Form onSubmit={handleSubmit} className="px-4">
@@ -420,7 +418,7 @@ const BombeoAguaForm = () => {
                   required
                   className="rounded"
                   aria-label="Buscar cliente por nombre o DNI/CUIT"
-                  autoComplete="off" // Desactiva autocompletado del navegador
+                  autoComplete="off"
                 />
                 {showClientList && (
                   <ListGroup
@@ -457,7 +455,6 @@ const BombeoAguaForm = () => {
           </Row>
         </section>
 
-        {/* Solo mostrar el resto del formulario si hay un cliente seleccionado */}
         {client && (
           <>
             {/* Tabla de Períodos del Cliente */}
@@ -566,7 +563,6 @@ const BombeoAguaForm = () => {
               )}
             </section>
 
-            {/* Detalles del Servicio */}
             <section className="form-section mb-4">
               <Row>
                 <Col md={6}>
@@ -580,7 +576,7 @@ const BombeoAguaForm = () => {
                         type="number"
                         value={volume}
                         onChange={handleVolumeChange}
-                        placeholder="Ingrese volumen"
+                        placeholder="Ingrese volumen mayor que cero (0)"
                         required
                         className="rounded"
                         aria-label="Volumen de agua bombeada en metros cúbicos"
@@ -620,7 +616,6 @@ const BombeoAguaForm = () => {
               </Row>
             </section>
 
-            {/* Información de Periodo a Generar */}
             <section className="form-section mb-4">
               <Row>
                 <Col md={6}>
@@ -725,18 +720,14 @@ const BombeoAguaForm = () => {
                       <br />
                       Año: {year}
                       <br />
-                      {/* Aquí formateamos la fecha a DD/MM/AAAA */}
                       Vencimiento:{" "}
-                      {vencimiento
-                        ? formatLocalDate(vencimiento)
-                        : "No asignada"}
+                      {vencimiento ? formatLocalDate(vencimiento) : "No asignada"}
                     </p>
                   </div>
                 </Col>
               </Row>
             </section>
 
-            {/* Botones de Acción */}
             <div className="d-flex justify-content-center mt-4">
               <CustomButton
                 type="submit"

@@ -1,9 +1,12 @@
-// src/pages/home/Home.jsx
-import React from 'react';
+import React, { useContext } from 'react';
 import { Container, Row } from 'react-bootstrap';
-import CommonCard from '../../components/common/Cards/Cards'; // Ajusta la ruta según tu estructura
+import CommonCard from '../../components/common/Cards/Cards';
+import { AuthContext } from '../../context/AuthContext';
 
 const Home = () => {
+  const { user } = useContext(AuthContext);
+
+  const hasAccess = (system) => user.permissions.includes(`${system}.access`);
 
   return (
     <Container className="mt-5">
@@ -16,6 +19,7 @@ const Home = () => {
           buttonText="Ir a Facturación"
           route="/facturacion"
           variant="primary"
+          disabled={!hasAccess('facturacion')} // Deshabilita el botón si no tiene permiso
         />
 
         <CommonCard
@@ -24,6 +28,7 @@ const Home = () => {
           buttonText="Ir a Inventario"
           route="/inventario"
           variant="success"
+          disabled={!hasAccess('inventario')} // Deshabilita el botón si no tiene permiso
         />
 
         <CommonCard
@@ -32,23 +37,25 @@ const Home = () => {
           buttonText="Ir a Recursos Humanos"
           route="/recursos-humanos"
           variant="warning"
+          disabled={!hasAccess('recursos-humanos')} // Deshabilita el botón si no tiene permiso
         />
 
         <CommonCard
           title="Sistema de Usuarios"
-          description="Controla la información de tus usuarios y permisos."
+          description="Controla la información de tus Usuarios, Roles y Permisos."
           buttonText="Ir a Usuarios"
           route="/usuarios"
           variant="info"
+          disabled={!hasAccess('usuarios')} // Deshabilita el botón si no tiene permiso
         />
 
-        {/* Nueva Card para el subsistema de caja */}
         <CommonCard
           title="Sistema de Caja"
           description="Registra los movimientos de caja y administra todos los medios de pago disponibles."
           buttonText="Ir a Caja"
           route="/caja"
           variant="dark"
+          disabled={!hasAccess('caja')} // Deshabilita el botón si no tiene permiso
         />
       </Row>
     </Container>

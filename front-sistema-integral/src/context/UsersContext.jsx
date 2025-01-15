@@ -94,18 +94,20 @@ export const UsersProvider = ({ children }) => {
     try {
       const data = await customFetch('/users', 'POST', newUser);
       console.log('Respuesta al agregar usuario:', data);
-      if (Array.isArray(data) && data.length >= 2) {
-        const [, status] = data;
-        if (status === 200) {
-          await fetchUsuarios();
-        } else {
-          throw new Error('Error al agregar usuario');
-        }
+  
+      if (typeof data === 'object' && data.id) {
+        // Agrega el usuario directamente al estado
+        setUsuarios((prevUsuarios) => [...prevUsuarios, data]);
+        Swal.fire('Éxito', 'Usuario agregado exitosamente.', 'success');
+      } else {
+        throw new Error('Error al agregar usuario');
       }
     } catch (error) {
-      throw error;
+      console.error('Error al agregar usuario:', error);
+      Swal.fire('Error', 'No se pudo agregar el usuario. Intenta nuevamente.', 'error');
     }
-  }, [fetchUsuarios]);
+  }, []);
+  
 
   const editUsuario = useCallback(async (updatedUser) => {
     try {
