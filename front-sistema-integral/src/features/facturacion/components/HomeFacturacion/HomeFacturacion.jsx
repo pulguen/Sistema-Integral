@@ -65,7 +65,7 @@ const FacturacionHome = () => {
               title="Gestión de Clientes"
               description="Administra la información de tus clientes, gestiona contratos y realiza seguimiento de pagos."
               buttonText="Ir a Gestión de Clientes"
-              route="/facturacion/gestion-clientes"
+              route="/facturacion/clientes"
               variant="info"
             />
           )}

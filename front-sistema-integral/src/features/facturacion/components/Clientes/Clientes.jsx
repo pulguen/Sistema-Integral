@@ -1,5 +1,4 @@
-// src/features/facturacion/components/Clientes/Clientes.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import Swal from 'sweetalert2';
 import { Breadcrumb, Form, Button, Table } from 'react-bootstrap';
 import {
@@ -25,9 +24,13 @@ import {
   useGlobalFilter,
 } from 'react-table';
 
+// 1. Importa AuthContext para poder verificar los permisos:
+import { AuthContext } from '../../../../context/AuthContext';
+
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
   const [cargando, setCargando] = useState(true);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -35,11 +38,19 @@ export default function Clientes() {
 
   const navigate = useNavigate();
 
+  // 2. Extrae user con user.services, y la función hasPermission
+  const { user } = useContext(AuthContext);
+  const hasPermission = useCallback(
+    (permission) => user?.permissions?.includes(permission),
+    [user?.permissions]
+  );
+
   /**
    * Función para obtener clientes desde la API.
    */
   const fetchClientes = useCallback(async () => {
     try {
+      setCargando(true);
       const data = await customFetch('/clientes', 'GET');
       if (Array.isArray(data)) {
         setClientes(data);
@@ -61,8 +72,7 @@ export default function Clientes() {
   }, [fetchClientes]);
 
   /**
-   * Función para eliminar un cliente.
-   * @param {number} id - ID del cliente a eliminar.
+   * Eliminar cliente
    */
   const onDelete = useCallback(
     async (id) => {
@@ -72,8 +82,6 @@ export default function Clientes() {
           text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este cliente?',
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonColor: '#3085d6',
-          cancelButtonColor: '#d33',
           confirmButtonText: 'Sí, eliminar',
           cancelButtonText: 'Cancelar',
         });
@@ -92,11 +100,28 @@ export default function Clientes() {
   );
 
   /**
-   * Filtrar clientes según el término de búsqueda.
+   * Filtrar clientes según los servicios del usuario y el searchTerm
    */
   const filteredClientes = React.useMemo(() => {
-    if (!searchTerm) return clientes;
-    return clientes.filter((cliente) => {
+    // Primero, filtrar según servicios en común.
+    // user.services es un array de IDs de servicios asignados al usuario
+    let filteredByServices = clientes;
+    if (Array.isArray(user?.services) && user.services.length > 0) {
+      filteredByServices = clientes.filter((cli) => {
+        // cli.servicios es un array con {id, nombre, ...}
+        return (
+          Array.isArray(cli.servicios) &&
+          cli.servicios.some((serv) => user.services.includes(serv.id))
+        );
+      });
+    } else {
+      // Si el usuario no tiene servicios o no se han cargado, no muestra ningún cliente
+      filteredByServices = [];
+    }
+
+    // Segundo, filtrar por searchTerm
+    if (!searchTerm) return filteredByServices;
+    return filteredByServices.filter((cliente) => {
       const nombreCompleto = `${cliente.persona?.nombre} ${cliente.persona?.apellido}`.toLowerCase();
       const dni = cliente.persona?.dni?.toString() || '';
       return (
@@ -104,11 +129,10 @@ export default function Clientes() {
         dni.includes(searchTerm)
       );
     });
-  }, [clientes, searchTerm]);
+  }, [clientes, user?.services, searchTerm]);
 
   /**
    * Definir las columnas para React Table.
-   * Se elimina la columna ID para que no se muestre en la tabla.
    */
   const columns = React.useMemo(
     () => [
@@ -138,19 +162,23 @@ export default function Clientes() {
         disableSortBy: true,
         Cell: ({ row }) => (
           <>
+            {/* Botón Editar */}
             <CustomButton
               variant="warning"
               size="sm"
               onClick={(e) => {
-                e.stopPropagation(); // Evita que el clic en el botón active el evento de la fila
+                e.stopPropagation();
                 setSelectedClient(row.original);
                 setShowEditModal(true);
               }}
               aria-label={`Editar Cliente ${row.original.id}`}
               className="me-2"
+              disabled={!hasPermission('clientes.update')}
             >
               <FaEdit />
             </CustomButton>
+
+            {/* Botón Eliminar */}
             <CustomButton
               variant="danger"
               size="sm"
@@ -159,6 +187,7 @@ export default function Clientes() {
                 onDelete(row.original.id);
               }}
               aria-label={`Eliminar Cliente ${row.original.id}`}
+              disabled={!hasPermission('clientes.destroy')}
             >
               <FaTrash />
             </CustomButton>
@@ -166,7 +195,7 @@ export default function Clientes() {
         ),
       },
     ],
-    [onDelete]
+    [onDelete, hasPermission]
   );
 
   /**
@@ -177,7 +206,7 @@ export default function Clientes() {
     getTableBodyProps,
     headerGroups,
     prepareRow,
-    page, // En lugar de rows, usamos page para paginación
+    page,
     canPreviousPage,
     canNextPage,
     pageOptions,
@@ -194,21 +223,18 @@ export default function Clientes() {
       data: filteredClientes,
       initialState: { pageIndex: 0, pageSize: 10 },
     },
-    useGlobalFilter, // Para el filtrado global
+    useGlobalFilter, 
     useSortBy,
     usePagination
   );
 
-  /**
-   * Manejar el cambio en el término de búsqueda para React Table.
-   */
+  // Manejar el cambio en el término de búsqueda para React Table
   useEffect(() => {
     setGlobalFilter(searchTerm || undefined);
   }, [searchTerm, setGlobalFilter]);
 
   /**
-   * Función para agregar un nuevo cliente.
-   * @param {Object} newClient - Datos del nuevo cliente.
+   * Agregar nuevo cliente
    */
   const handleAddClient = async (newClient) => {
     try {
@@ -223,8 +249,7 @@ export default function Clientes() {
   };
 
   /**
-   * Función para editar un cliente existente.
-   * @param {Object} updatedClient - Datos del cliente actualizado.
+   * Editar cliente existente
    */
   const handleEditClient = async (updatedClient) => {
     try {
@@ -239,16 +264,18 @@ export default function Clientes() {
   };
 
   /**
-   * Función para manejar el clic en una fila y navegar a los detalles del cliente.
-   * @param {number} clienteId - ID del cliente seleccionado.
+   * Manejar clic en la fila => detalle del cliente
    */
   const handleRowClick = (clienteId) => {
+    if (!hasPermission('clientes.show')) {
+      navigate('/unauthorized');
+      return;
+    }
     navigate(`/facturacion/clientes/${clienteId}`);
   };
 
   /**
-   * Función para obtener el ícono de ordenamiento correspondiente.
-   * @param {Object} column - Columna actual.
+   * Obtener ícono de ordenamiento
    */
   const getSortIcon = (column) => {
     if (!column.canSort) return null;
@@ -267,7 +294,7 @@ export default function Clientes() {
         <Breadcrumb.Item active>Gestión de Clientes</Breadcrumb.Item>
       </Breadcrumb>
 
-      {/* Título de la Sección */}
+      {/* Título */}
       <h3 className="section-title">Gestión de Clientes</h3>
 
       {/* Campo de Búsqueda */}
@@ -280,17 +307,17 @@ export default function Clientes() {
         aria-label="Buscar Cliente"
       />
 
-      {/* Botón para Agregar Cliente */}
+      {/* Botón Agregar */}
       <CustomButton
         onClick={() => setShowAddModal(true)}
         className="mb-3"
         aria-label="Agregar Cliente"
+        disabled={!hasPermission('clientes.store')}
       >
         <FaPlus className="me-2" />
         Agregar Cliente
       </CustomButton>
 
-      {/* Tabla de Clientes */}
       {cargando ? (
         <Loading />
       ) : (
@@ -298,22 +325,20 @@ export default function Clientes() {
           <Table {...getTableProps()} striped bordered hover className="custom-table">
             <thead>
               {headerGroups.map((headerGroup) => {
-                // Extraer la propiedad 'key' y esparcir el resto de las props
-                const { key: headerGroupKey, ...headerGroupProps } = headerGroup.getHeaderGroupProps();
+                const { key: headerGroupKey, ...headerGroupProps } =
+                  headerGroup.getHeaderGroupProps();
                 return (
                   <tr key={headerGroupKey} {...headerGroupProps}>
                     {headerGroup.headers.map((column) => {
-                      // Extraer la propiedad 'key' y esparcir el resto de las props
-                      const { key: columnKey, ...columnProps } = column.getHeaderProps(column.getSortByToggleProps());
+                      const { key: columnKey, ...columnProps } =
+                        column.getHeaderProps(column.getSortByToggleProps());
                       return (
                         <th
                           key={columnKey}
                           {...columnProps}
                           style={{ cursor: column.canSort ? 'pointer' : 'default' }}
-                          aria-label={`Ordenar por ${column.render('Header')}`}
                         >
                           {column.render('Header')}
-                          {/* Añadir ícono de ordenamiento */}
                           {getSortIcon(column)}
                         </th>
                       );
@@ -326,7 +351,6 @@ export default function Clientes() {
               {page.length > 0 ? (
                 page.map((row) => {
                   prepareRow(row);
-                  // Extraer la propiedad 'key' y esparcir el resto de las props
                   const { key: rowKey, ...rowProps } = row.getRowProps();
                   return (
                     <tr
@@ -337,7 +361,6 @@ export default function Clientes() {
                       aria-label={`Detalles del Cliente ${row.original.id}`}
                     >
                       {row.cells.map((cell) => {
-                        // Extraer la propiedad 'key' y esparcir el resto de las props
                         const { key: cellKey, ...cellProps } = cell.getCellProps();
                         return (
                           <td key={cellKey} {...cellProps}>
@@ -350,7 +373,6 @@ export default function Clientes() {
                 })
               ) : (
                 <tr>
-                  {/* Ajustar colSpan a 6 porque ahora tenemos 6 columnas */}
                   <td colSpan="6" className="text-center">
                     No se encontraron clientes.
                   </td>
@@ -359,14 +381,13 @@ export default function Clientes() {
             </tbody>
           </Table>
 
-          {/* Controles de Paginación */}
+          {/* Paginación */}
           <div className="pagination d-flex justify-content-between align-items-center">
             <div>
               <Button
                 onClick={() => gotoPage(0)}
                 disabled={!canPreviousPage}
                 className="me-2"
-                aria-label="Ir a la primera página"
               >
                 {'<<'}
               </Button>
@@ -374,7 +395,6 @@ export default function Clientes() {
                 onClick={() => previousPage()}
                 disabled={!canPreviousPage}
                 className="me-2"
-                aria-label="Ir a la página anterior"
               >
                 {'<'}
               </Button>
@@ -382,23 +402,18 @@ export default function Clientes() {
                 onClick={() => nextPage()}
                 disabled={!canNextPage}
                 className="me-2"
-                aria-label="Ir a la página siguiente"
               >
                 {'>'}
               </Button>
               <Button
                 onClick={() => gotoPage(pageCount - 1)}
                 disabled={!canNextPage}
-                aria-label="Ir a la última página"
               >
                 {'>>'}
               </Button>
             </div>
             <span>
-              Página{' '}
-              <strong>
-                {pageIndex + 1} de {pageOptions.length}
-              </strong>{' '}
+              Página <strong>{pageIndex + 1} de {pageOptions.length}</strong>
             </span>
             <span>
               | Ir a la página:{' '}
@@ -406,19 +421,17 @@ export default function Clientes() {
                 type="number"
                 defaultValue={pageIndex + 1}
                 onChange={(e) => {
-                  const pageNumber = e.target.value ? Number(e.target.value) - 1 : 0;
+                  const pageNumber = e.target.value
+                    ? Number(e.target.value) - 1
+                    : 0;
                   gotoPage(pageNumber);
                 }}
                 style={{ width: '100px' }}
-                aria-label="Ir a la página"
               />
             </span>
             <Form.Select
               value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-              }}
-              aria-label="Seleccione el número de filas por página"
+              onChange={(e) => setPageSize(Number(e.target.value))}
               style={{ width: '150px' }}
             >
               {[10, 20, 30, 40, 50].map((size) => (
@@ -431,14 +444,14 @@ export default function Clientes() {
         </>
       )}
 
-      {/* Modal para Agregar Nuevo Cliente */}
+      {/* Modal Agregar Cliente */}
       <NewClientModal
         show={showAddModal}
         handleClose={() => setShowAddModal(false)}
         handleSubmit={handleAddClient}
       />
 
-      {/* Modal para Editar Cliente Seleccionado */}
+      {/* Modal Editar Cliente */}
       {selectedClient && (
         <EditClientModal
           show={showEditModal}

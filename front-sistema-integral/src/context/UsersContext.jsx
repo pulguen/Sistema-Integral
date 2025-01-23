@@ -37,32 +37,61 @@ export const UsersProvider = ({ children }) => {
     }
   }, []);
 
-  const fetchRoles = useCallback(async () => {
-    setCargandoRoles(true);
+  const fetchUsuario = useCallback(async (id) => {
     try {
-      const data = await customFetch('/roles', 'GET');
-      console.log('Datos de roles:', data);
-      if (Array.isArray(data) && data.length === 2 && Array.isArray(data[0]) && typeof data[1] === 'number') {
-        const [fetchedRoles, status] = data;
-        if (status === 200) {
-          setRoles(fetchedRoles);
-          console.log('Roles actualizados en el contexto:', fetchedRoles);
-        } else {
-          console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
-          setRoles([]);
-        }
+      const data = await customFetch(`/users/${id}`, 'GET');
+      console.log('Datos del usuario:', data);
+  
+      if (data && typeof data === 'object') {
+        return data;
       } else {
-        console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
-        setRoles([]);
+        console.error('Error: Respuesta inesperada al obtener un usuario:', data);
+        return null;
       }
     } catch (error) {
-      Swal.fire('Error', 'Error al obtener roles.', 'error');
-      console.error('Error al obtener roles:', error);
-      setRoles([]);
-    } finally {
-      setCargandoRoles(false);
+      Swal.fire('Error', 'Error al obtener usuario.', 'error');
+      console.error('Error al obtener usuario:', error);
+      return null;
     }
   }, []);
+
+const fetchRoles = useCallback(async () => {
+  setCargandoRoles(true);
+  try {
+    const data = await customFetch('/roles', 'GET');
+    console.log('Datos de roles:', data);
+    // Debe retornar algo como [ [ {id: 1, name: 'Admin'}... ], 200 ]
+    if (
+      Array.isArray(data) &&
+      data.length === 2 &&
+      Array.isArray(data[0]) &&
+      typeof data[1] === 'number'
+    ) {
+      const [fetchedRoles, status] = data;
+      if (status === 200) {
+        setRoles(fetchedRoles); // guardamos en el estado
+        console.log('Roles actualizados en el contexto:', fetchedRoles);
+        return fetchedRoles;   // <-- retornamos también
+      } else {
+        console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
+        setRoles([]);
+        return [];
+      }
+    } else {
+      console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
+      setRoles([]);
+      return [];
+    }
+  } catch (error) {
+    Swal.fire('Error', 'Error al obtener roles.', 'error');
+    console.error('Error al obtener roles:', error);
+    setRoles([]);
+    return [];
+  } finally {
+    setCargandoRoles(false);
+  }
+}, []);
+
 
   const fetchPermisos = useCallback(async () => {
     setCargandoPermisos(true);
@@ -291,6 +320,32 @@ export const UsersProvider = ({ children }) => {
     }
   }, []);
 
+    // Obtener servicios disponibles
+    const fetchServicios = useCallback(async () => {
+      try {
+        const data = await customFetch('/servicios', 'GET');
+        return data || [];
+      } catch (error) {
+        Swal.fire('Error', 'No se pudieron obtener los servicios.', 'error');
+        console.error('Error al obtener servicios:', error);
+        return [];
+      }
+    }, []);
+
+      // Sincronizar servicios con un usuario
+  const syncServicios = useCallback(async (userId, serviciosIds) => {
+    try {
+      await customFetch(`/users/${userId}/servicios-sinc`, 'POST', {
+        servicios: serviciosIds,
+      });
+      console.log(`Servicios sincronizados para usuario ${userId}:`, serviciosIds);
+    } catch (error) {
+      Swal.fire('Error', 'No se pudieron sincronizar los servicios.', 'error');
+      console.error('Error al sincronizar servicios:', error);
+      throw error;
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsuarios();
     fetchRoles();
@@ -317,7 +372,10 @@ export const UsersProvider = ({ children }) => {
         deleteRole,
         assignRolesToUser,
         assignPermissionsToUser,
-        fetchUsersByRole // Añadido
+        fetchUsersByRole,
+        fetchUsuario,
+        fetchServicios,
+        syncServicios,
       }}
     >
       {children}

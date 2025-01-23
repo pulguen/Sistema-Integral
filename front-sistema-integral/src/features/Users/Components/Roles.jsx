@@ -12,6 +12,9 @@ import { UsersContext } from '../../../context/UsersContext.jsx';
 import EditRoleModal from '../../../components/common/modals/EditRoleModal.jsx';
 import UsersByRoleList from './UsersByRoleList.jsx';
 
+// 1. Importar AuthContext
+import { AuthContext } from '../../../context/AuthContext.jsx';
+
 export default function Roles() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -19,10 +22,10 @@ export default function Roles() {
   const [showEditRoleModal, setShowEditRoleModal] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState(null);
 
-  // Nuevo estado para el rol seleccionado en el dropdown de Usuarios por Rol
+  // Para el dropdown "Usuarios por Rol"
   const [selectedRole, setSelectedRole] = useState(null);
 
-  // Ahora usamos directamente el contexto para usuarios, roles, etc.
+  // 2. Extraer del contexto de usuarios
   const {
     usuarios,
     cargandoUsuarios,
@@ -30,9 +33,18 @@ export default function Roles() {
     cargandoRoles,
     fetchUsuarios,
     deleteRole,
-    addRole
+    addRole,
   } = useContext(UsersContext);
 
+  // 3. Extraer user del AuthContext y crear la función hasPermission
+  const { user } = useContext(AuthContext);
+
+  const hasPermission = useCallback(
+    (permission) => user?.permissions?.includes(permission),
+    [user?.permissions]
+  );
+
+  // Filtrar usuarios según el término de búsqueda
   const memoizedFilteredUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return usuarios.filter((usuario) => {
@@ -42,15 +54,14 @@ export default function Roles() {
     });
   }, [searchTerm, usuarios]);
 
-  // Cada vez que cambie la lista global de usuarios, si tenemos un usuario seleccionado,
-  // lo actualizamos con sus datos más recientes.
+  // Actualizar selectedUser con datos más recientes cuando cambie la lista de usuarios
   useEffect(() => {
     if (selectedUser) {
-      const updatedUser = usuarios.find(u => u.id === selectedUser.id);
+      const updatedUser = usuarios.find((u) => u.id === selectedUser.id);
       if (updatedUser) {
         setSelectedUser(updatedUser);
       } else {
-        // Si el usuario ya no existe en la lista (quizás fue eliminado), lo deseleccionamos.
+        // Si el usuario no existe (por ejemplo, fue eliminado), deseleccionarlo
         setSelectedUser(null);
       }
     }
@@ -60,26 +71,29 @@ export default function Roles() {
     setSelectedUser(user);
   }, []);
 
-  const handleAddRole = useCallback(async (newRole) => {
-    try {
-      await addRole(newRole);
-      Swal.fire('Éxito', 'Rol agregado exitosamente.', 'success');
-      setShowAddRoleModal(false);
-      await fetchUsuarios();
+  // Crear rol
+  const handleAddRole = useCallback(
+    async (newRole) => {
+      try {
+        await addRole(newRole);
+        Swal.fire('Éxito', 'Rol agregado exitosamente.', 'success');
+        setShowAddRoleModal(false);
+        await fetchUsuarios(); // Refresca la lista de usuarios
+      } catch (error) {
+        Swal.fire('Error', 'Hubo un problema al agregar el rol.', 'error');
+        console.error('Error al agregar rol:', error);
+      }
+    },
+    [addRole, fetchUsuarios]
+  );
 
-      // Después de actualizar usuarios, el useEffect anterior resincronizará selectedUser
-      // si está seleccionado, no necesitamos hacerlo manualmente.
-    } catch (error) {
-      Swal.fire('Error', 'Hubo un problema al agregar el rol.', 'error');
-      console.error('Error al agregar rol:', error);
-    }
-  }, [addRole, fetchUsuarios]);
-
+  // Editar rol (abrir modal con datos)
   const handleEditRoleClick = (role) => {
     setRoleToEdit(role);
     setShowEditRoleModal(true);
   };
 
+  // Eliminar rol
   const handleDeleteRole = async (roleId) => {
     const result = await Swal.fire({
       title: '¿Estás seguro?',
@@ -87,14 +101,14 @@ export default function Roles() {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
     });
-  
+
     if (result.isConfirmed) {
       try {
         await deleteRole(roleId);
-        // No necesitamos refrescar manualmente selectedUser,
-        // fetchUsuarios() se llama dentro de deleteRole si es necesario.
+        // Si deleteRole llama internamente a fetchUsuarios(),
+        // se actualizarán los datos y useEffect sincronizará automáticamente.
       } catch (error) {
         console.error('Error al eliminar rol:', error);
       }
@@ -138,6 +152,7 @@ export default function Roles() {
                         className="me-2"
                         onClick={() => handleEditRoleClick(role)}
                         aria-label={`Editar Rol ${role.name}`}
+                        disabled={!hasPermission('roles.update')} // <--- PERMISO
                       >
                         <FaEdit />
                       </CustomButton>
@@ -146,6 +161,7 @@ export default function Roles() {
                         size="sm"
                         onClick={() => handleDeleteRole(role.id)}
                         aria-label={`Eliminar Rol ${role.name}`}
+                        disabled={!hasPermission('roles.destroy')} // <--- PERMISO
                       >
                         <FaTrash />
                       </CustomButton>
@@ -161,6 +177,7 @@ export default function Roles() {
             onClick={() => setShowAddRoleModal(true)}
             className="mb-3"
             aria-label="Agregar Rol"
+            disabled={!hasPermission('roles.store')} // <--- PERMISO
           >
             <FaPlus className="me-2" />
             Crear Rol
@@ -198,15 +215,20 @@ export default function Roles() {
                   ))}
                 </ul>
               ) : (
+                // Si hay término de búsqueda pero no resultados
                 searchTerm && <p>No se encontraron usuarios.</p>
               )}
 
               {selectedUser && (
                 <div style={{ marginTop: '2rem' }}>
                   <h5>Roles de {selectedUser.name}:</h5>
-                  <RolesList 
-                    userId={selectedUser.id} 
-                    onClose={() => setSelectedUser(null)} 
+                  <RolesList
+                    userId={selectedUser.id}
+                    // Al cerrar, limpiamos la selección y el input
+                    onClose={() => {
+                      setSelectedUser(null);
+                      setSearchTerm(''); // <--- Limpiar el input de búsqueda
+                    }}
                   />
                 </div>
               )}
@@ -221,7 +243,7 @@ export default function Roles() {
               if (!selectedId) {
                 setSelectedRole(null);
               } else {
-                const role = roles.find(r => r.id === parseInt(selectedId));
+                const role = roles.find((r) => r.id === parseInt(selectedId));
                 setSelectedRole(role || null);
               }
             }}
@@ -229,9 +251,12 @@ export default function Roles() {
             aria-label="Seleccionar Rol"
           >
             <option value="">Seleccionar rol...</option>
-            {roles && roles.map((role) => (
-              <option key={role.id} value={role.id}>{role.name}</option>
-            ))}
+            {roles &&
+              roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
           </Form.Select>
 
           {selectedRole && (
@@ -245,12 +270,14 @@ export default function Roles() {
         </Col>
       </Row>
 
+      {/* Modal para crear Rol */}
       <NewRoleModal
         show={showAddRoleModal}
         handleClose={() => setShowAddRoleModal(false)}
         handleSubmit={handleAddRole}
       />
 
+      {/* Modal para editar Rol */}
       {roleToEdit && (
         <EditRoleModal
           show={showEditRoleModal}

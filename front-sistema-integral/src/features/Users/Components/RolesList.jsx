@@ -1,10 +1,14 @@
+// src/features/Users/Components/RolesList.jsx
+
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch.js';
 import Loading from '../../../components/common/loading/Loading.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
-import { UsersContext } from '../../../context/UsersContext.jsx'; // Importar el contexto
+import { UsersContext } from '../../../context/UsersContext.jsx'; 
+// 1. Importar AuthContext
+import { AuthContext } from '../../../context/AuthContext.jsx';
 
 export default function RolesList({ userId, onClose }) {
   const [roles, setRoles] = useState([]);
@@ -12,8 +16,17 @@ export default function RolesList({ userId, onClose }) {
   const [selectedRolesIds, setSelectedRolesIds] = useState([]);
   const [cargandoAsignacion, setCargandoAsignacion] = useState(false);
 
-  // Acceder al contexto para poder actualizar los usuarios
+  // 2. Acceder al contexto de usuarios
   const { fetchUsuarios } = useContext(UsersContext);
+
+  // 3. Acceder al AuthContext para verificar permisos
+  const { user } = useContext(AuthContext);
+
+  // 4. Definir función para verificar permisos
+  const hasPermission = useCallback(
+    (permission) => user?.permissions?.includes(permission),
+    [user?.permissions]
+  );
 
   const fetchRoles = useCallback(async () => {
     setCargandoRoles(true);
@@ -21,6 +34,7 @@ export default function RolesList({ userId, onClose }) {
       const data = await customFetch('/roles', 'GET');
       console.log('Datos de roles:', data);
 
+      // Verificación del formato de la respuesta ([rolesArray, status])
       if (
         Array.isArray(data) &&
         data.length === 2 &&
@@ -29,7 +43,11 @@ export default function RolesList({ userId, onClose }) {
       ) {
         const [fetchedRoles, status] = data;
         if (status === 200 && Array.isArray(fetchedRoles)) {
-          setRoles(fetchedRoles);
+          // Ordenar roles alfabéticamente por nombre
+          const sortedRoles = fetchedRoles.sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
+          setRoles(sortedRoles);
         } else {
           console.error('Error: Respuesta inválida para roles:', fetchedRoles, status);
           Swal.fire('Error', 'Error al obtener roles.', 'error');
@@ -55,7 +73,7 @@ export default function RolesList({ userId, onClose }) {
       console.log('Datos del usuario:', userData);
       
       if (userData && typeof userData === 'object' && Array.isArray(userData.roles)) {
-        const userRoleIds = userData.roles.map(role => role.id);
+        const userRoleIds = userData.roles.map((role) => role.id);
         setSelectedRolesIds(userRoleIds);
       } else {
         console.error('Error: El usuario no contiene roles en el formato esperado', userData);
@@ -92,7 +110,6 @@ export default function RolesList({ userId, onClose }) {
         roles: selectedRolesIds,
       });
       console.log('Respuesta al actualizar roles:', data);
-      // data es un objeto de usuario con los roles actualizados
       if (data && typeof data === 'object' && Array.isArray(data.roles)) {
         Swal.fire('Éxito', 'Roles actualizados exitosamente.', 'success');
         await fetchUserRoles(); // Refresca los roles del usuario
@@ -135,7 +152,8 @@ export default function RolesList({ userId, onClose }) {
         <div className="d-flex gap-2 mt-3">
           <CustomButton
             onClick={handleSaveChanges}
-            disabled={cargandoAsignacion}
+            // 5. Deshabilitar si no tiene permiso O si está cargando
+            disabled={!hasPermission('users.sync-roles') || cargandoAsignacion}
             aria-label="Guardar Cambios de Roles"
           >
             {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}

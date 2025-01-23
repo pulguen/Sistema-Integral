@@ -1,5 +1,3 @@
-// src/features/facturacion/components/Periodos/PeriodosHistorial.jsx
-
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
   Card,
@@ -22,23 +20,22 @@ import Select from 'react-select';
 import makeAnimated from 'react-select/animated';
 import { useTable, useSortBy, usePagination } from 'react-table';
 
-// Elimina o comenta las siguientes líneas para evitar errores de importación
-// import 'react-select/dist/react-select.css';
-// import 'react-table/react-table.css';
+// Importar AuthContext para obtener user.services y user.permissions
+import { AuthContext } from '../../../../context/AuthContext.jsx';
 
 const animatedComponents = makeAnimated();
 
-// Definición del filtro por defecto
-function DefaultColumnFilter({
-  column: { filterValue, setFilter },
-}) {
+/**
+ * Filtro por defecto para react-table (opcional).
+ */
+function DefaultColumnFilter({ column: { filterValue, setFilter } }) {
   return (
     <input
       value={filterValue || ''}
-      onChange={e => {
-        setFilter(e.target.value || undefined); // Establecer undefined para eliminar el filtro
+      onChange={(e) => {
+        setFilter(e.target.value || undefined);
       }}
-      placeholder={`Buscar...`}
+      placeholder="Buscar..."
       style={{ width: '100%' }}
       aria-label="Filtro de columna"
     />
@@ -46,12 +43,25 @@ function DefaultColumnFilter({
 }
 
 const PeriodosHistorial = () => {
-  const { 
-    clientes, 
-    fetchClienteById 
-  } = useContext(FacturacionContext);
+  const { clientes, fetchClienteById } = useContext(FacturacionContext);
+  const { user } = useContext(AuthContext);
 
+  // Permisos existentes
+  const canShowClients = user?.permissions.includes('cuentas.show.cliente');
+  const canEditPeriod = user?.permissions.includes('cuentas.update');
+  const canDeletePeriod = user?.permissions.includes('cuentas.destroy');
+
+  // Permisos nuevos solicitados
+  const canShowTributos = user?.permissions.includes('tributos.show.clientes');
+  const canShowServices = user?.permissions.includes('servicios.show.client');
+
+  /**
+   * clientsByServices: los clientes que tienen algún servicio en común con user.services.
+   * filteredClientes: filtrado adicional según el texto de búsqueda (handleSearchChange).
+   */
+  const [clientsByServices, setClientsByServices] = useState([]);
   const [filteredClientes, setFilteredClientes] = useState([]);
+
   const [selectedCliente, setSelectedCliente] = useState(null);
 
   const [tributosMap, setTributosMap] = useState([]);
@@ -68,45 +78,63 @@ const PeriodosHistorial = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPeriodo, setSelectedPeriodo] = useState(null);
 
-  // Inicializar clientes para filtrado
+  /**
+   * Al llegar la lista de `clientes`, filtrarlos según los servicios del usuario.
+   */
   useEffect(() => {
-    setFilteredClientes(clientes);
-  }, [clientes]);
+    if (!Array.isArray(clientes)) return;
+    if (!Array.isArray(user?.services) || user.services.length === 0) {
+      setClientsByServices([]);
+      return;
+    }
+    const filtered = clientes.filter((cli) => {
+      if (!Array.isArray(cli.servicios)) return false;
+      return cli.servicios.some((s) => user.services.includes(s.id));
+    });
+    setClientsByServices(filtered);
+    setFilteredClientes(filtered);
+  }, [clientes, user?.services]);
 
-  // Función para manejar la búsqueda de clientes
-  const handleSearchChange = (inputValue) => {
+  /**
+   * Maneja la búsqueda en el campo Select (react-select).
+   */
+  const handleSearchChange = useCallback((inputValue) => {
     const term = inputValue.toLowerCase();
-    setFilteredClientes(
-      clientes.filter((cliente) => {
-        const fullName = `${cliente.persona?.nombre || ""} ${cliente.persona?.apellido || ""}`.toLowerCase();
-        const dni = cliente.persona?.dni?.toString() || "";
-        return fullName.includes(term) || dni.includes(term);
-      })
-    );
-  };
+    const result = clientsByServices.filter((cliente) => {
+      const nombre = cliente.persona?.nombre || '';
+      const apellido = cliente.persona?.apellido || '';
+      const fullName = `${nombre} ${apellido}`.toLowerCase();
+      const dni = cliente.persona?.dni?.toString() || '';
+      return fullName.includes(term) || dni.includes(term);
+    });
+    setFilteredClientes(result);
+  }, [clientsByServices]);
 
-  // Opciones para react-select
+  /**
+   * Opciones para el select (React-Select)
+   */
   const clienteOptions = filteredClientes.map((cliente) => ({
     value: cliente.id,
-    label: `${cliente.persona?.nombre} ${cliente.persona?.apellido} - DNI: ${cliente.persona?.dni}`,
+    label: `${cliente.persona?.nombre || ''} ${cliente.persona?.apellido || ''} - DNI: ${cliente.persona?.dni || ''}`,
   }));
 
-  // Función para manejar la selección de un cliente
+  /**
+   * Cuando se elige un cliente en el Select
+   */
   const handleClienteSelect = async (selectedOption) => {
     if (!selectedOption) {
       handleReset();
       return;
     }
-    const cliente = clientes.find(c => c.id === selectedOption.value);
+
+    const cliente = filteredClientes.find((c) => c.id === selectedOption.value);
     setSelectedCliente(cliente);
 
     try {
       const clienteData = await fetchClienteById(cliente.id);
-
       if (!Array.isArray(clienteData) || clienteData.length === 0) {
         throw new Error("Formato de datos incorrecto");
       }
-
       setClienteDatos(clienteData[0]);
 
       const tributosMapLocal = {};
@@ -116,15 +144,16 @@ const PeriodosHistorial = () => {
         const servicio = periodo.servicio;
 
         if (!tributosMapLocal[tributoId]) {
-          tributosMapLocal[tributoId] = { 
-            id: tributoId, 
-            nombre: tributoNombre, 
-            servicios: [] 
+          tributosMapLocal[tributoId] = {
+            id: tributoId,
+            nombre: tributoNombre,
+            servicios: [],
           };
         }
-
         if (servicio) {
-          const exists = tributosMapLocal[tributoId].servicios.some(s => s.id === servicio.id);
+          const exists = tributosMapLocal[tributoId].servicios.some(
+            (s) => s.id === servicio.id
+          );
           if (!exists) {
             tributosMapLocal[tributoId].servicios.push(servicio);
           }
@@ -146,7 +175,9 @@ const PeriodosHistorial = () => {
     }
   };
 
-  // Función para manejar la selección de un tributo
+  /**
+   * Selección de tributo
+   */
   const handleTributoSelect = (e) => {
     const tributoId = e.target.value;
     const tributo = tributosMap.find((t) => t.id === parseInt(tributoId, 10));
@@ -156,26 +187,45 @@ const PeriodosHistorial = () => {
     setPeriodos([]);
   };
 
-  // Función para manejar la selección de un servicio
+  /**
+   * Selección de servicio
+   */
   const handleServicioSelect = async (e) => {
-    const servicioId = e.target.value;
-    const servicio = servicios.find((s) => s.id === parseInt(servicioId, 10));
+    const servicioId = parseInt(e.target.value, 10);
+    const servicio = servicios.find((s) => s.id === servicioId);
     setSelectedServicio(servicio);
+
     if (selectedCliente && servicio && selectedTributo) {
       setLoadingPeriodos(true);
       try {
         const tributoIdNumber = parseInt(selectedTributo, 10);
-        const filteredPeriodos = clienteDatos.filter(
-          (periodo) => 
-            parseInt(periodo.servicio_id, 10) === servicio.id &&
-            parseInt(periodo.tributo_id, 10) === tributoIdNumber
-        ).map(periodo => ({
-          ...periodo,
-          i_debito: parseFloat(periodo.i_debito) || 0,
-          i_descuento: parseFloat(periodo.i_descuento) || 0,
-          i_recargo_actualizado: parseFloat(periodo.i_recargo_actualizado || periodo.i_recargo) || 0,
-          total: (parseFloat(periodo.i_debito) || 0) - (parseFloat(periodo.i_descuento) || 0) + (parseFloat(periodo.i_recargo_actualizado) || 0),
-        }));
+
+        let filteredPeriodos = clienteDatos
+          .filter(
+            (periodo) =>
+              parseInt(periodo.servicio_id, 10) === servicio.id &&
+              parseInt(periodo.tributo_id, 10) === tributoIdNumber
+          )
+          .map((periodo) => ({
+            ...periodo,
+            i_debito: parseFloat(periodo.i_debito) || 0,
+            i_descuento: parseFloat(periodo.i_descuento) || 0,
+            i_recargo_actualizado:
+              parseFloat(periodo.i_recargo_actualizado || periodo.i_recargo) || 0,
+            total:
+              (parseFloat(periodo.i_debito) || 0) -
+              (parseFloat(periodo.i_descuento) || 0) +
+              (parseFloat(periodo.i_recargo_actualizado) || 0),
+          }));
+
+        // Filtrar según user.services
+        if (Array.isArray(user?.services) && user.services.length > 0) {
+          filteredPeriodos = filteredPeriodos.filter((p) =>
+            user.services.includes(parseInt(p.servicio_id, 10))
+          );
+        } else {
+          filteredPeriodos = [];
+        }
 
         setPeriodos(filteredPeriodos);
       } catch (error) {
@@ -197,10 +247,12 @@ const PeriodosHistorial = () => {
     }
   };
 
-  // Función para reiniciar la selección
+  /**
+   * Reiniciar la selección y limpiar datos
+   */
   const handleReset = () => {
     setSelectedCliente(null);
-    setFilteredClientes(clientes);
+    setFilteredClientes(clientsByServices);
     setSelectedTributo(null);
     setServicios([]);
     setSelectedServicio(null);
@@ -208,17 +260,23 @@ const PeriodosHistorial = () => {
     setClienteDatos([]);
   };
 
-  // Función para manejar la edición de un periodo
+  /**
+   * Editar Período
+   */
   const handleEdit = useCallback((periodo) => {
     setSelectedPeriodo(periodo);
     setShowEditModal(true);
   }, []);
 
-  // Función para manejar la actualización del periodo con actualización optimista
+  /**
+   * Confirmar edición
+   */
   const handleUpdatePeriodo = useCallback(async (updatedPeriodo) => {
     try {
-      await customFetch(`/periodos/${updatedPeriodo.id}`, 'PUT', updatedPeriodo);
-      setPeriodos(prevPeriodos => prevPeriodos.map(p => p.id === updatedPeriodo.id ? updatedPeriodo : p));
+      await customFetch(`/cuentas/${updatedPeriodo.id}`, 'PUT', updatedPeriodo);
+      setPeriodos((prev) =>
+        prev.map((p) => (p.id === updatedPeriodo.id ? updatedPeriodo : p))
+      );
       setShowEditModal(false);
       Swal.fire('Éxito', 'Periodo modificado exitosamente.', 'success');
     } catch (error) {
@@ -227,7 +285,9 @@ const PeriodosHistorial = () => {
     }
   }, []);
 
-  // Función para manejar la eliminación de un periodo con eliminación optimista
+  /**
+   * Eliminar Período
+   */
   const handleDelete = useCallback(async (id) => {
     try {
       const result = await Swal.fire({
@@ -235,15 +295,13 @@ const PeriodosHistorial = () => {
         text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este período?',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
       });
 
       if (result.isConfirmed) {
         await customFetch(`/cuentas/${id}`, 'DELETE');
-        setPeriodos(prevPeriodos => prevPeriodos.filter(p => p.id !== id));
+        setPeriodos((prev) => prev.filter((p) => p.id !== id));
         Swal.fire('Eliminado!', 'El período ha sido eliminado.', 'success');
       }
     } catch (error) {
@@ -252,7 +310,9 @@ const PeriodosHistorial = () => {
     }
   }, []);
 
-  // Definición de las columnas para react-table
+  /**
+   * Columnas para react-table
+   */
   const columns = React.useMemo(
     () => [
       {
@@ -263,6 +323,11 @@ const PeriodosHistorial = () => {
       {
         Header: 'Año',
         accessor: 'año',
+        Filter: DefaultColumnFilter,
+      },
+      {
+        Header: 'Cuota',
+        accessor: 'cuota',
         Filter: DefaultColumnFilter,
       },
       {
@@ -297,13 +362,18 @@ const PeriodosHistorial = () => {
       {
         Header: 'Vencimiento',
         accessor: 'f_vencimiento',
-        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : 'N/A',
+        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
         Filter: DefaultColumnFilter,
       },
       {
         Header: 'Fecha Creación',
         accessor: 'created_at',
-        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : 'N/A',
+        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
+        Filter: DefaultColumnFilter,
+      },
+      {
+        Header: 'Recibo generado',
+        accessor: 'n_recibo_generado',
         Filter: DefaultColumnFilter,
       },
       {
@@ -315,7 +385,7 @@ const PeriodosHistorial = () => {
       {
         Header: 'Fecha Pago',
         accessor: 'f_pago',
-        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : 'N/A',
+        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
         Filter: DefaultColumnFilter,
       },
       {
@@ -327,7 +397,11 @@ const PeriodosHistorial = () => {
           <>
             <OverlayTrigger
               placement="top"
-              overlay={<Tooltip id={`tooltip-edit-${row.original.id}`}>Editar Período</Tooltip>}
+              overlay={
+                <Tooltip id={`tooltip-edit-${row.original.id}`}>
+                  Editar Período
+                </Tooltip>
+              }
             >
               <CustomButton
                 variant="warning"
@@ -335,19 +409,26 @@ const PeriodosHistorial = () => {
                 className="me-2"
                 onClick={() => handleEdit(row.original)}
                 aria-label={`Editar período ${row.original.id}`}
+                disabled={!canEditPeriod}
               >
                 <FaEdit />
               </CustomButton>
             </OverlayTrigger>
+
             <OverlayTrigger
               placement="top"
-              overlay={<Tooltip id={`tooltip-delete-${row.original.id}`}>Eliminar Período</Tooltip>}
+              overlay={
+                <Tooltip id={`tooltip-delete-${row.original.id}`}>
+                  Eliminar Período
+                </Tooltip>
+              }
             >
               <CustomButton
                 variant="danger"
                 size="sm"
                 onClick={() => handleDelete(row.original.id)}
                 aria-label={`Eliminar período ${row.original.id}`}
+                disabled={!canDeletePeriod}
               >
                 <FaTrash />
               </CustomButton>
@@ -356,16 +437,18 @@ const PeriodosHistorial = () => {
         ),
       },
     ],
-    [handleEdit, handleDelete] // Añadidas dependencias para useMemo
+    [handleEdit, handleDelete, canEditPeriod, canDeletePeriod]
   );
 
-  // Uso de react-table
+  /**
+   * Configuración de react-table
+   */
   const {
     getTableProps,
     getTableBodyProps,
     headerGroups,
     prepareRow,
-    page, // reemplaza a rows
+    page,
     canPreviousPage,
     canNextPage,
     pageOptions,
@@ -402,7 +485,7 @@ const PeriodosHistorial = () => {
 
       <h2 className="text-center mb-4 text-primary">Historial de Períodos</h2>
 
-      {/* Encapsular la búsqueda y selección dentro de un Card */}
+      {/* Formulario de búsqueda y selección */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
           {/* Búsqueda de cliente */}
@@ -410,7 +493,16 @@ const PeriodosHistorial = () => {
             <Form.Label>Buscar Cliente</Form.Label>
             <Select
               components={animatedComponents}
-              value={selectedCliente ? { value: selectedCliente.id, label: `${selectedCliente.persona?.nombre} ${selectedCliente.persona?.apellido} - DNI: ${selectedCliente.persona?.dni}` } : null}
+              // Deshabilitar el select si NO tiene permiso 'clientes.show'
+              isDisabled={!canShowClients}
+              value={
+                selectedCliente
+                  ? {
+                      value: selectedCliente.id,
+                      label: `${selectedCliente.persona?.nombre || ''} ${selectedCliente.persona?.apellido || ''} - DNI: ${selectedCliente.persona?.dni || ''}`
+                    }
+                  : null
+              }
               onChange={handleClienteSelect}
               onInputChange={handleSearchChange}
               options={clienteOptions}
@@ -430,6 +522,8 @@ const PeriodosHistorial = () => {
                 value={selectedTributo || ""}
                 onChange={handleTributoSelect}
                 aria-label="Seleccionar Tributo"
+                // Deshabilitar el select si NO tiene permiso 'tributos.show'
+                disabled={!canShowTributos}
               >
                 <option value="">Seleccione un tributo</option>
                 {tributosMap.map((tributo) => (
@@ -450,11 +544,13 @@ const PeriodosHistorial = () => {
                 value={selectedServicio?.id || ""}
                 onChange={handleServicioSelect}
                 aria-label="Seleccionar Servicio"
+                // Deshabilitar el select si NO tiene permiso 'servicios.show'
+                disabled={!canShowServices}
               >
                 <option value="">Seleccione un servicio</option>
-                {servicios.map((servicio) => (
-                  <option key={servicio.id} value={servicio.id}>
-                    {servicio.nombre}
+                {servicios.map((serv) => (
+                  <option key={serv.id} value={serv.id}>
+                    {serv.nombre}
                   </option>
                 ))}
               </Form.Control>
@@ -476,38 +572,38 @@ const PeriodosHistorial = () => {
             <>
               <Table {...getTableProps()} striped bordered hover>
                 <thead>
-                  {headerGroups.map(headerGroup => (
-                    <tr {...headerGroup.getHeaderGroupProps()}>
-                      {headerGroup.headers.map(column => (
-                        <th {...column.getHeaderProps(column.getSortByToggleProps())}>
+                  {headerGroups.map((headerGroup) => (
+                    <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
+                      {headerGroup.headers.map((column) => (
+                        <th
+                          {...column.getHeaderProps(column.getSortByToggleProps())}
+                          key={column.id}
+                        >
                           {column.render('Header')}
-                          {/* Añadir indicadores de orden */}
-                          <span>
-                            {column.isSorted
-                              ? column.isSortedDesc
-                                ? ' 🔽'
-                                : ' 🔼'
-                              : ''}
-                          </span>
-                          {/* Renderizar el filtro solo si existe */}
-                          <div>{column.canFilter ? column.render('Filter') : null}</div>
+                          {/* Iconos de orden */}
+                          {column.isSorted
+                            ? column.isSortedDesc
+                              ? ' 🔽'
+                              : ' 🔼'
+                            : ''
+                          }
+                          {/* Filtro de columna (opcional) */}
+                          {column.canFilter && <div>{column.render('Filter')}</div>}
                         </th>
                       ))}
                     </tr>
                   ))}
                 </thead>
                 <tbody {...getTableBodyProps()}>
-                  {page.map((row, i) => {
+                  {page.map((row) => {
                     prepareRow(row);
                     return (
-                      <tr {...row.getRowProps()}>
-                        {row.cells.map(cell => {
-                          return (
-                            <td {...cell.getCellProps()}>
-                              {cell.render('Cell')}
-                            </td>
-                          );
-                        })}
+                      <tr {...row.getRowProps()} key={row.id}>
+                        {row.cells.map((cell) => (
+                          <td {...cell.getCellProps()} key={cell.column.id}>
+                            {cell.render('Cell')}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -517,16 +613,31 @@ const PeriodosHistorial = () => {
               {/* Paginación */}
               <div className="pagination d-flex justify-content-between align-items-center">
                 <div>
-                  <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="me-2">
+                  <Button
+                    onClick={() => gotoPage(0)}
+                    disabled={!canPreviousPage}
+                    className="me-2"
+                  >
                     {'<<'}
                   </Button>
-                  <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="me-2">
+                  <Button
+                    onClick={() => previousPage()}
+                    disabled={!canPreviousPage}
+                    className="me-2"
+                  >
                     {'<'}
                   </Button>
-                  <Button onClick={() => nextPage()} disabled={!canNextPage} className="me-2">
+                  <Button
+                    onClick={() => nextPage()}
+                    disabled={!canNextPage}
+                    className="me-2"
+                  >
                     {'>'}
                   </Button>
-                  <Button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
+                  <Button
+                    onClick={() => gotoPage(pageCount - 1)}
+                    disabled={!canNextPage}
+                  >
                     {'>>'}
                   </Button>
                 </div>
@@ -534,16 +645,18 @@ const PeriodosHistorial = () => {
                   Página{' '}
                   <strong>
                     {pageIndex + 1} de {pageOptions.length}
-                  </strong>{' '}
+                  </strong>
                 </span>
                 <span>
                   | Ir a la página:{' '}
                   <input
                     type="number"
                     defaultValue={pageIndex + 1}
-                    onChange={e => {
-                      const page = e.target.value ? Number(e.target.value) - 1 : 0
-                      gotoPage(page)
+                    onChange={(e) => {
+                      const pageNumber = e.target.value
+                        ? Number(e.target.value) - 1
+                        : 0;
+                      gotoPage(pageNumber);
                     }}
                     style={{ width: '100px' }}
                     aria-label="Ir a la página"
@@ -551,15 +664,12 @@ const PeriodosHistorial = () => {
                 </span>
                 <Form.Select
                   value={pageSize}
-                  onChange={e => {
-                    setPageSize(Number(e.target.value))
-                  }}
-                  aria-label="Seleccione el número de filas por página"
+                  onChange={(e) => setPageSize(Number(e.target.value))}
                   style={{ width: '150px' }}
                 >
-                  {[10, 20, 30, 40, 50].map(pageSize => (
-                    <option key={pageSize} value={pageSize}>
-                      Mostrar {pageSize}
+                  {[10, 20, 30, 40, 50].map((size) => (
+                    <option key={size} value={size}>
+                      Mostrar {size}
                     </option>
                   ))}
                 </Form.Select>
@@ -572,7 +682,7 @@ const PeriodosHistorial = () => {
             show={showEditModal}
             handleClose={() => setShowEditModal(false)}
             periodo={selectedPeriodo}
-            handleSubmit={handleUpdatePeriodo} // Asegúrate de que handleUpdatePeriodo esté definido
+            handleSubmit={handleUpdatePeriodo}
           />
 
           {/* Botón para limpiar datos */}
@@ -587,5 +697,4 @@ const PeriodosHistorial = () => {
   );
 };
 
-// Exportación del componente
 export default PeriodosHistorial;

@@ -1,6 +1,5 @@
 // src/features/facturacion/components/Clientes/ClienteDetalle.jsx
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, Table, Form, Breadcrumb, Row, Col } from 'react-bootstrap';
 import Swal from 'sweetalert2';
@@ -8,6 +7,9 @@ import CustomButton from '../../../../components/common/botons/CustomButton.jsx'
 import { FaEdit, FaTrash, FaSave } from 'react-icons/fa';
 import Loading from '../../../../components/common/loading/Loading.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
+
+// PERMISOS: Importa AuthContext
+import { AuthContext } from '../../../../context/AuthContext';
 
 const ClienteDetalle = () => {
   const { id } = useParams();
@@ -33,6 +35,15 @@ const ClienteDetalle = () => {
     calle_esquina: '',
     altura_esquina: '',
   });
+
+  // PERMISOS: obtener user del AuthContext
+  const { user } = useContext(AuthContext);
+
+  // PERMISOS: función para verificar permisos
+  const hasPermission = useCallback(
+    (permiso) => user?.permissions?.includes(permiso),
+    [user?.permissions]
+  );
 
   const fetchCliente = useCallback(async () => {
     try {
@@ -240,17 +251,21 @@ const ClienteDetalle = () => {
               <p style={{ fontSize: '1.2rem' }}>
                 <strong>Tipo de Cliente:</strong> {cliente.tipo_cliente}
               </p>
+              {/* Botón Modificar */}
               <CustomButton
                 variant="warning"
                 className="mt-3"
                 onClick={() => setEditMode(true)}
+                disabled={!hasPermission('clientes.update')} // PERMISOS
               >
                 <FaEdit /> Modificar Datos
               </CustomButton>
+              {/* Botón Eliminar */}
               <CustomButton
                 variant="danger"
                 className="mt-3 ms-3"
                 onClick={handleDeleteCliente}
+                disabled={!hasPermission('clientes.destroy')} // PERMISOS
               >
                 <FaTrash /> Eliminar Cliente
               </CustomButton>
@@ -465,6 +480,7 @@ const ClienteDetalle = () => {
                 variant="success"
                 className="mt-3"
                 onClick={handleEditCliente}
+                disabled={!hasPermission('clientes.update')} // PERMISOS
               >
                 <FaSave /> Guardar Cambios
               </CustomButton>
@@ -515,10 +531,9 @@ const ClienteDetalle = () => {
                 {serviciosDisponibles.map((servicio) => (
                   <Col md={6} key={servicio.id}>
                     <Form.Check
-                      /* id y name únicos por cada check */
+                      // id y name únicos por cada check
                       id={`servicio-${servicio.id}`}
                       name={`servicio-${servicio.id}`}
-
                       type="checkbox"
                       label={servicio.nombre}
                       value={servicio.id}
@@ -534,6 +549,7 @@ const ClienteDetalle = () => {
               variant="primary"
               className="mt-3"
               onClick={handleAsignarServicios}
+              disabled={!hasPermission('clientes.sync-serv')} // PERMISOS
             >
               <FaSave /> Asignar Servicios
             </CustomButton>

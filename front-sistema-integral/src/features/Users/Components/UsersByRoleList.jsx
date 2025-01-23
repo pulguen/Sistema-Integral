@@ -1,30 +1,45 @@
 // src/features/Users/Components/UsersByRoleList.jsx
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import Loading from '../../../components/common/loading/Loading.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import { UsersContext } from '../../../context/UsersContext.jsx';
 
+// 1. Importar el AuthContext
+import { AuthContext } from '../../../context/AuthContext.jsx';
+
 export default function UsersByRoleList({ roleId, onClose }) {
   const { usuarios, assignRolesToUser, fetchUsuarios } = useContext(UsersContext);
+
   const [usuariosConRol, setUsuariosConRol] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [selectedUsersIds, setSelectedUsersIds] = useState([]);
 
+  // 2. Extraer user del AuthContext y definir hasPermission
+  const { user } = useContext(AuthContext);
+
+  const hasPermission = useCallback(
+    (permission) => user?.permissions?.includes(permission),
+    [user?.permissions]
+  );
+
   useEffect(() => {
     setCargando(true);
-    // Filtrar usuarios que tienen el rol
-    const usersWithRole = usuarios.filter(u => {
+
+    // Filtrar usuarios que tienen el rol actual
+    const usersWithRole = usuarios.filter((u) => {
       if (Array.isArray(u.roles)) {
-        return u.roles.some(r => r.id === parseInt(roleId));
+        return u.roles.some((r) => r.id === parseInt(roleId));
       }
       return false;
     });
+
     setUsuariosConRol(usersWithRole);
-    // Todos los usuarios encontrados tienen el rol
-    setSelectedUsersIds(usersWithRole.map(u => u.id));
+
+    // Marcar como seleccionados todos los que ya tienen el rol
+    setSelectedUsersIds(usersWithRole.map((u) => u.id));
     setCargando(false);
   }, [usuarios, roleId]);
 
@@ -41,17 +56,19 @@ export default function UsersByRoleList({ roleId, onClose }) {
   const handleSaveChanges = async () => {
     try {
       let anyChange = false;
+
       for (const user of usuariosConRol) {
-        // Obtener roles actuales del usuario
-        const userData = usuarios.find(u => u.id === user.id);
+        // Roles actuales del usuario
+        const userData = usuarios.find((u) => u.id === user.id);
+
         if (userData && Array.isArray(userData.roles)) {
-          const userRoleIds = userData.roles.map(r => r.id);
+          const userRoleIds = userData.roles.map((r) => r.id);
           const hasRole = userRoleIds.includes(parseInt(roleId));
           const shouldHaveRole = selectedUsersIds.includes(user.id);
 
           if (hasRole && !shouldHaveRole) {
             // Quitar el rol
-            const newRoles = userRoleIds.filter(rId => rId !== parseInt(roleId));
+            const newRoles = userRoleIds.filter((rId) => rId !== parseInt(roleId));
             await assignRolesToUser(user.id, newRoles);
             anyChange = true;
           } else if (!hasRole && shouldHaveRole) {
@@ -71,16 +88,16 @@ export default function UsersByRoleList({ roleId, onClose }) {
 
       // Actualizar usuarios globales
       await fetchUsuarios();
-      // Filtrar de nuevo
-      const updatedUsersWithRole = usuarios.filter(u => {
+
+      // Volver a filtrar usuarios con el rol
+      const updatedUsersWithRole = usuarios.filter((u) => {
         if (Array.isArray(u.roles)) {
-          return u.roles.some(r => r.id === parseInt(roleId));
+          return u.roles.some((r) => r.id === parseInt(roleId));
         }
         return false;
       });
       setUsuariosConRol(updatedUsersWithRole);
-      setSelectedUsersIds(updatedUsersWithRole.map(u => u.id));
-
+      setSelectedUsersIds(updatedUsersWithRole.map((u) => u.id));
     } catch (error) {
       Swal.fire('Error', 'No se pudieron actualizar los roles.', 'error');
       console.error('Error al actualizar roles del usuario:', error);
@@ -95,7 +112,9 @@ export default function UsersByRoleList({ roleId, onClose }) {
     return (
       <div className="mt-3">
         <p>No hay usuarios con este rol.</p>
-        <CustomButton variant="danger" onClick={onClose}>Cerrar</CustomButton>
+        <CustomButton variant="danger" onClick={onClose}>
+          Cerrar
+        </CustomButton>
       </div>
     );
   }
@@ -115,7 +134,12 @@ export default function UsersByRoleList({ roleId, onClose }) {
           />
         ))}
         <div className="d-flex gap-2 mt-3">
-          <CustomButton variant="primary" onClick={handleSaveChanges}>
+          {/* 3. Deshabilitar botón si no tiene el permiso users.sync-roles */}
+          <CustomButton
+            variant="primary"
+            onClick={handleSaveChanges}
+            disabled={!hasPermission('users.sync-roles')}
+          >
             Guardar Cambios
           </CustomButton>
           <CustomButton variant="danger" onClick={onClose}>
