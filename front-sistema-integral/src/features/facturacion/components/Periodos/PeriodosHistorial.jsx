@@ -52,8 +52,8 @@ const PeriodosHistorial = () => {
   const canDeletePeriod = user?.permissions.includes('cuentas.destroy');
 
   // Permisos nuevos solicitados
-  const canShowTributos = user?.permissions.includes('tributos.show.clientes');
-  const canShowServices = user?.permissions.includes('servicios.show.client');
+  const canShowTributos = user?.permissions.includes('tributos.show.cliente');
+  const canShowServices = user?.permissions.includes('servicios.show.cliente');
 
   /**
    * clientsByServices: los clientes que tienen algún servicio en común con user.services.

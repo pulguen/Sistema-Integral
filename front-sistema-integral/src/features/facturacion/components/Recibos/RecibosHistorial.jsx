@@ -1,3 +1,5 @@
+// src/features/facturacion/components/Periodos/RecibosHistorial.jsx
+
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
 import Swal from "sweetalert2";
@@ -6,10 +8,29 @@ import { Card, Spinner, Button, Breadcrumb, Form, Table, OverlayTrigger, Tooltip
 import { useTable, useSortBy, usePagination } from 'react-table';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 
+// Importar AuthContext para obtener user.permissions y user.services
+import { AuthContext } from '../../../../context/AuthContext.jsx';
+
 const RecibosHistorial = () => {
   const { clientes, fetchClienteById, fetchRecibosByNumeros } = useContext(FacturacionContext);
+  const { user } = useContext(AuthContext);
 
+  // Definir permisos
+  const canShowClients = user?.permissions.includes('recibos.show.cliente');
+  const canEditRecibo = user?.permissions.includes('recibos.update');
+  const canDeleteRecibo = user?.permissions.includes('recibos.destroy');
+
+  // **Nuevos permisos**
+  const canShowTributo = user?.permissions.includes('tributos.show.cliente');
+  const canShowServicio = user?.permissions.includes('servicios.show.cliente');
+
+  /**
+   * clientsByServices: los clientes que tienen algún servicio en común con user.services.
+   * filteredClientes: filtrado adicional según el texto de búsqueda (handleSearchChange).
+   */
+  const [clientsByServices, setClientsByServices] = useState([]);
   const [filteredClientes, setFilteredClientes] = useState([]);
+
   const [selectedCliente, setSelectedCliente] = useState(null);
 
   const [tributosMap, setTributosMap] = useState([]);
@@ -22,26 +43,60 @@ const RecibosHistorial = () => {
   const [recibos, setRecibos] = useState([]); 
   const [loadingRecibos, setLoadingRecibos] = useState(false);
 
+  /**
+   * Filtrar clientes según los servicios asignados al usuario
+   */
   useEffect(() => {
-    setFilteredClientes(clientes);
-  }, [clientes]);
+    if (!Array.isArray(clientes)) {
+      setClientsByServices([]);
+      setFilteredClientes([]);
+      return;
+    }
 
+    if (!Array.isArray(user?.services) || user.services.length === 0) {
+      // Si el usuario no tiene servicios asignados, no mostrar ningún cliente
+      setClientsByServices([]);
+      setFilteredClientes([]);
+      return;
+    }
+
+    // Filtrar clientes que tienen al menos un servicio en común con user.services
+    const filtered = clientes.filter((cliente) => {
+      if (!Array.isArray(cliente.servicios)) return false;
+      // Suponiendo que cada servicio tiene una propiedad 'id'
+      return cliente.servicios.some((servicio) => user.services.includes(servicio.id));
+    });
+
+    setClientsByServices(filtered);
+    setFilteredClientes(filtered);
+  }, [clientes, user?.services]);
+
+  /**
+   * Maneja la búsqueda en el campo Select (react-select).
+   */
   const handleSearchChange = (inputValue) => {
     const term = inputValue.toLowerCase();
-    setFilteredClientes(
-      clientes.filter((cliente) => {
-        const fullName = `${cliente.persona?.nombre || ""} ${cliente.persona?.apellido || ""}`.toLowerCase();
-        const dni = cliente.persona?.dni?.toString() || "";
-        return fullName.includes(term) || dni.includes(term);
-      })
-    );
+    const result = clientsByServices.filter((cliente) => {
+      const nombre = cliente.persona?.nombre || '';
+      const apellido = cliente.persona?.apellido || '';
+      const fullName = `${nombre} ${apellido}`.toLowerCase();
+      const dni = cliente.persona?.dni?.toString() || '';
+      return fullName.includes(term) || dni.includes(term);
+    });
+    setFilteredClientes(result);
   };
 
+  /**
+   * Opciones para el select (React-Select)
+   */
   const clienteOptions = filteredClientes.map((cliente) => ({
     value: cliente.id,
-    label: `${cliente.persona?.nombre} ${cliente.persona?.apellido} - DNI: ${cliente.persona?.dni}`,
+    label: `${cliente.persona?.nombre || ''} ${cliente.persona?.apellido || ''} - DNI: ${cliente.persona?.dni || ''}`,
   }));
 
+  /**
+   * Cuando se elige un cliente en el Select
+   */
   const handleClienteSelect = async (selectedOption) => {
     if (!selectedOption) {
       handleReset();
@@ -95,6 +150,9 @@ const RecibosHistorial = () => {
     }
   };
 
+  /**
+   * Selección de tributo
+   */
   const handleTributoSelect = (e) => {
     const tributoId = e.target.value;
     const tributo = tributosMap.find((t) => t.id === parseInt(tributoId, 10));
@@ -104,6 +162,9 @@ const RecibosHistorial = () => {
     setRecibos([]);
   };
 
+  /**
+   * Selección de servicio
+   */
   const handleServicioSelect = async (e) => {
     const servicioId = e.target.value;
     const servicio = servicios.find((s) => s.id === parseInt(servicioId, 10));
@@ -123,6 +184,16 @@ const RecibosHistorial = () => {
         );
 
         const numerosRecibo = filteredCuentas.map(c => c.n_recibo_generado);
+
+        if (numerosRecibo.length === 0) {
+          setRecibos([]);
+          Swal.fire({
+            icon: "info",
+            title: "Sin Recibos",
+            text: "No se encontraron recibos para este cliente y servicio.",
+          });
+          return;
+        }
 
         const todosRecibos = await fetchRecibosByNumeros(numerosRecibo);
         // Aplanar datos
@@ -163,6 +234,9 @@ const RecibosHistorial = () => {
     }
   };
 
+  /**
+   * Reiniciar la selección y limpiar datos
+   */
   const handleReset = () => {
     setSelectedCliente(null);
     setFilteredClientes(clientes);
@@ -183,7 +257,26 @@ const RecibosHistorial = () => {
   const handleDelete = useCallback((id) => {
     // Aquí puedes confirmar y luego eliminar el recibo
     console.log("Eliminar recibo ID:", id);
-    Swal.fire("Eliminar", `Eliminar recibo con ID: ${id}`, "warning");
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este recibo?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          // Suponiendo que tienes una función para eliminar recibos
+          await fetch(`/recibos/${id}`, { method: 'DELETE' });
+          setRecibos(prev => prev.filter(recibo => recibo.id !== id));
+          Swal.fire('Eliminado!', 'El recibo ha sido eliminado.', 'success');
+        } catch (error) {
+          console.error('Error al eliminar recibo:', error);
+          Swal.fire('Error', 'Hubo un problema al eliminar el recibo.', 'error');
+        }
+      }
+    });
   }, []);
 
   // Definición de las columnas para la tabla
@@ -232,7 +325,14 @@ const RecibosHistorial = () => {
             placement="top"
             overlay={<Tooltip id={`tooltip-edit-${row.original.id}`}>Editar Recibo</Tooltip>}
           >
-            <Button variant="warning" size="sm" className="me-2" onClick={() => handleEdit(row.original)}>
+            <Button 
+              variant="warning" 
+              size="sm" 
+              className="me-2" 
+              onClick={() => handleEdit(row.original)}
+              disabled={!canEditRecibo}
+              aria-label={`Editar recibo ${row.original.id}`}
+            >
               <FaEdit />
             </Button>
           </OverlayTrigger>
@@ -240,14 +340,20 @@ const RecibosHistorial = () => {
             placement="top"
             overlay={<Tooltip id={`tooltip-delete-${row.original.id}`}>Eliminar Recibo</Tooltip>}
           >
-            <Button variant="danger" size="sm" onClick={() => handleDelete(row.original.id)}>
+            <Button 
+              variant="danger" 
+              size="sm" 
+              onClick={() => handleDelete(row.original.id)}
+              disabled={!canDeleteRecibo}
+              aria-label={`Eliminar recibo ${row.original.id}`}
+            >
               <FaTrash />
             </Button>
           </OverlayTrigger>
         </>
       ),
     },
-  ], [handleEdit, handleDelete]);
+  ], [handleEdit, handleDelete, canEditRecibo, canDeleteRecibo]);
 
   const {
     getTableProps,
@@ -272,6 +378,7 @@ const RecibosHistorial = () => {
 
   return (
     <Card className="shadow-sm p-4 mt-4">
+      {/* Migas de Pan */}
       <Breadcrumb>
         <Breadcrumb.Item>Inicio</Breadcrumb.Item>
         <Breadcrumb.Item>Facturación</Breadcrumb.Item>
@@ -283,9 +390,11 @@ const RecibosHistorial = () => {
       {/* Búsqueda y selección */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
+          {/* Búsqueda de cliente */}
           <Form.Group controlId="cliente" className="mb-3">
             <Form.Label>Buscar Cliente</Form.Label>
             <Select
+              isDisabled={!canShowClients}
               value={selectedCliente ? { value: selectedCliente.id, label: `${selectedCliente.persona?.nombre} ${selectedCliente.persona?.apellido} - DNI: ${selectedCliente.persona?.dni}` } : null}
               onChange={handleClienteSelect}
               onInputChange={handleSearchChange}
@@ -297,6 +406,7 @@ const RecibosHistorial = () => {
             />
           </Form.Group>
 
+          {/* Selección de tributo */}
           {selectedCliente && (
             <Form.Group controlId="tributo" className="mb-3">
               <Form.Label>Seleccionar Tributo</Form.Label>
@@ -305,6 +415,7 @@ const RecibosHistorial = () => {
                 value={selectedTributo || ""}
                 onChange={handleTributoSelect}
                 aria-label="Seleccionar Tributo"
+                disabled={!canShowTributo} // **Deshabilitar si no tiene permiso 'tributos.show.cliente'**
               >
                 <option value="">Seleccione un tributo</option>
                 {tributosMap.map((tributo) => (
@@ -316,6 +427,7 @@ const RecibosHistorial = () => {
             </Form.Group>
           )}
 
+          {/* Selección de servicio */}
           {selectedTributo && (
             <Form.Group controlId="servicio" className="mb-3">
               <Form.Label>Seleccionar Servicio</Form.Label>
@@ -324,6 +436,7 @@ const RecibosHistorial = () => {
                 value={selectedServicio?.id || ""}
                 onChange={handleServicioSelect}
                 aria-label="Seleccionar Servicio"
+                disabled={!canShowServicio} // **Deshabilitar si no tiene permiso 'servicios.show.cliente'**
               >
                 <option value="">Seleccione un servicio</option>
                 {servicios.map((servicio) => (
@@ -351,9 +464,9 @@ const RecibosHistorial = () => {
               <Table {...getTableProps()} striped bordered hover>
                 <thead>
                   {headerGroups.map(headerGroup => (
-                    <tr {...headerGroup.getHeaderGroupProps()}>
+                    <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
                       {headerGroup.headers.map(column => (
-                        <th {...column.getHeaderProps(column.getSortByToggleProps())}>
+                        <th {...column.getHeaderProps(column.getSortByToggleProps())} key={column.id}>
                           {column.render('Header')}
                           <span>
                             {column.isSorted
@@ -368,18 +481,26 @@ const RecibosHistorial = () => {
                   ))}
                 </thead>
                 <tbody {...getTableBodyProps()}>
-                  {page.map((row, i) => {
-                    prepareRow(row);
-                    return (
-                      <tr {...row.getRowProps()}>
-                        {row.cells.map(cell => (
-                          <td {...cell.getCellProps()}>
-                            {cell.render('Cell')}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                  {page.length > 0 ? (
+                    page.map((row, i) => {
+                      prepareRow(row);
+                      return (
+                        <tr {...row.getRowProps()} key={row.original.id}>
+                          {row.cells.map(cell => (
+                            <td {...cell.getCellProps()} key={cell.column.id}>
+                              {cell.render('Cell')}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={columns.length} className="text-center text-muted">
+                        No hay recibos para este cliente y servicio.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </Table>
 
