@@ -1,53 +1,32 @@
+// src/features/facturacion/components/Clientes/Clientes.jsx
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import Swal from 'sweetalert2';
 import { Breadcrumb, Form, Button, Table } from 'react-bootstrap';
-import {
-  FaEdit,
-  FaTrash,
-  FaPlus,
-  FaSort,
-  FaSortUp,
-  FaSortDown,
-} from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import NewClientModal from '../../../../components/common/modals/NewClientModal.jsx';
 import EditClientModal from '../../../../components/common/modals/EditClientModal.jsx';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
 import Loading from '../../../../components/common/loading/Loading.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
-
-// Importa los hooks de React Table
-import {
-  useTable,
-  useSortBy,
-  usePagination,
-  useGlobalFilter,
-} from 'react-table';
-
-// 1. Importa AuthContext para poder verificar los permisos:
+import { useTable, useSortBy, usePagination, useGlobalFilter } from 'react-table';
 import { AuthContext } from '../../../../context/AuthContext';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
   const [cargando, setCargando] = useState(true);
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-
   const navigate = useNavigate();
-
-  // 2. Extrae user con user.services, y la función hasPermission
   const { user } = useContext(AuthContext);
   const hasPermission = useCallback(
     (permission) => user?.permissions?.includes(permission),
     [user?.permissions]
   );
 
-  /**
-   * Función para obtener clientes desde la API.
-   */
+  // Función para obtener clientes desde la API
   const fetchClientes = useCallback(async () => {
     try {
       setCargando(true);
@@ -66,17 +45,36 @@ export default function Clientes() {
     }
   }, []);
 
-  // Obtener clientes al montar el componente
   useEffect(() => {
     fetchClientes();
   }, [fetchClientes]);
 
-  /**
-   * Eliminar cliente
-   */
+  // Función para eliminar cliente con eliminación previa de servicios asignados (si existen)
   const onDelete = useCallback(
     async (id) => {
       try {
+        // Buscar el cliente a eliminar
+        const clientToDelete = clientes.find(cli => cli.id === id);
+        if (!clientToDelete) {
+          throw new Error("Cliente no encontrado");
+        }
+        // Si tiene servicios asignados, pedir confirmación para eliminarlos primero
+        if (clientToDelete.servicios && clientToDelete.servicios.length > 0) {
+          const confirmRemoveServices = await Swal.fire({
+            title: 'Eliminar servicios asignados',
+            text: 'El cliente tiene servicios asignados. Se eliminarán todas las asignaciones y luego se procederá a eliminar el cliente. ¿Desea continuar?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar servicios y cliente',
+            cancelButtonText: 'Cancelar'
+          });
+          if (!confirmRemoveServices.isConfirmed) {
+            return;
+          }
+          // Sincronizar servicios vacíos para eliminar las asignaciones
+          await customFetch(`/clientes/${id}/serv-sinc`, 'POST', { servicios: [] });
+        }
+        // Confirmar eliminación del cliente
         const result = await Swal.fire({
           title: '¿Estás seguro?',
           text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este cliente?',
@@ -85,7 +83,6 @@ export default function Clientes() {
           confirmButtonText: 'Sí, eliminar',
           cancelButtonText: 'Cancelar',
         });
-
         if (result.isConfirmed) {
           await customFetch(`/clientes/${id}`, 'DELETE');
           await fetchClientes();
@@ -96,30 +93,22 @@ export default function Clientes() {
         console.error('Error al eliminar cliente:', error);
       }
     },
-    [fetchClientes]
+    [fetchClientes, clientes]
   );
 
-  /**
-   * Filtrar clientes según los servicios del usuario y el searchTerm
-   */
+  // Filtrar clientes según servicios del usuario y searchTerm
   const filteredClientes = React.useMemo(() => {
-    // Primero, filtrar según servicios en común.
-    // user.services es un array de IDs de servicios asignados al usuario
     let filteredByServices = clientes;
     if (Array.isArray(user?.services) && user.services.length > 0) {
       filteredByServices = clientes.filter((cli) => {
-        // cli.servicios es un array con {id, nombre, ...}
         return (
           Array.isArray(cli.servicios) &&
           cli.servicios.some((serv) => user.services.includes(serv.id))
         );
       });
     } else {
-      // Si el usuario no tiene servicios o no se han cargado, no muestra ningún cliente
       filteredByServices = [];
     }
-
-    // Segundo, filtrar por searchTerm
     if (!searchTerm) return filteredByServices;
     return filteredByServices.filter((cliente) => {
       const nombreCompleto = `${cliente.persona?.nombre} ${cliente.persona?.apellido}`.toLowerCase();
@@ -131,38 +120,20 @@ export default function Clientes() {
     });
   }, [clientes, user?.services, searchTerm]);
 
-  /**
-   * Definir las columnas para React Table.
-   */
+  // Definir columnas para la tabla
   const columns = React.useMemo(
     () => [
-      {
-        Header: 'Nombre',
-        accessor: 'persona.nombre',
-      },
-      {
-        Header: 'Apellido',
-        accessor: 'persona.apellido',
-      },
-      {
-        Header: 'DNI/CIUT',
-        accessor: 'persona.dni',
-      },
-      {
-        Header: 'Email',
-        accessor: 'persona.email',
-      },
-      {
-        Header: 'Teléfono',
-        accessor: 'persona.telefono',
-      },
+      { Header: 'Nombre', accessor: 'persona.nombre' },
+      { Header: 'Apellido', accessor: 'persona.apellido' },
+      { Header: 'DNI/CIUT', accessor: 'persona.dni' },
+      { Header: 'Email', accessor: 'persona.email' },
+      { Header: 'Teléfono', accessor: 'persona.telefono' },
       {
         Header: 'Acciones',
         accessor: 'acciones',
         disableSortBy: true,
         Cell: ({ row }) => (
           <>
-            {/* Botón Editar */}
             <CustomButton
               variant="warning"
               size="sm"
@@ -177,8 +148,6 @@ export default function Clientes() {
             >
               <FaEdit />
             </CustomButton>
-
-            {/* Botón Eliminar */}
             <CustomButton
               variant="danger"
               size="sm"
@@ -198,9 +167,6 @@ export default function Clientes() {
     [onDelete, hasPermission]
   );
 
-  /**
-   * Configurar React Table con ordenamiento y paginación.
-   */
   const {
     getTableProps,
     getTableBodyProps,
@@ -223,34 +189,29 @@ export default function Clientes() {
       data: filteredClientes,
       initialState: { pageIndex: 0, pageSize: 10 },
     },
-    useGlobalFilter, 
+    useGlobalFilter,
     useSortBy,
     usePagination
   );
 
-  // Manejar el cambio en el término de búsqueda para React Table
   useEffect(() => {
     setGlobalFilter(searchTerm || undefined);
   }, [searchTerm, setGlobalFilter]);
 
-  /**
-   * Agregar nuevo cliente
-   */
-  const handleAddClient = async (newClient) => {
+  // Función para crear el cliente y retornar el objeto creado (con id)
+  const handleAddClient = async (clientToSend) => {
     try {
-      await customFetch('/clientes', 'POST', newClient);
-      await fetchClientes();
-      setShowAddModal(false);
-      Swal.fire('Éxito', 'Cliente agregado exitosamente.', 'success');
+      const newClientResponse = await customFetch('/clientes', 'POST', clientToSend);
+      console.log('Nuevo cliente retornado:', newClientResponse);
+      return newClientResponse;
     } catch (error) {
       Swal.fire('Error', 'Hubo un problema al agregar el cliente.', 'error');
       console.error('Error al agregar cliente:', error);
+      throw error;
     }
   };
 
-  /**
-   * Editar cliente existente
-   */
+  // Función para editar el cliente
   const handleEditClient = async (updatedClient) => {
     try {
       await customFetch(`/clientes/${updatedClient.id}`, 'PUT', updatedClient);
@@ -263,9 +224,7 @@ export default function Clientes() {
     }
   };
 
-  /**
-   * Manejar clic en la fila => detalle del cliente
-   */
+  // Manejar clic en la fila para ver detalle
   const handleRowClick = (clienteId) => {
     if (!hasPermission('clientes.show')) {
       navigate('/unauthorized');
@@ -274,30 +233,20 @@ export default function Clientes() {
     navigate(`/facturacion/clientes/${clienteId}`);
   };
 
-  /**
-   * Obtener ícono de ordenamiento
-   */
   const getSortIcon = (column) => {
     if (!column.canSort) return null;
-    if (column.isSorted) {
-      return column.isSortedDesc ? <FaSortDown /> : <FaSortUp />;
-    }
+    if (column.isSorted) return column.isSortedDesc ? <FaSortDown /> : <FaSortUp />;
     return <FaSort />;
   };
 
   return (
     <div className="table-responsive mt-2 clientes-section">
-      {/* Migas de Pan */}
       <Breadcrumb>
         <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
         <Breadcrumb.Item href="/facturacion">Facturación</Breadcrumb.Item>
         <Breadcrumb.Item active>Gestión de Clientes</Breadcrumb.Item>
       </Breadcrumb>
-
-      {/* Título */}
       <h3 className="section-title">Gestión de Clientes</h3>
-
-      {/* Campo de Búsqueda */}
       <Form.Control
         type="text"
         placeholder="Buscar por nombre o DNI/CIUT"
@@ -306,8 +255,6 @@ export default function Clientes() {
         className="mb-3 search-input"
         aria-label="Buscar Cliente"
       />
-
-      {/* Botón Agregar */}
       <CustomButton
         onClick={() => setShowAddModal(true)}
         className="mb-3"
@@ -317,7 +264,6 @@ export default function Clientes() {
         <FaPlus className="me-2" />
         Agregar Cliente
       </CustomButton>
-
       {cargando ? (
         <Loading />
       ) : (
@@ -325,19 +271,13 @@ export default function Clientes() {
           <Table {...getTableProps()} striped bordered hover className="custom-table">
             <thead>
               {headerGroups.map((headerGroup) => {
-                const { key: headerGroupKey, ...headerGroupProps } =
-                  headerGroup.getHeaderGroupProps();
+                const { key: headerGroupKey, ...headerGroupProps } = headerGroup.getHeaderGroupProps();
                 return (
                   <tr key={headerGroupKey} {...headerGroupProps}>
                     {headerGroup.headers.map((column) => {
-                      const { key: columnKey, ...columnProps } =
-                        column.getHeaderProps(column.getSortByToggleProps());
+                      const { key: columnKey, ...columnProps } = column.getHeaderProps(column.getSortByToggleProps());
                       return (
-                        <th
-                          key={columnKey}
-                          {...columnProps}
-                          style={{ cursor: column.canSort ? 'pointer' : 'default' }}
-                        >
+                        <th key={columnKey} {...columnProps} style={{ cursor: column.canSort ? 'pointer' : 'default' }}>
                           {column.render('Header')}
                           {getSortIcon(column)}
                         </th>
@@ -362,55 +302,24 @@ export default function Clientes() {
                     >
                       {row.cells.map((cell) => {
                         const { key: cellKey, ...cellProps } = cell.getCellProps();
-                        return (
-                          <td key={cellKey} {...cellProps}>
-                            {cell.render('Cell')}
-                          </td>
-                        );
+                        return <td key={cellKey} {...cellProps}>{cell.render('Cell')}</td>;
                       })}
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center">
-                    No se encontraron clientes.
-                  </td>
+                  <td colSpan="6" className="text-center">No se encontraron clientes.</td>
                 </tr>
               )}
             </tbody>
           </Table>
-
-          {/* Paginación */}
           <div className="pagination d-flex justify-content-between align-items-center">
             <div>
-              <Button
-                onClick={() => gotoPage(0)}
-                disabled={!canPreviousPage}
-                className="me-2"
-              >
-                {'<<'}
-              </Button>
-              <Button
-                onClick={() => previousPage()}
-                disabled={!canPreviousPage}
-                className="me-2"
-              >
-                {'<'}
-              </Button>
-              <Button
-                onClick={() => nextPage()}
-                disabled={!canNextPage}
-                className="me-2"
-              >
-                {'>'}
-              </Button>
-              <Button
-                onClick={() => gotoPage(pageCount - 1)}
-                disabled={!canNextPage}
-              >
-                {'>>'}
-              </Button>
+              <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="me-2">{'<<'}</Button>
+              <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="me-2">{'<'}</Button>
+              <Button onClick={() => nextPage()} disabled={!canNextPage} className="me-2">{'>'}</Button>
+              <Button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>{'>>'}</Button>
             </div>
             <span>
               Página <strong>{pageIndex + 1} de {pageOptions.length}</strong>
@@ -421,9 +330,7 @@ export default function Clientes() {
                 type="number"
                 defaultValue={pageIndex + 1}
                 onChange={(e) => {
-                  const pageNumber = e.target.value
-                    ? Number(e.target.value) - 1
-                    : 0;
+                  const pageNumber = e.target.value ? Number(e.target.value) - 1 : 0;
                   gotoPage(pageNumber);
                 }}
                 style={{ width: '100px' }}
@@ -435,23 +342,18 @@ export default function Clientes() {
               style={{ width: '150px' }}
             >
               {[10, 20, 30, 40, 50].map((size) => (
-                <option key={size} value={size}>
-                  Mostrar {size}
-                </option>
+                <option key={size} value={size}>Mostrar {size}</option>
               ))}
             </Form.Select>
           </div>
         </>
       )}
-
-      {/* Modal Agregar Cliente */}
       <NewClientModal
         show={showAddModal}
         handleClose={() => setShowAddModal(false)}
         handleSubmit={handleAddClient}
+        onClientCreated={fetchClientes}
       />
-
-      {/* Modal Editar Cliente */}
       {selectedClient && (
         <EditClientModal
           show={showEditModal}

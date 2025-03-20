@@ -1,4 +1,3 @@
-// src/features/facturacion/components/Clientes/ClienteDetalle.jsx
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, Table, Form, Breadcrumb, Row, Col } from 'react-bootstrap';
@@ -7,131 +6,271 @@ import CustomButton from '../../../../components/common/botons/CustomButton.jsx'
 import { FaEdit, FaTrash, FaSave } from 'react-icons/fa';
 import Loading from '../../../../components/common/loading/Loading.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
-
-// PERMISOS: Importa AuthContext
 import { AuthContext } from '../../../../context/AuthContext';
 
-const ClienteDetalle = () => {
+const unpackData = (data) => {
+  if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
+    return data[0];
+  }
+  return data;
+};
+
+export default function ClienteDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [cliente, setCliente] = useState(null);
-  const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
-  const [serviciosAsignados, setServiciosAsignados] = useState([]);
-  const [tributos, setTributos] = useState([]);
-  const [editMode, setEditMode] = useState(false);
 
+  // Estado principal del cliente
+  const [cliente, setCliente] = useState(null);
+
+  // Listas para selects
+  const [clienteTipos, setClienteTipos] = useState([]);
+  const [provincias, setProvincias] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
+  const [calles, setCalles] = useState([]);
+  const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
+
+  // Servicios asignados (IDs)
+  const [serviciosAsignados, setServiciosAsignados] = useState([]);
+
+  // Modo edición y estado del formulario de edición
+  const [editMode, setEditMode] = useState(false);
   const [editedCliente, setEditedCliente] = useState({
+    tipo_cliente: '',
     nombre: '',
     apellido: '',
     dni: '',
-    telefono: '',
     email: '',
-    calle: '',
-    altura: '',
+    telefono: '',
     f_nacimiento: '',
-    tipo_cliente: 'fisico',
-    piso: '',
-    departamento: '',
-    calle_esquina: '',
-    altura_esquina: '',
+    provincia_id: '',
+    municipio_id: '',
+    calle_id: '',
+    altura: '',
   });
 
-  // PERMISOS: obtener user del AuthContext
+  // Permisos
   const { user } = useContext(AuthContext);
-
-  // PERMISOS: función para verificar permisos
   const hasPermission = useCallback(
-    (permiso) => user?.permissions?.includes(permiso),
+    (perm) => user?.permissions?.includes(perm),
     [user?.permissions]
   );
 
+  // ------------------ FUNCIONES DE FETCH ------------------
+
   const fetchCliente = useCallback(async () => {
     try {
-      const data = await customFetch(`/clientes/${id}`);
-      const combinedData = { ...data, ...data.persona };
-      setCliente(combinedData);
+      // Llamada a la API
+      const data = await customFetch(`/clientes/${id}`, 'GET');
+      console.log('[fetchCliente] Respuesta original:', data);
+
+      // OBTÉN PERSONA Y DIRECCION DESDE data.persona
+      const { persona = {} } = data;
+      const { direccion = {} } = persona;
+
+      // Combina datos para la vista
+      const combined = { ...data, ...persona, ...direccion };
+      console.log('[fetchCliente] Datos combinados:', combined);
+      setCliente(combined);
+
+      // Para el formulario de edición, asigna los datos que vienen de persona/direccion
       setEditedCliente({
-        nombre: combinedData.nombre || '',
-        apellido: combinedData.apellido || '',
-        dni: combinedData.dni || '',
-        telefono: combinedData.telefono || '',
-        email: combinedData.email || '',
-        calle: combinedData.calle || '',
-        altura: combinedData.altura || '',
-        piso: combinedData.piso || '',
-        departamento: combinedData.departamento || '',
-        calle_esquina: combinedData.calle_esquina || '',
-        altura_esquina: combinedData.altura_esquina || '',
-        f_nacimiento: combinedData.f_nacimiento || '',
-        tipo_cliente: combinedData.tipo_cliente || 'fisico',
+        tipo_cliente: data.cliente_tipo_id ? String(data.cliente_tipo_id) : '',
+        nombre: persona.nombre || '',
+        apellido: persona.apellido || '',
+        dni: persona.dni ? String(persona.dni) : '',
+        email: persona.email || '',
+        telefono: persona.telefono ? String(persona.telefono) : '',
+        f_nacimiento: persona.f_nacimiento || '',
+
+        // NOTA: Extraemos los IDs desde direccion.provincia, direccion.municipio, etc.
+        provincia_id: direccion.provincia ? String(direccion.provincia.id) : '',
+        municipio_id: direccion.municipio ? String(direccion.municipio.id) : '',
+        calle_id: direccion.calle ? String(direccion.calle.id) : '',
+        altura: direccion.altura ? String(direccion.altura) : '',
       });
-      setServiciosAsignados(data.servicios.map((servicio) => servicio.id));
-    } catch (error) {
-      console.error('Error al obtener el cliente:', error);
+
+      // Servicios asignados
+      if (data.servicios) {
+        const servIDs = data.servicios.map((s) => s.id);
+        setServiciosAsignados(servIDs);
+      }
+    } catch (err) {
+      console.error('[fetchCliente] Error:', err);
       Swal.fire('Error', 'Error al obtener el cliente.', 'error');
     }
   }, [id]);
 
-  const fetchServicios = useCallback(async () => {
+  const fetchClienteTipos = useCallback(async () => {
     try {
-      const data = await customFetch(`/servicios`);
-      setServiciosDisponibles(data);
-    } catch (error) {
-      Swal.fire('Error', 'Error al obtener los servicios.', 'error');
+      const tiposData = await customFetch('/cliente-tipos', 'GET');
+      const tipos = unpackData(tiposData);
+      setClienteTipos(tipos);
+    } catch (err) {
+      console.error('[fetchClienteTipos] Error:', err);
     }
   }, []);
 
-  const fetchTributos = useCallback(async () => {
+  const fetchProvincias = useCallback(async () => {
     try {
-      const data = await customFetch(`/tributos`);
-      setTributos(data);
-    } catch (error) {
-      Swal.fire('Error', 'Error al obtener los tributos.', 'error');
+      const provData = await customFetch('/provincias', 'GET');
+      const provs = unpackData(provData);
+      setProvincias(provs);
+    } catch (err) {
+      console.error('[fetchProvincias] Error:', err);
+    }
+  }, []);
+
+  const fetchMunicipios = useCallback(async () => {
+    try {
+      const munData = await customFetch('/municipios', 'GET');
+      const muns = unpackData(munData);
+      setMunicipios(muns);
+    } catch (err) {
+      console.error('[fetchMunicipios] Error:', err);
+    }
+  }, []);
+
+  const fetchCalles = useCallback(async () => {
+    try {
+      const callData = await customFetch('/calles', 'GET');
+      const cls = unpackData(callData);
+      setCalles(cls);
+    } catch (err) {
+      console.error('[fetchCalles] Error:', err);
+    }
+  }, []);
+
+  const fetchServicios = useCallback(async () => {
+    try {
+      const servData = await customFetch('/servicios', 'GET');
+      const servs = unpackData(servData);
+      setServiciosDisponibles(servs);
+    } catch (err) {
+      console.error('[fetchServicios] Error:', err);
     }
   }, []);
 
   useEffect(() => {
     fetchCliente();
+    fetchClienteTipos();
+    fetchProvincias();
+    fetchMunicipios();
+    fetchCalles();
     fetchServicios();
-    fetchTributos();
-  }, [fetchCliente, fetchServicios, fetchTributos]);
+  }, [
+    fetchCliente,
+    fetchClienteTipos,
+    fetchProvincias,
+    fetchMunicipios,
+    fetchCalles,
+    fetchServicios,
+  ]);
 
-  const getTributoNameById = (tributoId) => {
-    const tributo = tributos.find((t) => t.id === tributoId);
-    return tributo ? tributo.nombre : 'Tributo desconocido';
+  // ------------------ FUNCIONES DE EDICIÓN ------------------
+
+  const handleEditedChange = (e) => {
+    const { name, value } = e.target;
+    console.log('[handleEditedChange]', name, value);
+
+    // Si cambio provincia, limpio municipio y calle
+    if (name === 'provincia_id') {
+      setEditedCliente((prev) => ({
+        ...prev,
+        provincia_id: value,
+        municipio_id: '',
+        calle_id: '',
+      }));
+    } else if (name === 'municipio_id') {
+      // Si cambio municipio, limpio calle
+      setEditedCliente((prev) => ({
+        ...prev,
+        municipio_id: value,
+        calle_id: '',
+      }));
+    } else {
+      setEditedCliente((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleEditCliente = async () => {
+    try {
+      const updatedData = {
+        id: cliente.id,
+        nombre: editedCliente.nombre,
+        apellido: editedCliente.apellido,
+        f_nacimiento: editedCliente.f_nacimiento,
+        dni: editedCliente.dni ? parseInt(editedCliente.dni, 10) : null,
+        email: editedCliente.email,
+        telefono: editedCliente.telefono,
+        cliente_tipo_id: editedCliente.tipo_cliente,
+        provincia_id: editedCliente.provincia_id
+          ? Number(editedCliente.provincia_id)
+          : null,
+        municipio_id: editedCliente.municipio_id
+          ? Number(editedCliente.municipio_id)
+          : null,
+        calle_id: editedCliente.calle_id
+          ? Number(editedCliente.calle_id)
+          : null,
+        altura: editedCliente.altura ? parseInt(editedCliente.altura, 10) : null,
+      };
+      console.log('[handleEditCliente] Datos a enviar:', updatedData);
+
+      // PUT a la API
+      await customFetch(`/clientes/${id}`, 'PUT', updatedData);
+      Swal.fire('Éxito', 'Cliente modificado correctamente.', 'success');
+
+      // Actualiza el estado principal con los nuevos datos
+      setCliente((prev) => ({
+        ...prev,
+        ...updatedData,
+      }));
+      setEditMode(false);
+    } catch (err) {
+      console.error('[handleEditCliente] Error:', err);
+      Swal.fire('Error', `Error al modificar el cliente: ${err.message}`, 'error');
+    }
+  };
+
+  // ------------------ ASIGNAR SERVICIOS ------------------
+
+  const handleCheckboxChange = (servicioId) => {
+    setServiciosAsignados((prev) => {
+      if (prev.includes(servicioId)) {
+        const newSelected = prev.filter((id) => id !== servicioId);
+        console.log('[handleCheckboxChange] Servicios actualizados:', newSelected);
+        return newSelected;
+      }
+      const newSelected = [...prev, servicioId];
+      console.log('[handleCheckboxChange] Servicios actualizados:', newSelected);
+      return newSelected;
+    });
   };
 
   const handleAsignarServicios = async () => {
-    if (!serviciosAsignados || serviciosAsignados.length === 0) {
+    if (serviciosAsignados.length === 0) {
       Swal.fire('Error', 'Debe seleccionar al menos un servicio.', 'error');
       return;
     }
-
     try {
+      console.log('[handleAsignarServicios] Servicios a asignar:', serviciosAsignados);
       await customFetch(`/clientes/${id}/serv-sinc`, 'POST', {
         servicios: serviciosAsignados,
       });
       Swal.fire('Éxito', 'Servicios asignados correctamente.', 'success');
       setCliente((prev) => ({
         ...prev,
-        servicios: serviciosDisponibles.filter((serv) =>
-          serviciosAsignados.includes(serv.id)
+        servicios: serviciosDisponibles.filter((s) =>
+          serviciosAsignados.includes(s.id)
         ),
       }));
-    } catch (error) {
+    } catch (err) {
+      console.error('[handleAsignarServicios] Error:', err);
       Swal.fire('Error', 'Hubo un problema al asignar los servicios.', 'error');
     }
   };
 
-  const handleCheckboxChange = (servicioId) => {
-    setServiciosAsignados((prevSelected) => {
-      if (prevSelected.includes(servicioId)) {
-        return prevSelected.filter((id) => id !== servicioId);
-      } else {
-        return [...prevSelected, servicioId];
-      }
-    });
-  };
+  // ------------------ ELIMINAR CLIENTE ------------------
 
   const handleDeleteCliente = async () => {
     try {
@@ -143,67 +282,30 @@ const ClienteDetalle = () => {
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
       });
-
       if (confirmResult.isConfirmed) {
         await customFetch(`/clientes/${id}`, 'DELETE');
         Swal.fire('Eliminado', 'El cliente ha sido eliminado.', 'success');
         navigate('/facturacion/clientes');
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('[handleDeleteCliente] Error:', err);
       Swal.fire('Error', 'Hubo un problema al eliminar el cliente.', 'error');
     }
   };
 
-  const handleEditCliente = async () => {
-    try {
-      const updatedData = {
-        id: cliente.id,
-        tipo_cliente: editedCliente.tipo_cliente,
-        nombre: editedCliente.nombre,
-        apellido: editedCliente.apellido,
-        dni: editedCliente.dni,
-        telefono: editedCliente.telefono,
-        email: editedCliente.email,
-        calle: editedCliente.calle,
-        altura: editedCliente.altura,
-        piso: editedCliente.piso,
-        departamento: editedCliente.departamento,
-        calle_esquina: editedCliente.calle_esquina,
-        altura_esquina: editedCliente.altura_esquina,
-        f_nacimiento: editedCliente.f_nacimiento,
-      };
+  // ------------------ RENDER ------------------
 
-      await customFetch(`/clientes/${id}`, 'PUT', updatedData);
-
-      Swal.fire('Éxito', 'Cliente modificado correctamente.', 'success');
-      setEditMode(false);
-      setCliente((prevCliente) => ({
-        ...prevCliente,
-        ...updatedData,
-      }));
-    } catch (error) {
-      console.error('Error al modificar el cliente:', error);
-      Swal.fire(
-        'Error',
-        `Hubo un problema al modificar el cliente: ${error.message}`,
-        'error'
-      );
-    }
-  };
-
-  if (!cliente) return <Loading />;
+  if (!cliente) {
+    return <Loading />;
+  }
 
   return (
     <Card className="p-4">
-      {/* Breadcrumb para navegación con nombre del cliente */}
       <Breadcrumb>
         <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>
           Home
         </Breadcrumb.Item>
-        <Breadcrumb.Item
-          linkAs={Link}
-          linkProps={{ to: '/facturacion/clientes' }}
-        >
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/facturacion/clientes' }}>
           Gestión de Clientes
         </Breadcrumb.Item>
         <Breadcrumb.Item active>
@@ -212,290 +314,269 @@ const ClienteDetalle = () => {
       </Breadcrumb>
 
       <Row>
-        {/* Columna de Información del Cliente */}
         <Col md={6}>
           <h4 className="text-primary">Datos del Cliente</h4>
           {!editMode ? (
             <>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>Nombre:</strong> {cliente.nombre}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>Apellido:</strong> {cliente.apellido}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>DNI/CIUT:</strong> {cliente.dni}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>Teléfono:</strong> {cliente.telefono}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>Email:</strong> {cliente.email}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
-                <strong>Dirección:</strong> {cliente.calle} {cliente.altura}
-              </p>
-              <p style={{ fontSize: '1.2rem' }}>
-                <strong>Piso:</strong> {cliente.piso}
-              </p>
-              <p style={{ fontSize: '1.2rem' }}>
-                <strong>Departamento:</strong> {cliente.departamento}
-              </p>
-              <p style={{ fontSize: '1.2rem' }}>
-                <strong>Esquina:</strong> {cliente.calle_esquina}{' '}
-                {cliente.altura_esquina}
-              </p>
-              <p style={{ fontSize: '1.2rem' }}>
+              <p>
                 <strong>Fecha de Nacimiento:</strong> {cliente.f_nacimiento}
               </p>
-              <p style={{ fontSize: '1.2rem' }}>
-                <strong>Tipo de Cliente:</strong> {cliente.tipo_cliente}
+              <p>
+                <strong>Tipo de Cliente:</strong>{' '}
+                {cliente.tipo?.nombre || 'Desconocido'}
               </p>
-              {/* Botón Modificar */}
+              <p>
+                <strong>Provincia:</strong>{' '}
+                {cliente.provincia?.nombre || 'Sin provincia'}
+              </p>
+              <p>
+                <strong>Municipio:</strong>{' '}
+                {cliente.municipio?.nombre || 'Sin municipio'}
+              </p>
+              <p>
+                <strong>Calle:</strong>{' '}
+                {cliente.calle?.nombre || 'Sin calle'}{' '}
+                {cliente.altura ? `- ${cliente.altura}` : ''}
+              </p>
+
               <CustomButton
                 variant="warning"
                 className="mt-3"
                 onClick={() => setEditMode(true)}
-                disabled={!hasPermission('clientes.update')} // PERMISOS
+                disabled={!hasPermission('clientes.update')}
               >
                 <FaEdit /> Modificar Datos
               </CustomButton>
-              {/* Botón Eliminar */}
               <CustomButton
                 variant="danger"
                 className="mt-3 ms-3"
                 onClick={handleDeleteCliente}
-                disabled={!hasPermission('clientes.destroy')} // PERMISOS
+                disabled={!hasPermission('clientes.destroy')}
               >
                 <FaTrash /> Eliminar Cliente
               </CustomButton>
             </>
           ) : (
             <Form>
-              {/* Campos del formulario de edición */}
-              <Row>
-                <Col md={6}>
-                  <Form.Group controlId="nombre">
-                    <Form.Label>Nombre</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.nombre}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          nombre: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="apellido">
-                    <Form.Label>Apellido</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.apellido}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          apellido: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group controlId="dni">
-                    <Form.Label>DNI/CIUT</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.dni}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          dni: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="telefono">
-                    <Form.Label>Teléfono</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.telefono}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          telefono: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Form.Group controlId="email">
-                <Form.Label>Email</Form.Label>
-                <Form.Control
-                  type="email"
-                  value={editedCliente.email}
-                  onChange={(e) =>
-                    setEditedCliente({
-                      ...editedCliente,
-                      email: e.target.value,
-                    })
-                  }
-                />
-              </Form.Group>
-              <Row>
-                <Col md={6}>
-                  <Form.Group controlId="calle">
-                    <Form.Label>Calle</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.calle}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          calle: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="altura">
-                    <Form.Label>Altura</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.altura}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          altura: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group controlId="piso">
-                    <Form.Label>Piso</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.piso}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          piso: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="departamento">
-                    <Form.Label>Departamento</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.departamento}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          departamento: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group controlId="calle_esquina">
-                    <Form.Label>Calle Esquina</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.calle_esquina}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          calle_esquina: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="altura_esquina">
-                    <Form.Label>Altura Esquina</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedCliente.altura_esquina}
-                      onChange={(e) =>
-                        setEditedCliente({
-                          ...editedCliente,
-                          altura_esquina: e.target.value,
-                        })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Form.Group controlId="f_nacimiento">
-                <Form.Label>Fecha de Nacimiento</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={editedCliente.f_nacimiento}
-                  onChange={(e) =>
-                    setEditedCliente({
-                      ...editedCliente,
-                      f_nacimiento: e.target.value,
-                    })
-                  }
-                />
-              </Form.Group>
-              <Form.Group controlId="tipo_cliente" className="mt-2">
+              <Form.Group className="mb-3">
                 <Form.Label>Tipo de Cliente</Form.Label>
                 <Form.Control
                   as="select"
+                  name="tipo_cliente"
                   value={editedCliente.tipo_cliente}
-                  onChange={(e) =>
-                    setEditedCliente({
-                      ...editedCliente,
-                      tipo_cliente: e.target.value,
-                    })
-                  }
+                  onChange={handleEditedChange}
+                  required
                 >
-                  <option value="fisico">Físico</option>
-                  <option value="juridico">Jurídico</option>
+                  <option value="">Seleccione el tipo de cliente</option>
+                  {clienteTipos.map((tipo) => (
+                    <option key={tipo.id} value={tipo.id.toString()}>
+                      {tipo.nombre}
+                    </option>
+                  ))}
                 </Form.Control>
               </Form.Group>
-              {/* Botones para guardar o cancelar */}
-              <CustomButton
-                variant="success"
-                className="mt-3"
-                onClick={handleEditCliente}
-                disabled={!hasPermission('clientes.update')} // PERMISOS
-              >
-                <FaSave /> Guardar Cambios
-              </CustomButton>
-              <CustomButton
-                variant="danger"
-                className="mt-3 ms-3"
-                onClick={() => setEditMode(false)}
-              >
-                Cancelar
-              </CustomButton>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Nombre</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="nombre"
+                  value={editedCliente.nombre}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              {(() => {
+                const tipoEncontrado = clienteTipos.find(
+                  (t) => String(t.id) === String(editedCliente.tipo_cliente)
+                );
+                if (
+                  tipoEncontrado &&
+                  tipoEncontrado.nombre.toLowerCase() === 'físico'
+                ) {
+                  return (
+                    <Form.Group className="mb-3">
+                      <Form.Label>Apellido</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="apellido"
+                        value={editedCliente.apellido}
+                        onChange={handleEditedChange}
+                        required
+                      />
+                    </Form.Group>
+                  );
+                }
+                return null;
+              })()}
+
+              <Form.Group className="mb-3">
+                <Form.Label>DNI/CUIT</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="dni"
+                  value={editedCliente.dni}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Email</Form.Label>
+                <Form.Control
+                  type="email"
+                  name="email"
+                  value={editedCliente.email}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Teléfono</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="telefono"
+                  value={editedCliente.telefono}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Fecha de Nacimiento</Form.Label>
+                <Form.Control
+                  type="date"
+                  name="f_nacimiento"
+                  value={editedCliente.f_nacimiento}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              {/* Select de Provincia */}
+              <Form.Group className="mb-3">
+                <Form.Label>Provincia</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="provincia_id"
+                  value={editedCliente.provincia_id}
+                  onChange={handleEditedChange}
+                  required
+                >
+                  <option value="">Seleccione una provincia</option>
+                  {provincias.map((p) => (
+                    <option key={p.id} value={p.id.toString()}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+
+              {/* Select de Municipio */}
+              <Form.Group className="mb-3">
+                <Form.Label>Municipio</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="municipio_id"
+                  value={editedCliente.municipio_id}
+                  onChange={handleEditedChange}
+                  disabled={!editedCliente.provincia_id}
+                  required
+                >
+                  <option value="">
+                    {editedCliente.provincia_id
+                      ? 'Seleccione un municipio'
+                      : 'Seleccione provincia primero'}
+                  </option>
+                  {municipios
+                    .filter(
+                      (m) => m.provincia_id === Number(editedCliente.provincia_id)
+                    )
+                    .map((m) => (
+                      <option key={m.id} value={m.id.toString()}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                </Form.Control>
+              </Form.Group>
+
+              {/* Select de Calle */}
+              <Form.Group className="mb-3">
+                <Form.Label>Calle</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="calle_id"
+                  value={editedCliente.calle_id}
+                  onChange={handleEditedChange}
+                  disabled={!editedCliente.municipio_id}
+                  required
+                >
+                  <option value="">
+                    {editedCliente.municipio_id
+                      ? 'Seleccione una calle'
+                      : 'Seleccione municipio primero'}
+                  </option>
+                  {calles
+                    .filter(
+                      (c) => c.municipio_id === Number(editedCliente.municipio_id)
+                    )
+                    .map((c) => (
+                      <option key={c.id} value={c.id.toString()}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                </Form.Control>
+              </Form.Group>
+
+              {/* Input para Altura */}
+              <Form.Group className="mb-3">
+                <Form.Label>Altura</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="altura"
+                  value={editedCliente.altura}
+                  onChange={handleEditedChange}
+                  required
+                />
+              </Form.Group>
+
+              <div className="d-flex justify-content-end mt-4">
+                <CustomButton
+                  variant="secondary"
+                  className="me-3"
+                  onClick={() => setEditMode(false)}
+                >
+                  Cancelar
+                </CustomButton>
+                <CustomButton
+                  variant="primary"
+                  onClick={handleEditCliente}
+                  disabled={!hasPermission('clientes.update')}
+                >
+                  <FaSave /> Guardar Cambios
+                </CustomButton>
+              </div>
             </Form>
           )}
         </Col>
 
-        {/* Columna de Servicios */}
         <Col md={6}>
           <h4 className="text-primary">Servicios Asignados</h4>
           {cliente.servicios && cliente.servicios.length > 0 ? (
@@ -503,16 +584,14 @@ const ClienteDetalle = () => {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Tributo</th>
                   <th>Servicio</th>
                 </tr>
               </thead>
               <tbody>
-                {cliente.servicios.map((servicio, index) => (
-                  <tr key={servicio.id}>
+                {cliente.servicios.map((serv, index) => (
+                  <tr key={serv.id}>
                     <td>{index + 1}</td>
-                    <td>{getTributoNameById(servicio.tributo_id)}</td>
-                    <td>{servicio.nombre}</td>
+                    <td>{serv.nombre}</td>
                   </tr>
                 ))}
               </tbody>
@@ -522,23 +601,21 @@ const ClienteDetalle = () => {
           )}
 
           <hr />
-
           <h4>Asignar Servicios</h4>
           <Form>
             <Form.Group controlId="servicios">
               <Form.Label>Seleccionar Servicios</Form.Label>
               <Row>
-                {serviciosDisponibles.map((servicio) => (
-                  <Col md={6} key={servicio.id}>
+                {serviciosDisponibles.map((serv) => (
+                  <Col md={6} key={serv.id}>
                     <Form.Check
-                      // id y name únicos por cada check
-                      id={`servicio-${servicio.id}`}
-                      name={`servicio-${servicio.id}`}
+                      id={`servicio-${serv.id}`}
+                      name={`servicio-${serv.id}`}
                       type="checkbox"
-                      label={servicio.nombre}
-                      value={servicio.id}
-                      checked={serviciosAsignados.includes(servicio.id)}
-                      onChange={() => handleCheckboxChange(servicio.id)}
+                      label={serv.nombre}
+                      value={serv.id}
+                      checked={serviciosAsignados.includes(serv.id)}
+                      onChange={() => handleCheckboxChange(serv.id)}
                     />
                   </Col>
                 ))}
@@ -549,7 +626,7 @@ const ClienteDetalle = () => {
               variant="primary"
               className="mt-3"
               onClick={handleAsignarServicios}
-              disabled={!hasPermission('clientes.sync-serv')} // PERMISOS
+              disabled={!hasPermission('clientes.sync-serv')}
             >
               <FaSave /> Asignar Servicios
             </CustomButton>
@@ -558,6 +635,4 @@ const ClienteDetalle = () => {
       </Row>
     </Card>
   );
-};
-
-export default ClienteDetalle;
+}

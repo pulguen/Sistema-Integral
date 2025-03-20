@@ -1,5 +1,4 @@
 // src/features/facturacion/components/BombeoAgua/RecibosBombeoList.jsx
-
 import React, { useContext, useCallback, useState } from 'react';
 import { Table } from 'react-bootstrap';
 import { FaTrash, FaCheck, FaInfoCircle } from 'react-icons/fa';
@@ -15,7 +14,7 @@ const RecibosBombeoList = () => {
   const [showReciboModal, setShowReciboModal] = useState(false);
   const [confirmedRecibo, setConfirmedRecibo] = useState(null);
 
-  // Función para parsear fechas como locales
+  // Función para parsear fechas a formato local
   const parseLocalDate = (dateString) => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -51,7 +50,7 @@ const RecibosBombeoList = () => {
           };
 
           const response = await customFetch('/recibos', 'POST', newRecibosData);
-          console.log('recibo generado', response);
+          console.log('Recibo generado', response);
           if (response && response.n_recibo) {
             const updatedRecibo = { 
               ...recibo,
@@ -107,50 +106,54 @@ const RecibosBombeoList = () => {
   return (
     <>
       {recibos.length > 0 ? (
-        <Table striped bordered hover className="mt-5">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Cliente</th>
-              <th>DNI/CUIT</th>
-              <th>Total a Pagar</th>
-              <th>Vencimiento</th>
-              <th>Períodos Incluidos</th>
-              <th>Observaciones</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recibos.map((recibo, index) => (
-              <tr key={index}>
-                <td>{index + 1}</td>
-                <td>{`${recibo.cliente_nombre} ${recibo.cliente_apellido}`}</td>
-                <td>{recibo.cliente_dni}</td>
-                <td>{`AR$ ${recibo.totalAmount ? recibo.totalAmount.toFixed(2) : '0.00'}`}</td>
-                <td>{recibo.vencimiento ? parseLocalDate(recibo.vencimiento).toLocaleDateString() : 'N/A'}</td>
-                <td>
-                  {recibo.periodos && recibo.periodos.length > 0
-                    ? recibo.periodos.map((periodo, i) => (
-                        <span key={i}>
-                          {periodo.mes}/{periodo.año}
-                          {i < recibo.periodos.length - 1 ? ', ' : ''}
-                        </span>
-                      ))
-                    : 'N/A'}
-                </td>
-                <td>{recibo.observaciones}</td>
-                <td>
-                  <CustomButton variant="success" onClick={() => confirmRecibo(recibo)}>
-                    <FaCheck className="me-1" /> Confirmar
-                  </CustomButton>{' '}
-                  <CustomButton variant="danger" onClick={() => deleteRecibo(recibo)}>
-                    <FaTrash className="me-1" /> Eliminar
-                  </CustomButton>
-                </td>
+        // Envuelve la tabla en un contenedor "table-responsive"
+        <div className="table-responsive">
+          <h3 className="mt-4">Vista Previa de datos para el recibo</h3>
+          <Table striped bordered hover className="mt-3">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>DNI/CUIT</th>
+                <th>Total a Pagar</th>
+                <th>Vencimiento</th>
+                <th>Períodos Incluidos</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {recibos.map((recibo, index) => (
+                <tr key={index}>
+                  <td>{index + 1}</td>
+                  <td>{`${recibo.cliente_nombre} ${recibo.cliente_apellido}`}</td>
+                  <td>{recibo.cliente_dni}</td>
+                  <td>{`AR$ ${recibo.totalAmount ? recibo.totalAmount.toFixed(2) : '0.00'}`}</td>
+                  <td>{recibo.vencimiento ? parseLocalDate(recibo.vencimiento).toLocaleDateString() : 'N/A'}</td>
+                  <td>
+                    {recibo.periodos && recibo.periodos.length > 0
+                      ? recibo.periodos.map((periodo, i) => (
+                          <span key={i}>
+                            {periodo.mes}/{periodo.año}
+                            {i < recibo.periodos.length - 1 ? ', ' : ''}
+                          </span>
+                        ))
+                      : 'N/A'}
+                  </td>
+                  <td>{recibo.observaciones}</td>
+                  <td>
+                    <CustomButton variant="success" onClick={() => confirmRecibo(recibo)}>
+                      <FaCheck className="me-1" /> Confirmar
+                    </CustomButton>{' '}
+                    <CustomButton variant="danger" onClick={() => deleteRecibo(recibo)}>
+                      <FaTrash className="me-1" /> Eliminar
+                    </CustomButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
       ) : (
         <div className="empty-state-container text-center mt-5">
           <FaInfoCircle className="empty-state-icon text-muted mb-3" size={60} />

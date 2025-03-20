@@ -1,29 +1,63 @@
-/* PeriodosBombeoList.css */
-
+/* Contenedor de la tabla: scroll horizontal cuando sea necesario */
 .table-responsive {
-    margin-bottom: 1rem;
-  }
-  
-  .table-responsive table {
-    min-width: 100%;
-  }
-  
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Suaviza el scroll en dispositivos móviles */
+  margin-bottom: 1rem;
+}
+
+/* La tabla ocupa el 100% del ancho disponible */
+.table-responsive table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Si deseas forzar un ancho mínimo para que se active el scroll, puedes usar: */
+  /* min-width: 600px; */
+}
+
+/* Estilos para celdas: evita que el contenido se rompa */
+.table-responsive th,
+.table-responsive td {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  padding: 8px;
+  text-align: center;
+}
+
+/* Encabezados con fondo claro */
+.table-responsive th {
+  background-color: #f8f9fa;
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 600px) {
   .table-responsive th,
   .table-responsive td {
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    font-size: 0.8rem;
+    padding: 6px;
   }
-  
-  .table-responsive th {
-    background-color: #f8f9fa; /* Opcional: color de fondo para los encabezados */
-  }
-  
-  .empty-state-container {
-    padding: 20px;
-  }
-  
-  .empty-state-icon {
-    color: #6c757d; /* Color gris para el ícono */
-  }
-  
+}
+
+/* Estilos para el estado vacío */
+.empty-state-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  color: #6c757d;
+}
+
+.empty-state-container h4 {
+  font-size: 1.5rem;
+}
+
+.empty-state-container p {
+  font-size: 1rem;
+}

@@ -1,21 +1,6 @@
 // src/features/facturacion/components/BombeoAgua/RecibosBombeoForm.jsx
-
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-} from 'react';
-import {
-  Form,
-  Row,
-  Col,
-  Card,
-  Table,
-  ListGroup,
-  Spinner,
-} from 'react-bootstrap';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { Form, Row, Col, Card, Table, ListGroup, Spinner } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
 import '../../../../styles/RecibosBombeoForm.css';
@@ -24,10 +9,12 @@ import { AuthContext } from '../../../../context/AuthContext';
 import { BombeoAguaContext } from '../../../../context/BombeoAguaContext.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileInvoiceDollar } from '@fortawesome/free-solid-svg-icons';
+import { FacturacionContext } from '../../../../context/FacturacionContext';
 
 const RecibosBombeoForm = () => {
   const { servicios, handleCreateRecibo } = useContext(BombeoAguaContext);
   const { user } = useContext(AuthContext);
+  const { calles, fetchClienteById } = useContext(FacturacionContext);
 
   const [client, setClient] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,22 +42,19 @@ const RecibosBombeoForm = () => {
     [servicios]
   );
 
-  // Función para parsear fechas a un Date con año, mes, día (usado para validaciones)
   const parseLocalDate = (dateString) => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
 
-  // Función para formatear f_vencimiento tipo 2024-12-31T03:00:00.000000Z a dd/mm/yyyy
   const formatVencimiento = (isoDateString) => {
     if (!isoDateString) return 'Sin fecha';
-
-    const [fullDate] = isoDateString.split('T'); // => "YYYY-MM-DD"
-    const [year, month, day] = fullDate.split('-'); // => ["YYYY", "MM", "DD"]
+    const [fullDate] = isoDateString.split('T');
+    const [year, month, day] = fullDate.split('-');
     return `${day}/${month}/${year}`;
   };
 
-  // Obtener clientes de los servicios
+  // Obtener clientes de los servicios (por ejemplo, desde /tributos/1)
   const fetchClients = useCallback(async () => {
     try {
       const data = await customFetch('/tributos/1');
@@ -78,19 +62,14 @@ const RecibosBombeoForm = () => {
       const clientesFromServices = serviciosData.flatMap(
         (servicio) => servicio.clientes
       );
-
-      // Eliminar clientes duplicados usando su ID
       const uniqueClients = Array.from(
         new Map(clientesFromServices.map((c) => [c.id, c])).values()
       );
-
-      // Ordenar los clientes alfabéticamente
       uniqueClients.sort((a, b) => {
         const nameA = `${a.persona?.nombre || ''} ${a.persona?.apellido || ''}`.toLowerCase();
         const nameB = `${b.persona?.nombre || ''} ${b.persona?.apellido || ''}`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
-
       setAllClients(uniqueClients);
       setFilteredClients(uniqueClients);
     } catch (error) {
@@ -107,16 +86,12 @@ const RecibosBombeoForm = () => {
     fetchClients();
   }, [fetchClients]);
 
-  // Filtra la lista de clientes a medida que el usuario escribe
+  // Filtrado de clientes según la búsqueda
   useEffect(() => {
     const filtered = allClients.filter((client) => {
-      const fullName = `${client.persona?.nombre || ''} ${
-        client.persona?.apellido || ''
-      }`.toLowerCase();
+      const fullName = `${client.persona?.nombre || ''} ${client.persona?.apellido || ''}`.toLowerCase();
       const dni = client.persona?.dni ? client.persona.dni.toString() : '';
-      return (
-        fullName.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
-      );
+      return fullName.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
     });
     setFilteredClients(filtered);
     setShowClientList(searchTerm.length > 0 && filtered.length > 0);
@@ -129,18 +104,12 @@ const RecibosBombeoForm = () => {
     try {
       const data = await customFetch(`/cuentas/cliente/${cliente_id}`);
       console.log('Datos recibidos:', data);
-
-      // data es un array con [responseData, statusCode], etc.
+      // Se espera que data tenga formato: [responseData, statusCode]
       const [responseData] = data;
-
       if (responseData && responseData.length > 0) {
         setPeriodos(responseData);
       } else {
-        Swal.fire(
-          'Sin periodos',
-          'No hay periodos no facturados para este cliente.',
-          'info'
-        );
+        Swal.fire('Sin periodos', 'No hay periodos no facturados para este cliente.', 'info');
       }
     } catch (error) {
       console.error('Error al obtener los periodos del cliente:', error);
@@ -154,39 +123,63 @@ const RecibosBombeoForm = () => {
     }
   }, []);
 
-  // Acción al seleccionar cliente de la lista
+  // Al seleccionar un cliente, obtenemos la info completa (incluyendo dirección) mediante fetchClienteById
   const handleClientSelect = useCallback(
-    (clientId) => {
-      const selectedClientData = allClients.find(
-        (c) => c.id === parseInt(clientId)
-      );
+    async (clientId) => {
+      const basicClient = allClients.find((c) => c.id === parseInt(clientId, 10));
       setClient(clientId);
+      // Mostrar datos básicos en el input
+      const nombreBasic = basicClient?.persona?.nombre || '';
+      const apellidoBasic = basicClient?.persona?.apellido || '';
+      setSearchTerm(`${nombreBasic} ${apellidoBasic}`.trim());
 
-      const nombre = selectedClientData.persona?.nombre || '';
-      const apellido = selectedClientData.persona?.apellido || '';
-      setSearchTerm(`${nombre} ${apellido}`.trim());
-
-      setSelectedClient({
-        ...selectedClientData.persona,
-        calle: selectedClientData?.persona?.calle || '',
-        altura: selectedClientData?.persona?.altura || '',
-      });
-
-      setShowClientList(false);
-      fetchPeriodos(clientId);
+      try {
+        // Llamamos a fetchClienteById para obtener la información completa
+        const fullResponse = await fetchClienteById(clientId);
+        console.log("handleClientSelect - fullResponse:", fullResponse);
+        // Se asume que fullResponse tiene el formato: [ [ { cliente: { ... } } ], statusCode ]
+        const clientArray = Array.isArray(fullResponse) ? fullResponse[0] : null;
+        if (clientArray && clientArray.length > 0 && clientArray[0].cliente) {
+          const clientComplete = clientArray[0].cliente;
+          const persona = clientComplete.persona || {};
+          const direccion = persona.direccion || {};
+          console.log("handleClientSelect - direccion obtenida:", direccion);
+          const altura = direccion.altura || '';
+          const calleId = direccion.calle_id;
+          console.log("handleClientSelect - calle_id:", calleId);
+          const calleNombre = calles.find((c) => Number(c.id) === Number(calleId))?.nombre || '';
+          console.log("handleClientSelect - calleNombre:", calleNombre);
+          setSelectedClient({
+            ...persona,
+            calle: calleNombre,
+            altura: altura,
+          });
+          setSearchTerm(`${persona.nombre || ''} ${persona.apellido || ''}`.trim());
+        } else {
+          // Fallback: si no se obtuvo info completa, usar el cliente básico
+          setSelectedClient({ ...basicClient.persona });
+        }
+        setShowClientList(false);
+        fetchPeriodos(clientId);
+      } catch (error) {
+        console.error("Error al obtener el cliente completo:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudo obtener la información completa del cliente.",
+        });
+      }
     },
-    [allClients, fetchPeriodos]
+    [allClients, calles, fetchPeriodos, fetchClienteById]
   );
 
-  // Seleccionar/deseleccionar un período en el checkbox
+  // Selección/deselección de período
   const handlePeriodSelection = (periodo) => {
-    const updatedSelectedPeriodos = selectedPeriodos.includes(periodo)
+    const updatedSelected = selectedPeriodos.includes(periodo)
       ? selectedPeriodos.filter((p) => p !== periodo)
       : [...selectedPeriodos, periodo];
-
-    setSelectedPeriodos(updatedSelectedPeriodos);
-
-    const total = updatedSelectedPeriodos.reduce(
+    setSelectedPeriodos(updatedSelected);
+    const total = updatedSelected.reduce(
       (sum, p) =>
         sum +
         (parseFloat(p.i_debito) +
@@ -197,34 +190,20 @@ const RecibosBombeoForm = () => {
     setTotalAmount(total);
   };
 
-  // Submit para generar el Recibo
+  // Submit para generar el recibo
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validar si se seleccionaron períodos
     if (selectedPeriodos.length === 0) {
       Swal.fire('Error', 'Debe seleccionar al menos un periodo.', 'error');
       return;
     }
-
-    // Validar fecha de vencimiento no anterior a hoy
     const currentDate = new Date();
     const selectedDate = parseLocalDate(vencimiento);
-    const today = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      currentDate.getDate()
-    );
+    const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     if (selectedDate < today) {
-      Swal.fire(
-        'Error',
-        'La fecha de vencimiento no puede ser anterior a la fecha actual.',
-        'error'
-      );
+      Swal.fire('Error', 'La fecha de vencimiento no puede ser anterior a la fecha actual.', 'error');
       return;
     }
-
-    // Confirmación
     const confirmResult = await Swal.fire({
       title: '¿Generar Recibo?',
       text: '¿Estás seguro de generar este recibo?',
@@ -234,7 +213,6 @@ const RecibosBombeoForm = () => {
       cancelButtonColor: '#d33',
       confirmButtonText: 'Sí, generar recibo',
     });
-
     if (confirmResult.isConfirmed) {
       const reciboData = {
         cliente_id: client,
@@ -250,9 +228,7 @@ const RecibosBombeoForm = () => {
         cajero_nombre: user.name,
         observaciones,
       };
-
       handleCreateRecibo(reciboData);
-
       Swal.fire('Confirmado', 'El recibo ha sido generado.', 'success');
       handleReset();
     }
@@ -271,7 +247,7 @@ const RecibosBombeoForm = () => {
     setObservaciones('');
   };
 
-  // Manejar el click afuera del dropdown de clientes
+  // Manejar click afuera del dropdown de clientes
   const handleClickOutside = useCallback(
     (event) => {
       if (
@@ -291,7 +267,6 @@ const RecibosBombeoForm = () => {
     };
   }, [handleClickOutside]);
 
-  // Función para obtener la fecha de hoy en formato YYYY-MM-DD
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -303,27 +278,16 @@ const RecibosBombeoForm = () => {
   return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">
       <h2 className="text-center mb-5 text-primary font-weight-bold">
-        <FontAwesomeIcon
-          icon={faFileInvoiceDollar}
-          size="1x"
-          className="me-2"
-        />
+        <FontAwesomeIcon icon={faFileInvoiceDollar} size="1x" className="me-2" />
         Generar Recibo de Bombeo de Agua
       </h2>
-
       <Form onSubmit={handleSubmit} className="px-4">
         {/* Información del Cliente */}
         <section className="form-section mb-4">
-          <h4 className="mb-4 text-secondary font-weight-bold">
-            Información del Cliente
-          </h4>
+          <h4 className="mb-4 text-secondary font-weight-bold">Información del Cliente</h4>
           <Row>
             <Col md={6}>
-              <Form.Group
-                controlId="client"
-                ref={clientDropdownRef}
-                className="client-container position-relative"
-              >
+              <Form.Group controlId="client" ref={clientDropdownRef} className="client-container position-relative">
                 <Form.Control
                   type="text"
                   value={searchTerm}
@@ -337,27 +301,23 @@ const RecibosBombeoForm = () => {
                 {showClientList && (
                   <ListGroup
                     className="position-absolute client-dropdown w-100"
-                    style={{
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                    }}
+                    style={{ maxHeight: '200px', overflowY: 'auto', zIndex: 1000 }}
                     role="listbox"
                   >
                     {filteredClients.length > 0 ? (
                       filteredClients.map((clientItem) => {
-                        const nombreClient =
-                          clientItem.persona?.nombre || '';
-                        const apellidoClient =
-                          clientItem.persona?.apellido || '';
-                        const dniClient =
-                          clientItem.persona?.dni || 'Sin DNI';
-
+                        const nombreClient = clientItem.persona?.nombre || '';
+                        const apellidoClient = clientItem.persona?.apellido || '';
+                        const dniClient = clientItem.persona?.dni || 'Sin DNI';
                         return (
                           <ListGroup.Item
                             key={clientItem.id}
                             action
-                            onClick={() => handleClientSelect(clientItem.id)}
+                            as="div"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleClientSelect(clientItem.id);
+                            }}
                             role="option"
                             aria-selected={clientItem.id === client}
                           >
@@ -366,9 +326,7 @@ const RecibosBombeoForm = () => {
                         );
                       })
                     ) : (
-                      <ListGroup.Item disabled>
-                        No se encontraron clientes.
-                      </ListGroup.Item>
+                      <ListGroup.Item disabled>No se encontraron clientes.</ListGroup.Item>
                     )}
                   </ListGroup>
                 )}
@@ -376,15 +334,11 @@ const RecibosBombeoForm = () => {
             </Col>
           </Row>
         </section>
-
-        {/* Mostrar el resto si hay un cliente seleccionado */}
         {client && (
           <>
-            {/* Periodos Disponibles */}
+            {/* Aquí se mostrarán los periodos y detalles */}
             <section className="form-section mb-4">
-              <h4 className="mb-4 text-secondary font-weight-bold">
-                Periodos Impagos
-              </h4>
+              <h4 className="mb-4 text-secondary font-weight-bold">Periodos Impagos</h4>
               <div className="table-responsive">
                 <Table striped bordered hover className="mt-2">
                   <thead>
@@ -408,21 +362,15 @@ const RecibosBombeoForm = () => {
                       <tr>
                         <td colSpan="12" className="text-center">
                           <Spinner animation="border" role="status">
-                            <span className="visually-hidden">
-                              Cargando...
-                            </span>
+                            <span className="visually-hidden">Cargando...</span>
                           </Spinner>
                         </td>
                       </tr>
                     ) : periodos.length > 0 ? (
                       periodos.map((periodo, index) => {
-                        const nombrePer =
-                          periodo.cliente?.persona?.nombre || '';
-                        const apellidoPer =
-                          periodo.cliente?.persona?.apellido || '';
-                        const dniPer =
-                          periodo.cliente?.persona?.dni || 'Sin DNI';
-
+                        const nombrePer = periodo.cliente?.persona?.nombre || '';
+                        const apellidoPer = periodo.cliente?.persona?.apellido || '';
+                        const dniPer = periodo.cliente?.persona?.dni || 'Sin DNI';
                         const importDebito = parseFloat(periodo.i_debito).toFixed(2);
                         const importDescuento = parseFloat(periodo.i_descuento).toFixed(2);
                         const importRecargo = parseFloat(periodo.i_recargo_actualizado).toFixed(2);
@@ -431,7 +379,6 @@ const RecibosBombeoForm = () => {
                           parseFloat(periodo.i_descuento) +
                           parseFloat(periodo.i_recargo_actualizado)
                         ).toFixed(2);
-
                         return (
                           <tr key={index}>
                             <td>{index + 1}</td>
@@ -471,15 +418,12 @@ const RecibosBombeoForm = () => {
                 </Table>
               </div>
             </section>
-
-            {/* Detalles del Recibo */}
             <section className="form-section mb-4">
               <Row>
                 <Col md={6}>
                   <Form.Group controlId="vencimiento" className="mt-3">
                     <Form.Label className="font-weight-bold">
-                      Fecha de Vencimiento del Recibo{' '}
-                      <span className="text-danger">*</span>
+                      Fecha de Vencimiento del Recibo <span className="text-danger">*</span>
                     </Form.Label>
                     <Form.Control
                       type="date"
@@ -492,9 +436,7 @@ const RecibosBombeoForm = () => {
                     />
                   </Form.Group>
                   <Form.Group controlId="observaciones" className="mt-3">
-                    <Form.Label className="font-weight-bold">
-                      Observaciones
-                    </Form.Label>
+                    <Form.Label className="font-weight-bold">Observaciones</Form.Label>
                     <Form.Control
                       as="textarea"
                       value={observaciones}
@@ -506,41 +448,22 @@ const RecibosBombeoForm = () => {
                     />
                   </Form.Group>
                 </Col>
-                <Col
-                  md={6}
-                  className="d-flex justify-content-center align-items-center"
-                >
+                <Col md={6} className="d-flex justify-content-center align-items-center">
                   <div className="text-center">
-                    <h4 className="mb-4 text-secondary font-weight-bold">
-                      Total a Pagar
-                    </h4>
+                    <h4 className="mb-4 text-secondary font-weight-bold">Total a Pagar</h4>
                     <h1 className="display-4 font-weight-bold text-primary mb-0">
                       AR$ {totalAmount.toFixed(2)}
                     </h1>
                     <p className="text-muted">
-                      {/* Fallback: si no hay nombre/apellido/dni que no muestre "null" */}
-                      Cliente: {selectedClient?.nombre || ''}{' '}
-                      {selectedClient?.apellido || ''}
-                      <br />
-                      DNI/CUIT: {selectedClient?.dni || 'Sin DNI'}
-                      <br />
-                      Periodos Seleccionados:{' '}
-                      {selectedPeriodos
-                        .map((p) => `${p.mes}/${p.año}`)
-                        .join(', ')}{' '}
-                      <br />
-                      Fecha de Vencimiento:{' '}
-                      {vencimiento
-                        ? parseLocalDate(vencimiento).toLocaleDateString()
-                        : 'No asignada'}{' '}
-                      <br />
+                      Cliente: {selectedClient?.nombre || ''} {selectedClient?.apellido || ''}<br />
+                      DNI/CUIT: {selectedClient?.dni || 'Sin DNI'}<br />
+                      Periodos Seleccionados: {selectedPeriodos.map((p) => `${p.mes}/${p.año}`).join(', ')}<br />
+                      Fecha de Vencimiento: {vencimiento ? parseLocalDate(vencimiento).toLocaleDateString() : 'No asignada'}<br />
                     </p>
                   </div>
                 </Col>
               </Row>
             </section>
-
-            {/* Botones de acción */}
             <div className="d-flex justify-content-center mt-4">
               <CustomButton
                 type="submit"

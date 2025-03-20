@@ -1,5 +1,3 @@
-// src/context/FacturacionContext.jsx
-
 import React, { createContext, useState, useCallback, useEffect } from "react";
 import customFetch from "./CustomFetch";
 
@@ -12,13 +10,17 @@ export const FacturacionProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [modules, setModules] = useState({});
+  const [condicionesPago, setCondicionesPago] = useState([]);
+  const [calles,setCalles] = useState([]);
 
   // Obtener clientes
   const fetchClientes = useCallback(async () => {
     setLoading(true);
     try {
       const data = await customFetch("/clientes");
-      setClientes(data || []);
+      console.log("Clientes obtenidos:", data);
+      // Si el backend ya trae la propiedad "persona" con los datos, no es necesaria ninguna transformación
+      setClientes(data);
       setError(null);
     } catch (error) {
       console.error("Error al obtener los clientes:", error);
@@ -54,7 +56,7 @@ export const FacturacionProvider = ({ children }) => {
     }
   }, []);
 
-  // Obtener períodos (ejemplo existente)
+  // Obtener períodos
   const fetchPeriodosByClienteYServicio = useCallback(
     async (clienteId, servicioId, tributoId) => {
       try {
@@ -103,6 +105,7 @@ export const FacturacionProvider = ({ children }) => {
     }));
   }, []);
 
+  // Obtener cliente por id (sin transformar, ya que la respuesta ya trae "persona")
   const fetchClienteById = useCallback(async (clienteId) => {
     setLoading(true);
     try {
@@ -135,8 +138,6 @@ export const FacturacionProvider = ({ children }) => {
     try {
       const promises = numeros.map((num) => fetchReciboByNumero(num));
       const results = await Promise.all(promises);
-      // results es algo como [Array(…), 200, Array(…), 200, ...]
-      // Solo retornamos directamente results, lo filtraremos en el componente.
       return results;
     } catch (error) {
       console.error("Error al obtener los recibos:", error);
@@ -145,12 +146,68 @@ export const FacturacionProvider = ({ children }) => {
     }
   }, [fetchReciboByNumero]);
 
-  // Funciones de gráficos omitidas por brevedad (mantener si las usas)
+// Función para obtener condiciones de pago
+const fetchCondicionesPago = useCallback(async () => {
+  try {
+    const data = await customFetch("/condiciones_pago");
+    let flatConditions = [];
+
+    if (Array.isArray(data)) {
+      // Función recursiva para aplanar el array
+      const flatten = (arr) =>
+        arr.reduce((acc, item) => 
+          Array.isArray(item) 
+            ? acc.concat(flatten(item)) 
+            : acc.concat(item), []);
+      
+      // Aplanar la respuesta y filtrar solo objetos que tengan 'id' y 'nombre'
+      flatConditions = flatten(data).filter(
+        (item) => item && typeof item === "object" && "id" in item && "nombre" in item
+      );
+    }
+
+    setCondicionesPago(flatConditions);
+  } catch (error) {
+    console.error("Error al obtener condiciones de pago:", error);
+  }
+}, []);
+
+const fetchCalles = useCallback(async () => {
+  try {
+    const data = await customFetch("/calles");
+    let flatCalles = [];
+
+    if (Array.isArray(data)) {
+      // Función recursiva para aplanar el array
+      const flatten = (arr) =>
+        arr.reduce(
+          (acc, item) =>
+            Array.isArray(item) ? acc.concat(flatten(item)) : acc.concat(item),
+          []
+        );
+      // Aplanamos y filtramos solo los objetos válidos (que tengan id y nombre)
+      flatCalles = flatten(data).filter(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          "id" in item &&
+          "nombre" in item
+      );
+    }
+
+    setCalles(flatCalles);
+  } catch (error) {
+    console.error("Error al obtener las calles:", error);
+  }
+}, [setCalles]);
+
 
   useEffect(() => {
     fetchClientes();
     fetchTributos();
-  }, [fetchClientes, fetchTributos]);
+    fetchCondicionesPago();
+    fetchCalles();
+  }, [fetchClientes, fetchTributos, fetchCondicionesPago, fetchCalles]);
 
   const value = {
     clientes,
@@ -167,7 +224,8 @@ export const FacturacionProvider = ({ children }) => {
     error,
     fetchReciboByNumero,
     fetchRecibosByNumeros,
-    // Aquí seguirían las funciones de gráficos si las necesitas
+    condicionesPago,
+    calles,
   };
 
   return (

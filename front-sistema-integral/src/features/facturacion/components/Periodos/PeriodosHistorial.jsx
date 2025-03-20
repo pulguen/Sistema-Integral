@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from "react";
-import {
-  Card,
-  Spinner,
-  Button,
-  Breadcrumb,
-  Form,
-  Table,
-  OverlayTrigger,
-  Tooltip,
-} from "react-bootstrap";
+import { Card, Spinner, Button, Breadcrumb, Form, Table, OverlayTrigger, Tooltip,} from "react-bootstrap";
 import Swal from "sweetalert2";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
 import { Link } from "react-router-dom";
@@ -107,8 +98,9 @@ const PeriodosHistorial = () => {
       const dni = cliente.persona?.dni?.toString() || '';
       return fullName.includes(term) || dni.includes(term);
     });
-    setFilteredClientes(result);
+    setFilteredClientes(result);    
   }, [clientsByServices]);
+  console.log('datos cliente en periodos',filteredClientes);
 
   /**
    * Opciones para el select (React-Select)
