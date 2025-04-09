@@ -1,4 +1,3 @@
-// customFetch.js
 import Swal from 'sweetalert2';
 
 // Definir la clase CustomError
@@ -12,6 +11,7 @@ export class CustomError extends Error {
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 const customFetch = async (endpoint, method = 'GET', body = null, showAlert = true) => {
+  // Se busca el token únicamente en localStorage
   const token = localStorage.getItem('token');
 
   const headers = {
@@ -20,10 +20,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     Authorization: token ? `Bearer ${token}` : '',
   };
 
-  const options = {
-    method,
-    headers,
-  };
+  const options = { method, headers };
 
   if (body) {
     options.body = JSON.stringify(body);
@@ -31,22 +28,10 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
 
   try {
     const url = `${API_BASE_URL}${endpoint}`;
-
     const response = await fetch(url, options);
     const responseText = await response.text();
 
-    // Loggear la respuesta completa solo si showAlert es true
-    if (showAlert) {
-      console.log(`Respuesta de la API para ${endpoint}:`, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseText,
-      });
-      console.log(response);
-    }
-
-    // Verifica si la respuesta es HTML, lo que podría indicar redirección
+    // Si la respuesta es HTML, es posible que haya una redirección o error de configuración
     if (response.headers.get('content-type')?.includes('text/html')) {
       throw new CustomError(
         'El servidor devolvió HTML en lugar de JSON. Esto sugiere un problema de configuración en el servidor o una redirección inesperada.',
@@ -57,7 +42,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     if (response.status === 401 || response.status === 403) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('tokenExpired'));
-      if (showAlert) { // Solo mostrar alerta si showAlert es true
+      if (showAlert) {
         await Swal.fire({
           icon: 'error',
           title: 'Sesión expirada',
@@ -73,7 +58,6 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     }
 
     if (!response.ok) {
-      // Loggear información adicional solo si showAlert es true
       if (showAlert) {
         console.error(`Error en la petición a ${endpoint}:`, {
           status: response.status,
@@ -87,7 +71,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     return JSON.parse(responseText);
 
   } catch (error) {
-    if (showAlert) { // Solo mostrar alerta y registrar error si showAlert es true
+    if (showAlert) {
       console.error('Error en la petición:', error.message);
       Swal.fire({
         icon: 'error',
@@ -95,8 +79,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
         text: error.message,
       });
     }
-
-    throw error; // Re-lanzar el error para que el componente pueda manejarlo
+    throw error;
   }
 };
 

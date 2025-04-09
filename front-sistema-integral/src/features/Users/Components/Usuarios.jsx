@@ -1,41 +1,19 @@
 import React, { useState, useContext, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Hook para navegación
-import { Form, Breadcrumb, Button, Table } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import { Form, Breadcrumb } from 'react-bootstrap';
 import Swal from 'sweetalert2';
-import {
-  FaEdit,
-  FaTrash,
-  FaPlus,
-  FaSort,
-  FaSortUp,
-  FaSortDown,
-} from 'react-icons/fa';
-import {
-  useTable,
-  useSortBy,
-  usePagination,
-  useGlobalFilter,
-} from 'react-table';
-
+import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import NewUserModal from '../../../components/common/modals/NewUserModal.jsx';
 import EditUserModal from '../../../components/common/modals/EditUserModal.jsx';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import Loading from '../../../components/common/loading/Loading.jsx';
-
 import { UsersContext } from '../../../context/UsersContext.jsx';
 import { AuthContext } from '../../../context/AuthContext.jsx';
+import CommonTable from '../../../components/common/table/table.jsx';
 
 export default function Usuarios() {
-  const navigate = useNavigate(); // Hook para navegación
-  const {
-    usuarios,
-    cargandoUsuarios,
-    deleteUsuario,
-    addUsuario,
-    editUsuario,
-    fetchUsuarios,
-  } = useContext(UsersContext);
-
+  const navigate = useNavigate();
+  const { usuarios, cargandoUsuarios, deleteUsuario, addUsuario, editUsuario, fetchUsuarios } = useContext(UsersContext);
   const { user } = useContext(AuthContext);
 
   const hasPermission = useCallback(
@@ -53,6 +31,7 @@ export default function Usuarios() {
     setLocalUsuarios(usuarios);
   }, [usuarios]);
 
+  // Filtrar usuarios según searchTerm
   const filteredUsuarios = useMemo(() => {
     if (!searchTerm) return localUsuarios;
     return localUsuarios.filter((usuario) => {
@@ -65,6 +44,7 @@ export default function Usuarios() {
     });
   }, [localUsuarios, searchTerm]);
 
+  // Función para eliminar usuario
   const handleDeleteUser = useCallback(
     async (id) => {
       try {
@@ -76,7 +56,6 @@ export default function Usuarios() {
           confirmButtonText: 'Sí, eliminar',
           cancelButtonText: 'Cancelar',
         });
-
         if (result.isConfirmed) {
           await deleteUsuario(id);
           await fetchUsuarios();
@@ -89,15 +68,18 @@ export default function Usuarios() {
     [deleteUsuario, fetchUsuarios]
   );
 
+  // Función para navegar al detalle del usuario
   const handleRowClick = (usuarioId) => {
-    navigate(`/usuarios/${usuarioId}`); // Redirige al detalle del usuario
+    navigate(`/usuarios/${usuarioId}`);
   };
 
+  // Abrir modal de edición
   const handleSelectUser = (user) => {
     setSelectedUser(user);
     setShowEditModal(true);
   };
 
+  // Editar usuario
   const handleEditUser = async (updatedUser) => {
     try {
       await editUsuario(updatedUser);
@@ -109,6 +91,7 @@ export default function Usuarios() {
     }
   };
 
+  // Agregar usuario
   const handleAddUser = async (newUser) => {
     try {
       await addUsuario(newUser);
@@ -118,6 +101,7 @@ export default function Usuarios() {
     }
   };
 
+  // Definir columnas para la tabla
   const columnsUsuarios = useMemo(
     () => [
       { Header: 'Nombre', accessor: 'name' },
@@ -140,7 +124,7 @@ export default function Usuarios() {
               variant="warning"
               size="sm"
               onClick={(e) => {
-                e.stopPropagation(); // Detiene la propagación del clic a la fila
+                e.stopPropagation();
                 handleSelectUser(row.original);
               }}
               aria-label={`Editar Usuario ${row.original.id}`}
@@ -153,7 +137,7 @@ export default function Usuarios() {
               variant="danger"
               size="sm"
               onClick={(e) => {
-                e.stopPropagation(); // Detiene la propagación del clic a la fila
+                e.stopPropagation();
                 handleDeleteUser(row.original.id);
               }}
               aria-label={`Eliminar Usuario ${row.original.id}`}
@@ -167,37 +151,6 @@ export default function Usuarios() {
     ],
     [handleDeleteUser, hasPermission]
   );
-
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    prepareRow,
-    page,
-    canPreviousPage,
-    canNextPage,
-    pageOptions,
-    pageCount,
-    gotoPage,
-    nextPage,
-    previousPage,
-    setPageSize,
-    state: { pageIndex, pageSize },
-    setGlobalFilter,
-  } = useTable(
-    {
-      columns: columnsUsuarios,
-      data: filteredUsuarios,
-      initialState: { pageIndex: 0, pageSize: 10 },
-    },
-    useGlobalFilter,
-    useSortBy,
-    usePagination
-  );
-
-  useEffect(() => {
-    setGlobalFilter(searchTerm || undefined);
-  }, [searchTerm, setGlobalFilter]);
 
   return (
     <div className="table-responsive mt-2 usuarios-section">
@@ -229,103 +182,19 @@ export default function Usuarios() {
       {cargandoUsuarios ? (
         <Loading />
       ) : (
-        <Table {...getTableProps()} striped bordered hover>
-          <thead>
-            {headerGroups.map((headerGroup) => (
-              <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
-                {headerGroup.headers.map((column) => (
-                  <th
-                    {...column.getHeaderProps(column.getSortByToggleProps())}
-                    key={column.id}
-                    style={{ cursor: column.canSort ? 'pointer' : 'default' }}
-                  >
-                    {column.render('Header')}
-                    {column.canSort && (
-                      column.isSorted ? (
-                        column.isSortedDesc ? (
-                          <FaSortDown className="ms-2" />
-                        ) : (
-                          <FaSortUp className="ms-2" />
-                        )
-                      ) : (
-                        <FaSort className="ms-2" />
-                      )
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody {...getTableBodyProps()}>
-            {page.map((row) => {
-              prepareRow(row);
-              return (
-                <tr
-                  {...row.getRowProps()}
-                  key={row.original.id || `row-${row.index}`} // Usa un `id` único o un índice de respaldo
-                  onClick={() => handleRowClick(row.original.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {row.cells.map((cell) => (
-                    <td
-                      {...cell.getCellProps()}
-                      key={`cell-${row.index}-${cell.column.id}`} // Clave única para cada celda
-                    >
-                      {cell.render('Cell')}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-
-        </Table>
+        <CommonTable
+          columns={columnsUsuarios}
+          data={filteredUsuarios}
+          onRowClick={(user) => handleRowClick(user.id)}
+        />
       )}
 
-      {/* Controles de paginación */}
-      <div className="pagination d-flex justify-content-between align-items-center mt-3">
-        <div>
-          <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
-            {'<<'}
-          </Button>
-          <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="ms-2">
-            {'<'}
-          </Button>
-          <Button onClick={() => nextPage()} disabled={!canNextPage} className="ms-2">
-            {'>'}
-          </Button>
-          <Button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage} className="ms-2">
-            {'>>'}
-          </Button>
-        </div>
-        <span>
-          Página{' '}
-          <strong>
-            {pageIndex + 1} de {pageOptions.length}
-          </strong>
-        </span>
-        <Form.Select
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-          className="ms-2"
-          style={{ width: '150px' }}
-        >
-          {[10, 20, 30, 40, 50].map((size) => (
-            <option key={size} value={size}>
-              Mostrar {size}
-            </option>
-          ))}
-        </Form.Select>
-      </div>
-
-      {/* Modal para agregar usuario */}
       <NewUserModal
         show={showAddModal}
         handleClose={() => setShowAddModal(false)}
         handleSubmit={handleAddUser}
       />
 
-      {/* Modal para editar usuario */}
       {selectedUser && (
         <EditUserModal
           show={showEditModal}

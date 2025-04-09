@@ -3,7 +3,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarCheck, faFileInvoiceDollar, faMoneyBillWave,
   faUsersViewfinder, faFireBurner, faBus, faFaucetDrip,
-  faAddressCard, faUserTie, faListCheck
+  faAddressCard, faUserTie, faCashRegister,
+  faFilterCircleDollar, faListOl, faListCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { AuthContext } from './AuthContext'; // Importar AuthContext para usar los permisos
 
@@ -45,7 +46,7 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-      hasPermission('hornopirolitico.access') && { // Solo mostrar si tiene permiso hornopirolitico.access
+      hasPermission('hornopirolitico.access') && {
         href: '/facturacion/hornopirolitico',
         label: (
           <>
@@ -58,7 +59,7 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-      hasPermission('alquilerterminal.access') && { // Solo mostrar si tiene permiso alquilerterminal.access
+      hasPermission('alquilerterminal.access') && {
         href: '/facturacion/Terminal',
         label: (
           <>
@@ -110,12 +111,54 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-    ].filter(Boolean), // Filtrar los elementos `null` o `false` (si no tiene permisos)
+    ].filter(Boolean), // Filtrar elementos falsy si el usuario no tiene los permisos
 
     inventario: [
       { href: '/inventario/agregar', label: 'Agregar Producto' },
       { href: '/inventario/stock', label: 'Ver Stock' },
-    ],
+    ],    
+
+    caja: [
+      { 
+        href: '/caja',
+        label: (
+          <>
+            <FontAwesomeIcon
+              icon={faCashRegister}
+              size="1x"
+              className="me-2"
+            />
+            Home Caja
+          </>
+        )
+      },
+      { 
+        href: '/caja/historial',
+        label: (
+          <>
+            <FontAwesomeIcon
+              icon={faListOl}
+              size="1x"
+              className="me-2"
+            />
+            Historial de cobros
+          </>
+        )
+      },
+      hasPermission('cierres.index') && {
+        href: '/caja/arqueo',
+        label: (
+          <>
+            <FontAwesomeIcon
+              icon={faFilterCircleDollar}
+              size="1x"
+              className="me-2"
+            />
+            Arqueo
+          </>
+        )
+      },
+    ].filter(Boolean), // Filtrar elementos falsy
 
     usuarios: [
       hasPermission('users.index') && {
@@ -157,7 +200,7 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-    ].filter(Boolean), // Filtrar los elementos `null` o `false` (si no tiene permisos)
+    ].filter(Boolean), // Filtrar elementos falsy
   };
 
   return (

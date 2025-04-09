@@ -1,33 +1,26 @@
-// src/features/facturacion/components/BombeoAgua/HomeBombeoAgua.jsx
-
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Card,
-  Table,
   Spinner,
-  Button,
   Row,
   Col,
 } from 'react-bootstrap';
 import { BombeoAguaContext } from '../../../../context/BombeoAguaContext';
-
 import { 
   BarChart, 
   RevenuePieChart, 
   StackedBarChart, 
   HeatmapChart, 
   KpiCards 
-} from '../../../../components/common/charts'; // Eliminado LineChart y HistogramChart
-
+} from '../../../../components/common/charts';
+import CommonTable from '../../../../components/common/table/table.jsx';
 const HomeBombeoAgua = () => {
   const {
     homePeriodos,
     loadingHomePeriodos,
     getPeriodosByServicio,
     getPeriodosByMonth,
-    // getTrendPeriodos, // Eliminado
     getRevenueByService,
-    // getIncomeDistribution, // Eliminado
     getHeatmapData,
     getKpis,
     servicios,
@@ -36,9 +29,7 @@ const HomeBombeoAgua = () => {
 
   const [chartDataServicio, setChartDataServicio] = useState(null);
   const [chartDataMes, setChartDataMes] = useState(null);
-  // const [chartDataTrend, setChartDataTrend] = useState(null); // Eliminado
   const [chartDataRevenue, setChartDataRevenue] = useState(null);
-  // const [chartDataHistogram, setChartDataHistogram] = useState(null); // Eliminado
   const [chartDataHeatmap, setChartDataHeatmap] = useState(null);
   const [kpiData, setKpiData] = useState({
     totalPeriodos: 0,
@@ -55,16 +46,8 @@ const HomeBombeoAgua = () => {
         const mesData = await getPeriodosByMonth();
         setChartDataMes(mesData);
 
-        // Eliminado trendData
-        // const trendData = await getTrendPeriodos();
-        // setChartDataTrend(trendData);
-
         const revenueData = await getRevenueByService();
         setChartDataRevenue(revenueData);
-
-        // Eliminado histogramData
-        // const histogramData = await getIncomeDistribution();
-        // setChartDataHistogram(histogramData);
 
         const heatmapData = await getHeatmapData();
         setChartDataHeatmap(heatmapData);
@@ -80,27 +63,75 @@ const HomeBombeoAgua = () => {
   }, [
     getPeriodosByServicio, 
     getPeriodosByMonth, 
-    // getTrendPeriodos, // Eliminado
     getRevenueByService, 
-    // getIncomeDistribution, // Eliminado
     getHeatmapData,
     getKpis,
   ]);
 
-  const getServiceNameById = (serviceId) => {
+  // Memorizar la función para evitar que se vuelva a crear y evitar warnings en useMemo
+  const getServiceNameById = useCallback((serviceId) => {
     const service = servicios.find(
       (servicio) => servicio.id === serviceId
     );
     return service ? service.nombre : 'Servicio desconocido';
-  };
+  }, [servicios]);
 
-  const toggleDisplayLimit = () => {
-    setDisplayLimit(
-      displayLimit === 6 ? homePeriodos.length : 6
-    );
-  };
-
-  const [displayLimit, setDisplayLimit] = useState(6);
+  // Definición de columnas para el CommonTable
+  const columns = useMemo(() => [
+    {
+      Header: '#',
+      id: 'rowIndex',
+      Cell: ({ row }) => row.index + 1,
+    },
+    {
+      Header: 'Cliente',
+      accessor: 'cliente',
+      Cell: ({ cell: { value } }) =>
+        value && value.persona
+          ? `${value.persona.nombre || ''} ${value.persona.apellido || ''}`.trim()
+          : 'Cliente desconocido',
+    },
+    {
+      Header: 'DNI',
+      id: 'dni',
+      accessor: (row) => row.cliente?.persona?.dni,
+      Cell: ({ cell: { value } }) => value || 'N/A',
+    },
+    {
+      Header: 'Servicio',
+      accessor: 'servicio_id',
+      Cell: ({ cell: { value } }) => getServiceNameById(value),
+    },
+    {
+      Header: 'Mes',
+      accessor: 'mes',
+    },
+    {
+      Header: 'Año',
+      accessor: 'año',
+    },
+    {
+      Header: 'Cuota',
+      accessor: 'cuota',
+    },
+    {
+      Header: 'Importe AR$',
+      accessor: 'i_debito',
+      Cell: ({ cell: { value } }) => parseFloat(value).toFixed(2),
+    },
+    {
+      Header: 'Vencimiento',
+      accessor: 'f_vencimiento',
+      Cell: ({ cell: { value } }) =>
+        value ? new Date(value).toLocaleDateString() : 'N/A',
+    },
+    {
+      Header: 'Fecha Creación',
+      accessor: 'created_at',
+      Cell: ({ cell: { value } }) =>
+        value ? new Date(value).toLocaleDateString() : 'N/A',
+    },
+  ], [getServiceNameById]);
 
   return (
     <div className="home-bombeo-agua">
@@ -190,16 +221,18 @@ const HomeBombeoAgua = () => {
                       <Card.Body>
                         <h5 className="text-center mb-3">Períodos Generados por Mes y Servicio</h5>
                         {chartDataMes && chartDataServicio ? (
-                          <StackedBarChart data={{
-                            categories: chartDataMes.categories,
-                            series: [
-                              {
-                                name: 'Ingresos por Servicio',
-                                data: chartDataServicio.series,
-                              },
-                              // Puedes añadir más series si tienes múltiples servicios
-                            ],
-                          }} height={250} />
+                          <StackedBarChart
+                            data={{
+                              categories: chartDataMes.categories,
+                              series: [
+                                {
+                                  name: 'Ingresos por Servicio',
+                                  data: chartDataServicio.series,
+                                },
+                              ],
+                            }}
+                            height={250}
+                          />
                         ) : (
                           <div className="text-center py-5">
                             <Spinner animation="border" role="status">
@@ -232,70 +265,9 @@ const HomeBombeoAgua = () => {
               </>
             )}
 
-            {/* Tabla de Períodos Generados */}
+            {/* Tabla de Períodos Generados usando CommonTable */}
             <h2 className="text-center mb-4">Últimos Períodos Generados</h2>
-            <Table striped bordered hover responsive>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cliente</th>
-                  <th>DNI</th>
-                  <th>Servicio</th>
-                  <th>Mes</th>
-                  <th>Año</th>
-                  <th>Cuota</th>
-                  <th>Importe AR$</th>
-                  <th>Vencimiento</th>
-                  <th>Fecha Creación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {homePeriodos.length > 0 ? (
-                  homePeriodos.slice(0, displayLimit).map((periodo, index) => (
-                    <tr key={periodo.id}>
-                      <td>{index + 1}</td>
-                      <td>
-                        {periodo.cliente && periodo.cliente.persona
-                          ? `${periodo.cliente.persona.nombre || ''} ${periodo.cliente.persona.apellido || ''}`.trim()
-                          : 'Cliente desconocido'}
-                      </td>
-                      <td>{periodo.cliente?.persona?.dni ?? 'N/A'}</td>
-                      <td>{getServiceNameById(periodo.servicio_id)}</td>
-                      <td>{periodo.mes}</td>
-                      <td>{periodo.año}</td>
-                      <td>{periodo.cuota}</td>
-                      <td>{`${parseFloat(periodo.i_debito).toFixed(2)}`}</td>
-                      <td>
-                        {periodo.f_vencimiento
-                          ? new Date(periodo.f_vencimiento).toLocaleDateString()
-                          : 'N/A'}
-                      </td>
-                      <td>
-                        {periodo.created_at
-                          ? new Date(periodo.created_at).toLocaleDateString()
-                          : 'N/A'}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="10" className="text-center text-muted">
-                      No hay períodos disponibles.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-            {homePeriodos.length > 6 && (
-              <div className="text-center mt-3">
-                <Button
-                  variant="outline-primary"
-                  onClick={toggleDisplayLimit}
-                >
-                  {displayLimit === 6 ? 'Mostrar más' : 'Mostrar menos'}
-                </Button>
-              </div>
-            )}
+            <CommonTable columns={columns} data={homePeriodos} />
           </>
         )}
       </Card>

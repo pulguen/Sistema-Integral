@@ -40,18 +40,20 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
     };
   }, [recibo, handlePrint]);
 
-  /**
-   * Esta función asume que la fecha llega como "YYYY-MM-DD"
-   * y simplemente invierte el orden para mostrar "DD/MM/YYYY".
-   */
+  // Función para formatear la fecha sin conversión a Date.
+  // Se toma la parte del string antes de la "T" (o el espacio) y se formatea a dd/mm/yyyy.
   const formatFecha = (fechaString) => {
     if (!fechaString) return 'N/A';
-    const [year, month, day] = fechaString.split('-'); 
+    let datePart = fechaString;
+    if (fechaString.includes(' ')) {
+      datePart = fechaString.split(' ')[0];
+    } else if (fechaString.includes('T')) {
+      datePart = fechaString.split('T')[0];
+    }
+    const [year, month, day] = datePart.split('-');
     return `${day}/${month}/${year}`;
   };
 
-  // Si querés tener una "fecha corta" igual, podés repetir la lógica 
-  // o usar la misma función. Aquí la dejo por separado a modo de ejemplo:
   const formatFechaCorta = (fechaString) => {
     return formatFecha(fechaString);
   };
@@ -66,7 +68,6 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
               <canvas ref={barcodeRef} />
             </div>
             <p className="num-recibo-izq"><strong>{recibo.n_recibo || ''}</strong></p>
-            {/* Usamos formatFecha en lugar de crear un Date */}
             <p>{recibo.created_at ? formatFecha(recibo.created_at) : 'N/A'}</p>
           </div>
 
@@ -85,7 +86,7 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
             <div className="periodos-list">
               {recibo.periodos.map((periodo, i) => (
                 <span key={i} className="periodo-item">
-                  {periodo.mes}/{periodo.año} - ${periodo.i_debito.toFixed(2)}
+                  {periodo.mes}/{periodo.año} - {periodo.cantidad} m<sup>3</sup> - ${periodo.i_debito.toFixed(2)}
                   {i < recibo.periodos.length - 1 && ', '}
                 </span>
               ))}
@@ -144,7 +145,7 @@ const ReciboImprimible = ({ recibo, handlePrint }) => {
             <div className="periodos-list">
               {recibo.periodos.map((periodo, i) => (
                 <span key={i} className="periodo-item">
-                  {periodo.mes}/{periodo.año} - ${periodo.i_debito.toFixed(2)}
+                  {periodo.mes}/{periodo.año} - {periodo.cantidad} m<sup>3</sup> - ${periodo.i_debito.toFixed(2)}
                   {i < recibo.periodos.length - 1 && ', '}
                 </span>
               ))}

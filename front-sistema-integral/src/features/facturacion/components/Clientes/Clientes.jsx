@@ -1,16 +1,15 @@
-// src/features/facturacion/components/Clientes/Clientes.jsx
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import Swal from 'sweetalert2';
-import { Breadcrumb, Form, Button, Table } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaPlus, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { Breadcrumb, Form, } from 'react-bootstrap';
+import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import NewClientModal from '../../../../components/common/modals/NewClientModal.jsx';
 import EditClientModal from '../../../../components/common/modals/EditClientModal.jsx';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
 import Loading from '../../../../components/common/loading/Loading.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
-import { useTable, useSortBy, usePagination, useGlobalFilter } from 'react-table';
 import { AuthContext } from '../../../../context/AuthContext';
+import CommonTable from '../../../../components/common/table/table.jsx';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -21,6 +20,7 @@ export default function Clientes() {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+
   const hasPermission = useCallback(
     (permission) => user?.permissions?.includes(permission),
     [user?.permissions]
@@ -49,16 +49,40 @@ export default function Clientes() {
     fetchClientes();
   }, [fetchClientes]);
 
-  // Función para eliminar cliente con eliminación previa de servicios asignados (si existen)
+  // Función para crear el cliente y retornar el objeto creado (con id)
+  const handleAddClient = async (clientToSend) => {
+    try {
+      const newClientResponse = await customFetch('/clientes', 'POST', clientToSend);
+      console.log('Nuevo cliente retornado:', newClientResponse);
+      return newClientResponse;
+    } catch (error) {
+      Swal.fire('Error', 'Hubo un problema al agregar el cliente.', 'error');
+      console.error('Error al agregar cliente:', error);
+      throw error;
+    }
+  };
+
+  // Función para editar el cliente
+  const handleEditClient = async (updatedClient) => {
+    try {
+      await customFetch(`/clientes/${updatedClient.id}`, 'PUT', updatedClient);
+      await fetchClientes();
+      setShowEditModal(false);
+      Swal.fire('Éxito', 'Cliente modificado exitosamente.', 'success');
+    } catch (error) {
+      Swal.fire('Error', 'Hubo un problema al modificar el cliente.', 'error');
+      console.error('Error al modificar cliente:', error);
+    }
+  };
+
+  // Función para eliminar cliente (incluyendo eliminación de servicios asignados si existen)
   const onDelete = useCallback(
     async (id) => {
       try {
-        // Buscar el cliente a eliminar
         const clientToDelete = clientes.find(cli => cli.id === id);
         if (!clientToDelete) {
           throw new Error("Cliente no encontrado");
         }
-        // Si tiene servicios asignados, pedir confirmación para eliminarlos primero
         if (clientToDelete.servicios && clientToDelete.servicios.length > 0) {
           const confirmRemoveServices = await Swal.fire({
             title: 'Eliminar servicios asignados',
@@ -71,10 +95,8 @@ export default function Clientes() {
           if (!confirmRemoveServices.isConfirmed) {
             return;
           }
-          // Sincronizar servicios vacíos para eliminar las asignaciones
           await customFetch(`/clientes/${id}/serv-sinc`, 'POST', { servicios: [] });
         }
-        // Confirmar eliminación del cliente
         const result = await Swal.fire({
           title: '¿Estás seguro?',
           text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este cliente?',
@@ -167,63 +189,6 @@ export default function Clientes() {
     [onDelete, hasPermission]
   );
 
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    prepareRow,
-    page,
-    canPreviousPage,
-    canNextPage,
-    pageOptions,
-    pageCount,
-    gotoPage,
-    nextPage,
-    previousPage,
-    setPageSize,
-    state: { pageIndex, pageSize },
-    setGlobalFilter,
-  } = useTable(
-    {
-      columns,
-      data: filteredClientes,
-      initialState: { pageIndex: 0, pageSize: 10 },
-    },
-    useGlobalFilter,
-    useSortBy,
-    usePagination
-  );
-
-  useEffect(() => {
-    setGlobalFilter(searchTerm || undefined);
-  }, [searchTerm, setGlobalFilter]);
-
-  // Función para crear el cliente y retornar el objeto creado (con id)
-  const handleAddClient = async (clientToSend) => {
-    try {
-      const newClientResponse = await customFetch('/clientes', 'POST', clientToSend);
-      console.log('Nuevo cliente retornado:', newClientResponse);
-      return newClientResponse;
-    } catch (error) {
-      Swal.fire('Error', 'Hubo un problema al agregar el cliente.', 'error');
-      console.error('Error al agregar cliente:', error);
-      throw error;
-    }
-  };
-
-  // Función para editar el cliente
-  const handleEditClient = async (updatedClient) => {
-    try {
-      await customFetch(`/clientes/${updatedClient.id}`, 'PUT', updatedClient);
-      await fetchClientes();
-      setShowEditModal(false);
-      Swal.fire('Éxito', 'Cliente modificado exitosamente.', 'success');
-    } catch (error) {
-      Swal.fire('Error', 'Hubo un problema al modificar el cliente.', 'error');
-      console.error('Error al modificar cliente:', error);
-    }
-  };
-
   // Manejar clic en la fila para ver detalle
   const handleRowClick = (clienteId) => {
     if (!hasPermission('clientes.show')) {
@@ -231,12 +196,6 @@ export default function Clientes() {
       return;
     }
     navigate(`/facturacion/clientes/${clienteId}`);
-  };
-
-  const getSortIcon = (column) => {
-    if (!column.canSort) return null;
-    if (column.isSorted) return column.isSortedDesc ? <FaSortDown /> : <FaSortUp />;
-    return <FaSort />;
   };
 
   return (
@@ -267,86 +226,11 @@ export default function Clientes() {
       {cargando ? (
         <Loading />
       ) : (
-        <>
-          <Table {...getTableProps()} striped bordered hover className="custom-table">
-            <thead>
-              {headerGroups.map((headerGroup) => {
-                const { key: headerGroupKey, ...headerGroupProps } = headerGroup.getHeaderGroupProps();
-                return (
-                  <tr key={headerGroupKey} {...headerGroupProps}>
-                    {headerGroup.headers.map((column) => {
-                      const { key: columnKey, ...columnProps } = column.getHeaderProps(column.getSortByToggleProps());
-                      return (
-                        <th key={columnKey} {...columnProps} style={{ cursor: column.canSort ? 'pointer' : 'default' }}>
-                          {column.render('Header')}
-                          {getSortIcon(column)}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </thead>
-            <tbody {...getTableBodyProps()}>
-              {page.length > 0 ? (
-                page.map((row) => {
-                  prepareRow(row);
-                  const { key: rowKey, ...rowProps } = row.getRowProps();
-                  return (
-                    <tr
-                      key={rowKey}
-                      {...rowProps}
-                      onClick={() => handleRowClick(row.original.id)}
-                      style={{ cursor: 'pointer' }}
-                      aria-label={`Detalles del Cliente ${row.original.id}`}
-                    >
-                      {row.cells.map((cell) => {
-                        const { key: cellKey, ...cellProps } = cell.getCellProps();
-                        return <td key={cellKey} {...cellProps}>{cell.render('Cell')}</td>;
-                      })}
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="6" className="text-center">No se encontraron clientes.</td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
-          <div className="pagination d-flex justify-content-between align-items-center">
-            <div>
-              <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="me-2">{'<<'}</Button>
-              <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="me-2">{'<'}</Button>
-              <Button onClick={() => nextPage()} disabled={!canNextPage} className="me-2">{'>'}</Button>
-              <Button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>{'>>'}</Button>
-            </div>
-            <span>
-              Página <strong>{pageIndex + 1} de {pageOptions.length}</strong>
-            </span>
-            <span>
-              | Ir a la página:{' '}
-              <input
-                type="number"
-                defaultValue={pageIndex + 1}
-                onChange={(e) => {
-                  const pageNumber = e.target.value ? Number(e.target.value) - 1 : 0;
-                  gotoPage(pageNumber);
-                }}
-                style={{ width: '100px' }}
-              />
-            </span>
-            <Form.Select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: '150px' }}
-            >
-              {[10, 20, 30, 40, 50].map((size) => (
-                <option key={size} value={size}>Mostrar {size}</option>
-              ))}
-            </Form.Select>
-          </div>
-        </>
+        <CommonTable 
+          columns={columns} 
+          data={filteredClientes} 
+          onRowClick={(client) => handleRowClick(client.id)} 
+        />
       )}
       <NewClientModal
         show={showAddModal}

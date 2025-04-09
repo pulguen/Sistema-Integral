@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Table, Form, Breadcrumb, Row, Col } from 'react-bootstrap';
+import { Card, Table, Form, Breadcrumb, Row, Col, Button } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
-import { FaEdit, FaTrash, FaSave } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSave, FaPlus } from 'react-icons/fa';
 import Loading from '../../../../components/common/loading/Loading.jsx';
 import customFetch from '../../../../context/CustomFetch.js';
 import { AuthContext } from '../../../../context/AuthContext';
@@ -19,15 +19,16 @@ export default function ClienteDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Estado principal del cliente
+  // Estado principal del cliente y datos de edición
   const [cliente, setCliente] = useState(null);
-
-  // Listas para selects
   const [clienteTipos, setClienteTipos] = useState([]);
   const [provincias, setProvincias] = useState([]);
   const [municipios, setMunicipios] = useState([]);
   const [calles, setCalles] = useState([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
+
+  // Detalles de tributos (mapeo: tributo_id → objeto tributo)
+  const [tributos, setTributos] = useState({});
 
   // Servicios asignados (IDs)
   const [serviciosAsignados, setServiciosAsignados] = useState([]);
@@ -59,20 +60,19 @@ export default function ClienteDetalle() {
 
   const fetchCliente = useCallback(async () => {
     try {
-      // Llamada a la API
       const data = await customFetch(`/clientes/${id}`, 'GET');
       console.log('[fetchCliente] Respuesta original:', data);
 
-      // OBTÉN PERSONA Y DIRECCION DESDE data.persona
+      // Extraer persona y dirección
       const { persona = {} } = data;
       const { direccion = {} } = persona;
 
-      // Combina datos para la vista
+      // Combinar datos para la vista
       const combined = { ...data, ...persona, ...direccion };
       console.log('[fetchCliente] Datos combinados:', combined);
       setCliente(combined);
 
-      // Para el formulario de edición, asigna los datos que vienen de persona/direccion
+      // Asigna datos para el formulario de edición
       setEditedCliente({
         tipo_cliente: data.cliente_tipo_id ? String(data.cliente_tipo_id) : '',
         nombre: persona.nombre || '',
@@ -81,8 +81,6 @@ export default function ClienteDetalle() {
         email: persona.email || '',
         telefono: persona.telefono ? String(persona.telefono) : '',
         f_nacimiento: persona.f_nacimiento || '',
-
-        // NOTA: Extraemos los IDs desde direccion.provincia, direccion.municipio, etc.
         provincia_id: direccion.provincia ? String(direccion.provincia.id) : '',
         municipio_id: direccion.municipio ? String(direccion.municipio.id) : '',
         calle_id: direccion.calle ? String(direccion.calle.id) : '',
@@ -166,13 +164,51 @@ export default function ClienteDetalle() {
     fetchServicios,
   ]);
 
-  // ------------------ FUNCIONES DE EDICIÓN ------------------
+  // ------------------ DETALLES DE TRIBUTOS ------------------
+  useEffect(() => {
+    const uniqueTributoIds = [...new Set(serviciosDisponibles.map((s) => s.tributo_id))];
+    if (uniqueTributoIds.length > 0) {
+      Promise.all(
+        uniqueTributoIds.map((id) =>
+          customFetch(`/tributos/${id}`, 'GET')
+        )
+      )
+        .then((results) => {
+          const mapping = {};
+          results.forEach((tributo) => {
+            if (tributo && tributo.id) {
+              mapping[tributo.id] = tributo;
+            }
+          });
+          setTributos(mapping);
+        })
+        .catch((error) => {
+          console.error("Error fetching tributos details in ClienteDetalle:", error);
+        });
+    }
+  }, [serviciosDisponibles]);
 
+  // ------------------ AGRUPAR SERVICIOS POR TRIBUTO ------------------
+  const groupedServices = useMemo(() => {
+    return serviciosDisponibles.reduce((acc, servicio) => {
+      const tributoId = servicio.tributo_id;
+      const tributoDetail = tributos[tributoId];
+      const tributoName = tributoDetail?.nombre || `Tributo ${tributoId}`;
+      if (!acc[tributoId]) {
+        acc[tributoId] = {
+          tributo: { id: tributoId, nombre: tributoName },
+          services: [],
+        };
+      }
+      acc[tributoId].services.push(servicio);
+      return acc;
+    }, {});
+  }, [serviciosDisponibles, tributos]);
+
+  // ------------------ FUNCIONES DE EDICIÓN ------------------
   const handleEditedChange = (e) => {
     const { name, value } = e.target;
     console.log('[handleEditedChange]', name, value);
-
-    // Si cambio provincia, limpio municipio y calle
     if (name === 'provincia_id') {
       setEditedCliente((prev) => ({
         ...prev,
@@ -181,7 +217,6 @@ export default function ClienteDetalle() {
         calle_id: '',
       }));
     } else if (name === 'municipio_id') {
-      // Si cambio municipio, limpio calle
       setEditedCliente((prev) => ({
         ...prev,
         municipio_id: value,
@@ -203,75 +238,27 @@ export default function ClienteDetalle() {
         email: editedCliente.email,
         telefono: editedCliente.telefono,
         cliente_tipo_id: editedCliente.tipo_cliente,
-        provincia_id: editedCliente.provincia_id
-          ? Number(editedCliente.provincia_id)
-          : null,
-        municipio_id: editedCliente.municipio_id
-          ? Number(editedCliente.municipio_id)
-          : null,
-        calle_id: editedCliente.calle_id
-          ? Number(editedCliente.calle_id)
-          : null,
+        provincia_id: editedCliente.provincia_id ? Number(editedCliente.provincia_id) : null,
+        municipio_id: editedCliente.municipio_id ? Number(editedCliente.municipio_id) : null,
+        calle_id: editedCliente.calle_id ? Number(editedCliente.calle_id) : null,
         altura: editedCliente.altura ? parseInt(editedCliente.altura, 10) : null,
       };
       console.log('[handleEditCliente] Datos a enviar:', updatedData);
-
-      // PUT a la API
+  
       await customFetch(`/clientes/${id}`, 'PUT', updatedData);
       Swal.fire('Éxito', 'Cliente modificado correctamente.', 'success');
-
-      // Actualiza el estado principal con los nuevos datos
-      setCliente((prev) => ({
-        ...prev,
-        ...updatedData,
-      }));
+  
+      // Llamar nuevamente a fetchCliente para refrescar los datos del cliente
+      await fetchCliente();
       setEditMode(false);
     } catch (err) {
       console.error('[handleEditCliente] Error:', err);
       Swal.fire('Error', `Error al modificar el cliente: ${err.message}`, 'error');
     }
   };
-
-  // ------------------ ASIGNAR SERVICIOS ------------------
-
-  const handleCheckboxChange = (servicioId) => {
-    setServiciosAsignados((prev) => {
-      if (prev.includes(servicioId)) {
-        const newSelected = prev.filter((id) => id !== servicioId);
-        console.log('[handleCheckboxChange] Servicios actualizados:', newSelected);
-        return newSelected;
-      }
-      const newSelected = [...prev, servicioId];
-      console.log('[handleCheckboxChange] Servicios actualizados:', newSelected);
-      return newSelected;
-    });
-  };
-
-  const handleAsignarServicios = async () => {
-    if (serviciosAsignados.length === 0) {
-      Swal.fire('Error', 'Debe seleccionar al menos un servicio.', 'error');
-      return;
-    }
-    try {
-      console.log('[handleAsignarServicios] Servicios a asignar:', serviciosAsignados);
-      await customFetch(`/clientes/${id}/serv-sinc`, 'POST', {
-        servicios: serviciosAsignados,
-      });
-      Swal.fire('Éxito', 'Servicios asignados correctamente.', 'success');
-      setCliente((prev) => ({
-        ...prev,
-        servicios: serviciosDisponibles.filter((s) =>
-          serviciosAsignados.includes(s.id)
-        ),
-      }));
-    } catch (err) {
-      console.error('[handleAsignarServicios] Error:', err);
-      Swal.fire('Error', 'Hubo un problema al asignar los servicios.', 'error');
-    }
-  };
+  
 
   // ------------------ ELIMINAR CLIENTE ------------------
-
   const handleDeleteCliente = async () => {
     try {
       const confirmResult = await Swal.fire({
@@ -293,8 +280,50 @@ export default function ClienteDetalle() {
     }
   };
 
-  // ------------------ RENDER ------------------
+  // ------------------ FUNCIONALIDAD: AGREGAR NUEVA CALLE ------------------
+  const handleAddNewCalle = async () => {
+    const { value: nombre } = await Swal.fire({
+      title: 'Agregar nueva calle',
+      input: 'text',
+      inputLabel: 'Nombre de la calle',
+      inputPlaceholder: 'Ingresa el nombre de la calle',
+      focusConfirm: false,
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return 'Por favor, ingresa un nombre válido.';
+        }
+      }
+    });
+    if (nombre) {
+      const nombreTrimmed = nombre.trim();
+      const calleExiste = calles.some(
+        (calle) => calle.nombre.toLowerCase() === nombreTrimmed.toLowerCase()
+      );
+      if (calleExiste) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Calle existente',
+          text: 'La calle ya existe, por favor ingresa otro nombre.'
+        });
+        return;
+      }
+      try {
+        const payload = { nombre: nombreTrimmed };
+        const newCalleResponse = await customFetch('/calles', 'POST', payload);
+        console.log('Nueva calle agregada:', newCalleResponse);
+        Swal.fire('Éxito', 'Calle agregada correctamente', 'success');
+        setCalles((prevCalles) => [...prevCalles, newCalleResponse]);
+        // Actualizar el campo en el formulario de edición
+        setEditedCliente((prev) => ({ ...prev, calle_id: String(newCalleResponse.id) }));
+      } catch (error) {
+        console.error('Error agregando la calle:', error);
+        Swal.fire('Error', 'No se pudo agregar la calle', 'error');
+      }
+    }
+  };
 
+  // ------------------ RENDER ------------------
   if (!cliente) {
     return <Loading />;
   }
@@ -309,7 +338,8 @@ export default function ClienteDetalle() {
           Gestión de Clientes
         </Breadcrumb.Item>
         <Breadcrumb.Item active>
-          {cliente.nombre} {cliente.apellido}
+          {cliente.nombre}{' '}
+          {cliente.tipo?.nombre.toLowerCase() !== 'jurídico' && cliente.apellido}
         </Breadcrumb.Item>
       </Breadcrumb>
 
@@ -321,9 +351,11 @@ export default function ClienteDetalle() {
               <p>
                 <strong>Nombre:</strong> {cliente.nombre}
               </p>
-              <p>
-                <strong>Apellido:</strong> {cliente.apellido}
-              </p>
+              {cliente.tipo?.nombre.toLowerCase() !== 'jurídico' && (
+                <p>
+                  <strong>Apellido:</strong> {cliente.apellido}
+                </p>
+              )}
               <p>
                 <strong>DNI/CIUT:</strong> {cliente.dni}
               </p>
@@ -334,24 +366,27 @@ export default function ClienteDetalle() {
                 <strong>Email:</strong> {cliente.email}
               </p>
               <p>
-                <strong>Fecha de Nacimiento:</strong> {cliente.f_nacimiento}
+                <strong>Fecha de Nacimiento:</strong>{' '}
+                {cliente.f_nacimiento
+                  ? new Date(cliente.f_nacimiento).toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })
+                  : 'No disponible'}
               </p>
               <p>
-                <strong>Tipo de Cliente:</strong>{' '}
-                {cliente.tipo?.nombre || 'Desconocido'}
+                <strong>Tipo de Cliente:</strong> {cliente.tipo?.nombre || 'Desconocido'}
               </p>
               <p>
-                <strong>Provincia:</strong>{' '}
-                {cliente.provincia?.nombre || 'Sin provincia'}
+                <strong>Provincia:</strong> {cliente.provincia?.nombre || 'Sin provincia'}
               </p>
               <p>
-                <strong>Municipio:</strong>{' '}
-                {cliente.municipio?.nombre || 'Sin municipio'}
+                <strong>Municipio:</strong> {cliente.municipio?.nombre || 'Sin municipio'}
               </p>
               <p>
                 <strong>Calle:</strong>{' '}
-                {cliente.calle?.nombre || 'Sin calle'}{' '}
-                {cliente.altura ? `- ${cliente.altura}` : ''}
+                {cliente.calle?.nombre || 'Sin calle'} {cliente.altura ? `- ${cliente.altura}` : ''}
               </p>
 
               <CustomButton
@@ -406,10 +441,7 @@ export default function ClienteDetalle() {
                 const tipoEncontrado = clienteTipos.find(
                   (t) => String(t.id) === String(editedCliente.tipo_cliente)
                 );
-                if (
-                  tipoEncontrado &&
-                  tipoEncontrado.nombre.toLowerCase() === 'físico'
-                ) {
+                if (tipoEncontrado && tipoEncontrado.nombre.toLowerCase() !== 'jurídico') {
                   return (
                     <Form.Group className="mb-3">
                       <Form.Label>Apellido</Form.Label>
@@ -470,7 +502,6 @@ export default function ClienteDetalle() {
                 />
               </Form.Group>
 
-              {/* Select de Provincia */}
               <Form.Group className="mb-3">
                 <Form.Label>Provincia</Form.Label>
                 <Form.Control
@@ -489,7 +520,6 @@ export default function ClienteDetalle() {
                 </Form.Control>
               </Form.Group>
 
-              {/* Select de Municipio */}
               <Form.Group className="mb-3">
                 <Form.Label>Municipio</Form.Label>
                 <Form.Control
@@ -501,14 +531,10 @@ export default function ClienteDetalle() {
                   required
                 >
                   <option value="">
-                    {editedCliente.provincia_id
-                      ? 'Seleccione un municipio'
-                      : 'Seleccione provincia primero'}
+                    {editedCliente.provincia_id ? 'Seleccione un municipio' : 'Seleccione provincia primero'}
                   </option>
                   {municipios
-                    .filter(
-                      (m) => m.provincia_id === Number(editedCliente.provincia_id)
-                    )
+                    .filter((m) => m.provincia_id === Number(editedCliente.provincia_id))
                     .map((m) => (
                       <option key={m.id} value={m.id.toString()}>
                         {m.nombre}
@@ -517,7 +543,6 @@ export default function ClienteDetalle() {
                 </Form.Control>
               </Form.Group>
 
-              {/* Select de Calle */}
               <Form.Group className="mb-3">
                 <Form.Label>Calle</Form.Label>
                 <Form.Control
@@ -528,24 +553,18 @@ export default function ClienteDetalle() {
                   disabled={!editedCliente.municipio_id}
                   required
                 >
-                  <option value="">
-                    {editedCliente.municipio_id
-                      ? 'Seleccione una calle'
-                      : 'Seleccione municipio primero'}
-                  </option>
-                  {calles
-                    .filter(
-                      (c) => c.municipio_id === Number(editedCliente.municipio_id)
-                    )
-                    .map((c) => (
-                      <option key={c.id} value={c.id.toString()}>
-                        {c.nombre}
-                      </option>
-                    ))}
+                  <option value="">Seleccione una calle</option>
+                  {calles.map((calle) => (
+                    <option key={calle.id} value={calle.id.toString()}>
+                      {calle.nombre}
+                    </option>
+                  ))}
                 </Form.Control>
+                <Button variant="link" onClick={handleAddNewCalle} className="p-0">
+                  <FaPlus /> Agregar nueva calle
+                </Button>
               </Form.Group>
 
-              {/* Input para Altura */}
               <Form.Group className="mb-3">
                 <Form.Label>Altura</Form.Label>
                 <Form.Control
@@ -558,18 +577,10 @@ export default function ClienteDetalle() {
               </Form.Group>
 
               <div className="d-flex justify-content-end mt-4">
-                <CustomButton
-                  variant="secondary"
-                  className="me-3"
-                  onClick={() => setEditMode(false)}
-                >
+                <CustomButton variant="secondary" className="me-3" onClick={() => setEditMode(false)}>
                   Cancelar
                 </CustomButton>
-                <CustomButton
-                  variant="primary"
-                  onClick={handleEditCliente}
-                  disabled={!hasPermission('clientes.update')}
-                >
+                <CustomButton variant="primary" onClick={handleEditCliente} disabled={!hasPermission('clientes.update')}>
                   <FaSave /> Guardar Cambios
                 </CustomButton>
               </div>
@@ -578,59 +589,96 @@ export default function ClienteDetalle() {
         </Col>
 
         <Col md={6}>
-          <h4 className="text-primary">Servicios Asignados</h4>
-          {cliente.servicios && cliente.servicios.length > 0 ? (
-            <Table striped bordered hover className="mt-3">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Servicio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cliente.servicios.map((serv, index) => (
-                  <tr key={serv.id}>
-                    <td>{index + 1}</td>
-                    <td>{serv.nombre}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+          {serviciosDisponibles.length === 0 || Object.keys(tributos).length === 0 ? (
+            <Loading />
           ) : (
-            <p>No hay servicios asignados.</p>
+            <>
+              <h4 className="text-primary">Servicios Asignados</h4>
+              {cliente.servicios && cliente.servicios.length > 0 ? (
+                <Table striped bordered hover className="mt-3">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Servicio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cliente.servicios.map((serv, index) => (
+                      <tr key={serv.id}>
+                        <td>{index + 1}</td>
+                        <td>{serv.nombre}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              ) : (
+                <p>No hay servicios asignados.</p>
+              )}
+
+              <hr />
+              <h4>Asignar Servicios</h4>
+              <Form>
+                <Form.Group controlId="servicios">
+                  <Form.Label>Seleccionar Servicios</Form.Label>
+                  {Object.keys(groupedServices).length === 0 ? (
+                    <p>No hay servicios disponibles</p>
+                  ) : (
+                    Object.entries(groupedServices).map(([tributoId, group]) => (
+                      <div key={tributoId} className="mb-3">
+                        <h6 className="text-primary">{group.tributo.nombre}</h6>
+                        <Row>
+                          {group.services.map((servicio) => (
+                            <Col md={6} key={servicio.id}>
+                              <Form.Check
+                                id={`servicio-${servicio.id}`}
+                                name={`servicio-${servicio.id}`}
+                                type="checkbox"
+                                label={servicio.nombre}
+                                value={servicio.id}
+                                checked={serviciosAsignados.includes(servicio.id)}
+                                onChange={() => {
+                                  setServiciosAsignados((prev) => {
+                                    if (prev.includes(servicio.id)) {
+                                      return prev.filter((id) => id !== servicio.id);
+                                    }
+                                    return [...prev, servicio.id];
+                                  });
+                                }}
+                              />
+                            </Col>
+                          ))}
+                        </Row>
+                      </div>
+                    ))
+                  )}
+                </Form.Group>
+
+                <CustomButton
+                  variant="primary"
+                  className="mt-3"
+                  onClick={async () => {
+                    if (serviciosAsignados.length === 0) {
+                      Swal.fire('Error', 'Debe seleccionar al menos un servicio.', 'error');
+                      return;
+                    }
+                    try {
+                      await customFetch(`/clientes/${id}/serv-sinc`, 'POST', {
+                        servicios: serviciosAsignados,
+                      });
+                      Swal.fire('Éxito', 'Servicios asignados correctamente.', 'success');
+                      fetchCliente(); // Actualiza los datos del cliente
+                    } catch (err) {
+                      console.error('[handleAsignarServicios] Error:', err);
+                      Swal.fire('Error', 'Hubo un problema al asignar los servicios.', 'error');
+                    }
+                  }}
+                  disabled={!hasPermission('clientes.sync-serv')}
+                >
+                  <FaSave /> Asignar Servicios
+                </CustomButton>
+              </Form>
+            </>
           )}
-
-          <hr />
-          <h4>Asignar Servicios</h4>
-          <Form>
-            <Form.Group controlId="servicios">
-              <Form.Label>Seleccionar Servicios</Form.Label>
-              <Row>
-                {serviciosDisponibles.map((serv) => (
-                  <Col md={6} key={serv.id}>
-                    <Form.Check
-                      id={`servicio-${serv.id}`}
-                      name={`servicio-${serv.id}`}
-                      type="checkbox"
-                      label={serv.nombre}
-                      value={serv.id}
-                      checked={serviciosAsignados.includes(serv.id)}
-                      onChange={() => handleCheckboxChange(serv.id)}
-                    />
-                  </Col>
-                ))}
-              </Row>
-            </Form.Group>
-
-            <CustomButton
-              variant="primary"
-              className="mt-3"
-              onClick={handleAsignarServicios}
-              disabled={!hasPermission('clientes.sync-serv')}
-            >
-              <FaSave /> Asignar Servicios
-            </CustomButton>
-          </Form>
         </Col>
       </Row>
     </Card>

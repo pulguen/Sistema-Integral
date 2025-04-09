@@ -11,7 +11,10 @@ export const FacturacionProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [modules, setModules] = useState({});
   const [condicionesPago, setCondicionesPago] = useState([]);
-  const [calles,setCalles] = useState([]);
+  const [calles, setCalles] = useState([]);
+
+  // Función auxiliar para esperar (en ms)
+  //const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Obtener clientes
   const fetchClientes = useCallback(async () => {
@@ -19,7 +22,6 @@ export const FacturacionProvider = ({ children }) => {
     try {
       const data = await customFetch("/clientes");
       console.log("Clientes obtenidos:", data);
-      // Si el backend ya trae la propiedad "persona" con los datos, no es necesaria ninguna transformación
       setClientes(data);
       setError(null);
     } catch (error) {
@@ -35,6 +37,7 @@ export const FacturacionProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await customFetch("/tributos");
+      console.log("Tributos obtenidos:", data);
       setTributos(data || []);
       setError(null);
     } catch (error) {
@@ -49,6 +52,7 @@ export const FacturacionProvider = ({ children }) => {
   const fetchServiciosByTributo = useCallback(async (tributoId) => {
     try {
       const data = await customFetch(`/tributos/${tributoId}`);
+      console.log("Servicios para tributo", tributoId, ":", data);
       setServicios(data.servicios || []);
     } catch (error) {
       console.error("Error al obtener los servicios:", error);
@@ -62,7 +66,7 @@ export const FacturacionProvider = ({ children }) => {
       try {
         const url = `/cuentas/cliente/${clienteId}/periodos?servicio_id=${servicioId}&tributo_id=${tributoId}`;
         const data = await customFetch(url);
-        
+        console.log("Períodos obtenidos:", data);
         let periods = [];
         if (Array.isArray(data)) {
           data.forEach((item) => {
@@ -76,13 +80,11 @@ export const FacturacionProvider = ({ children }) => {
           console.error("Formato de datos inesperado:", data);
           return [];
         }
-
         return (periods || []).map((periodo) => {
           const i_debito = parseFloat(periodo.i_debito) || 0;
           const i_descuento = parseFloat(periodo.i_descuento) || 0;
           const i_recargo_actualizado =
             parseFloat(periodo.i_recargo_actualizado || periodo.i_recargo) || 0;
-
           return {
             ...periodo,
             i_recargo_actualizado,
@@ -105,11 +107,12 @@ export const FacturacionProvider = ({ children }) => {
     }));
   }, []);
 
-  // Obtener cliente por id (sin transformar, ya que la respuesta ya trae "persona")
+  // Obtener cliente por id
   const fetchClienteById = useCallback(async (clienteId) => {
     setLoading(true);
     try {
       const data = await customFetch(`/cuentas/cliente/${clienteId}`);
+      console.log("Cliente obtenido por ID:", data);
       setError(null);
       return data;
     } catch (error) {
@@ -121,86 +124,93 @@ export const FacturacionProvider = ({ children }) => {
     }
   }, []);
 
-  // Obtener recibo por número
-  const fetchReciboByNumero = useCallback(async (numero) => {
+  /**
+   * NUEVA FUNCIÓN: Obtener recibos de un cliente usando la nueva ruta:
+   * /recibos/cliente/{id}
+   * Se asume que la respuesta es:
+   *   - Un arreglo de dos elementos, donde el primero es el array de recibos
+   *     y el segundo es el status (por ejemplo, [ dataArray, 201 ]), o
+   *   - Un objeto con una propiedad "data" (caso anterior).
+   */
+  const fetchRecibosByCliente = useCallback(
+    async (clienteId) => {
+      try {
+        const response = await customFetch(
+          `/recibos/cliente/${clienteId}?page=1&per_page=100`
+        );
+        console.log(`Recibos para cliente ${clienteId}:`, response);
+        let dataArray = [];
+        if (Array.isArray(response)) {
+          if (response.length === 2 && Array.isArray(response[0])) {
+            dataArray = response[0];
+          }
+        } else if (response.data && Array.isArray(response.data)) {
+          dataArray = response.data;
+        }
+        console.log("Todos los recibos del cliente:", dataArray);
+        return dataArray;
+      } catch (error) {
+        console.error("Error al obtener los recibos del cliente:", error);
+        setError("Error al obtener los recibos del cliente.");
+        throw error;
+      }
+    },
+    []
+  );
+
+  // Obtener condiciones de pago
+  const fetchCondicionesPago = useCallback(async () => {
     try {
-      const data = await customFetch(`/recibos?numero=${numero}`);
-      return data; 
+      const data = await customFetch("/condiciones_pago");
+      console.log("Condiciones de pago obtenidas:", data);
+      let flatConditions = [];
+      if (Array.isArray(data)) {
+        const flatten = (arr) =>
+          arr.reduce(
+            (acc, item) =>
+              Array.isArray(item) ? acc.concat(flatten(item)) : acc.concat(item),
+            []
+          );
+        flatConditions = flatten(data).filter(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            "id" in item &&
+            "nombre" in item
+        );
+      }
+      setCondicionesPago(flatConditions);
     } catch (error) {
-      console.error("Error al obtener el recibo:", error);
-      setError("Error al obtener el recibo.");
-      throw error;
+      console.error("Error al obtener condiciones de pago:", error);
     }
   }, []);
 
-  // Obtener varios recibos dada una lista de números
-  const fetchRecibosByNumeros = useCallback(async (numeros) => {
+  // Obtener calles
+  const fetchCalles = useCallback(async () => {
     try {
-      const promises = numeros.map((num) => fetchReciboByNumero(num));
-      const results = await Promise.all(promises);
-      return results;
-    } catch (error) {
-      console.error("Error al obtener los recibos:", error);
-      setError("Error al obtener los recibos.");
-      throw error;
-    }
-  }, [fetchReciboByNumero]);
-
-// Función para obtener condiciones de pago
-const fetchCondicionesPago = useCallback(async () => {
-  try {
-    const data = await customFetch("/condiciones_pago");
-    let flatConditions = [];
-
-    if (Array.isArray(data)) {
-      // Función recursiva para aplanar el array
-      const flatten = (arr) =>
-        arr.reduce((acc, item) => 
-          Array.isArray(item) 
-            ? acc.concat(flatten(item)) 
-            : acc.concat(item), []);
-      
-      // Aplanar la respuesta y filtrar solo objetos que tengan 'id' y 'nombre'
-      flatConditions = flatten(data).filter(
-        (item) => item && typeof item === "object" && "id" in item && "nombre" in item
-      );
-    }
-
-    setCondicionesPago(flatConditions);
-  } catch (error) {
-    console.error("Error al obtener condiciones de pago:", error);
-  }
-}, []);
-
-const fetchCalles = useCallback(async () => {
-  try {
-    const data = await customFetch("/calles");
-    let flatCalles = [];
-
-    if (Array.isArray(data)) {
-      // Función recursiva para aplanar el array
-      const flatten = (arr) =>
-        arr.reduce(
-          (acc, item) =>
-            Array.isArray(item) ? acc.concat(flatten(item)) : acc.concat(item),
-          []
+      const data = await customFetch("/calles");
+      console.log("Calles obtenidas:", data);
+      let flatCalles = [];
+      if (Array.isArray(data)) {
+        const flatten = (arr) =>
+          arr.reduce(
+            (acc, item) =>
+              Array.isArray(item) ? acc.concat(flatten(item)) : acc.concat(item),
+            []
+          );
+        flatCalles = flatten(data).filter(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            "id" in item &&
+            "nombre" in item
         );
-      // Aplanamos y filtramos solo los objetos válidos (que tengan id y nombre)
-      flatCalles = flatten(data).filter(
-        (item) =>
-          item &&
-          typeof item === "object" &&
-          "id" in item &&
-          "nombre" in item
-      );
+      }
+      setCalles(flatCalles);
+    } catch (error) {
+      console.error("Error al obtener las calles:", error);
     }
-
-    setCalles(flatCalles);
-  } catch (error) {
-    console.error("Error al obtener las calles:", error);
-  }
-}, [setCalles]);
-
+  }, []);
 
   useEffect(() => {
     fetchClientes();
@@ -222,8 +232,7 @@ const fetchCalles = useCallback(async () => {
     modules,
     loading,
     error,
-    fetchReciboByNumero,
-    fetchRecibosByNumeros,
+    fetchRecibosByCliente, // NUEVA función para obtener recibos por cliente
     condicionesPago,
     calles,
   };
@@ -234,3 +243,5 @@ const fetchCalles = useCallback(async () => {
     </FacturacionContext.Provider>
   );
 };
+
+export default FacturacionProvider;

@@ -18,15 +18,89 @@ import PeriodosHistorial from './features/facturacion/components/Periodos/Period
 import Roles from './features/Users/Components/Roles.jsx';
 import Permisos from './features/Users/Components/Permisos.jsx';
 import RecibosHistorial from './features/facturacion/components/Recibos/RecibosHistorial.jsx';
-import HomeCaja from './features/caja/HomeCaja.jsx';
+import CajaHome from './features/caja/components/CajaHome.jsx';
+import HistorialCaja from './features/caja/components/HistorialCaja.jsx';
+import ArqueoCaja from './features/caja/components/ArqueoCaja.jsx';
 import Unauthorized from './pages/Unauthorized/Unauthorized.jsx';
 import UsuarioDetalle from './features/Users/Components/UsuarioDetalle.jsx';
 
-// Importamos los Proveedores
+// Providers
 import { FacturacionProvider } from './context/FacturacionContext';
 import { BombeoAguaProvider } from './context/BombeoAguaContext';
 import { UsersProvider } from './context/UsersContext.jsx';
+import { CajaProvider } from './context/CajaContext';
 
+//
+// Componente para las rutas de Facturación
+//
+function FacturacionRoutes() {
+  return (
+    <FacturacionProvider>
+      <GlobalLayout>
+        <MainLayout section="facturacion">
+          <Routes>
+            <Route index element={<Facturacion />} />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="clientes/:id" element={<ClienteDetalle />} />
+            <Route
+              path="bombeo-agua/*"
+              element={
+                <BombeoAguaProvider>
+                  <BombeoAgua />
+                </BombeoAguaProvider>
+              }
+            />
+            <Route path="periodos" element={<PeriodosHistorial />} />
+            <Route path="recibos" element={<RecibosHistorial />} />
+          </Routes>
+        </MainLayout>
+      </GlobalLayout>
+    </FacturacionProvider>
+  );
+}
+
+//
+// Componente para las rutas de Usuarios
+//
+function UsuariosRoutes() {
+  return (
+    <UsersProvider>
+      <GlobalLayout>
+        <MainLayout section="usuarios">
+          <Routes>
+            <Route index element={<Usuarios />} />
+            <Route path="roles" element={<Roles />} />
+            <Route path="permisos" element={<Permisos />} />
+            <Route path=":id" element={<UsuarioDetalle />} />
+          </Routes>
+        </MainLayout>
+      </GlobalLayout>
+    </UsersProvider>
+  );
+}
+
+//
+// Componente para las rutas de Caja
+//
+function CajaRoutes() {
+  return (
+    <GlobalLayout>
+      <MainLayout section="caja">
+        <CajaProvider>
+          <Routes>
+            <Route index element={<CajaHome />} />
+            <Route path="historial" element={<HistorialCaja />} />
+            <Route path="arqueo" element={<ArqueoCaja />} />
+          </Routes>
+        </CajaProvider>
+      </MainLayout>
+    </GlobalLayout>
+  );
+}
+
+//
+// Componente principal de la aplicación (AppContent)
+//
 function AppContent() {
   return (
     <div className="App">
@@ -36,53 +110,8 @@ function AppContent() {
 
         {/* Rutas protegidas */}
         <Route element={<PrivateRoute />}>
-          {/* Ruta Home */}
-          <Route
-            path="/"
-            element={
-              <GlobalLayout>
-                <Home />
-              </GlobalLayout>
-            }
-          />
-
-          {/* Ruta Facturación con subrutas */}
-          <Route
-            path="/facturacion/*"
-            element={
-              <FacturacionProvider>
-                <GlobalLayout>
-                  <MainLayout section="facturacion">
-                    <Routes>
-                      <Route index element={<Facturacion />} />
-                      {/* Rutas Clientes */}
-                      <Route path="clientes" element={<Clientes />} />
-                      <Route path="clientes/:id" element={<ClienteDetalle />} />
-                      
-                      {/* Ruta de Bombeo de Agua */}
-                      <Route
-                        path="bombeo-agua/*"
-                        element={
-                          <BombeoAguaProvider>
-                            <BombeoAgua />
-                          </BombeoAguaProvider>
-                        }
-                      />
-                      
-                      {/* Ruta de Periodos */}
-                      <Route path="periodos" element={<PeriodosHistorial />} />
-                      
-                      {/* Ruta de Recibos */}
-                      <Route path="recibos" element={<RecibosHistorial />} />
-                      {/* Puedes agregar más subrutas aquí */}
-                    </Routes>
-                  </MainLayout>
-                </GlobalLayout>
-              </FacturacionProvider>
-            }
-          />
-
-          {/* Ruta de Inventario */}
+          <Route path="/" element={<GlobalLayout><Home /></GlobalLayout>} />
+          <Route path="/facturacion/*" element={<FacturacionRoutes />} />
           <Route
             path="/inventario"
             element={
@@ -93,61 +122,15 @@ function AppContent() {
               </GlobalLayout>
             }
           />
-
-          {/* Rutas Usuarios */}
-          <Route
-            path="/usuarios/*"
-            element={
-              <UsersProvider>
-                <GlobalLayout>
-                  <MainLayout section="usuarios">
-                    <Routes>
-                      <Route index element={<Usuarios />} />
-                      <Route path="roles" element={<Roles />} />
-                      <Route path="permisos" element={<Permisos />} />
-                      <Route path=":id" element={<UsuarioDetalle />} />
-                      {/* Puedes agregar más subrutas aquí */}
-                    </Routes>
-                  </MainLayout>
-                </GlobalLayout>
-              </UsersProvider>
-            }
-          />
-
-          {/* Ruta Caja */}
-          <Route
-            path="/caja"
-            element={
-              <GlobalLayout>
-                <MainLayout section="caja">
-                  <HomeCaja />
-                </MainLayout>
-              </GlobalLayout>
-            }
-          />
+          <Route path="/usuarios/*" element={<UsuariosRoutes />} />
+          <Route path="/caja/*" element={<CajaRoutes />} />
         </Route>
 
-        {/* Ruta de Acceso Denegado */}
-        <Route
-          path="/unauthorized"
-          element={
-            <GlobalLayout>
-              <Unauthorized />
-            </GlobalLayout>
-          }
-        />
+        {/* Rutas públicas adicionales */}
+        <Route path="/unauthorized" element={<GlobalLayout><Unauthorized /></GlobalLayout>} />
+        <Route path="/about" element={<GlobalLayout><About /></GlobalLayout>} />
 
-        {/* Ruta About */}
-        <Route
-          path="/about"
-          element={
-            <GlobalLayout>
-              <About />
-            </GlobalLayout>
-          }
-        />
-
-        {/* Redirigir a login si no está autenticado */}
+        {/* Redirigir a login para cualquier ruta no reconocida */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </div>

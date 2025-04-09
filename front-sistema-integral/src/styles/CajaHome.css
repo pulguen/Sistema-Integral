@@ -1,0 +1,64 @@
+/* CajaHome.css */
+
+/* Contenedor de la tabla: scroll horizontal cuando sea necesario */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+  }
+  
+  /* La tabla ocupa el 100% del ancho */
+  .table-responsive table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  /* Celdas de la tabla */
+  .table-responsive th,
+  .table-responsive td {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    padding: 8px;
+    text-align: center;
+  }
+  
+  /* Encabezados */
+  .table-responsive th {
+    background-color: #f8f9fa;
+  }
+  
+  /* Media query para pantallas pequeñas */
+  @media (max-width: 600px) {
+    .table-responsive th,
+    .table-responsive td {
+      font-size: 0.8rem;
+      padding: 6px;
+    }
+  }
+  
+  /* Estilos para el estado vacío (opcional) */
+  .empty-state-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    text-align: center;
+  }
+  
+  .empty-state-icon {
+    font-size: 4rem;
+    color: #6c757d;
+  }
+  
+  .empty-state-container h4 {
+    font-size: 1.5rem;
+  }
+  
+  .empty-state-container p {
+    font-size: 1rem;
+  }
+  

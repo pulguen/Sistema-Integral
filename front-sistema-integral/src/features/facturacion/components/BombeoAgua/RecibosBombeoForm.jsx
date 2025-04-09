@@ -11,6 +11,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileInvoiceDollar } from '@fortawesome/free-solid-svg-icons';
 import { FacturacionContext } from '../../../../context/FacturacionContext';
 
+// Función auxiliar para obtener la fecha de hoy en formato YYYY-MM-DD
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const RecibosBombeoForm = () => {
   const { servicios, handleCreateRecibo } = useContext(BombeoAguaContext);
   const { user } = useContext(AuthContext);
@@ -23,7 +32,8 @@ const RecibosBombeoForm = () => {
   const [periodos, setPeriodos] = useState([]);
   const [selectedPeriodos, setSelectedPeriodos] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [vencimiento, setVencimiento] = useState('');
+  // Inicializa vencimiento con la fecha actual
+  const [vencimiento, setVencimiento] = useState(getTodayDate());
   const [showClientList, setShowClientList] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState({});
@@ -31,7 +41,7 @@ const RecibosBombeoForm = () => {
 
   const clientDropdownRef = useRef(null);
 
-  // Función para obtener el nombre del servicio según el cliente
+  // Función para obtener el nombre del servicio según el cliente (sin cambios)
   const getServiceNameByClientId = useCallback(
     (clientId) => {
       const servicio = servicios.find((servicio) =>
@@ -97,7 +107,8 @@ const RecibosBombeoForm = () => {
     setShowClientList(searchTerm.length > 0 && filtered.length > 0);
   }, [searchTerm, allClients]);
 
-  // Obtener períodos del cliente seleccionado
+  // --- Actualización en fetchPeriodos ---  
+  // Al obtener los períodos del cliente, se filtran solo aquellos con condicion_pago_id === null
   const fetchPeriodos = useCallback(async (cliente_id) => {
     setLoading(true);
     setPeriodos([]);
@@ -107,7 +118,14 @@ const RecibosBombeoForm = () => {
       // Se espera que data tenga formato: [responseData, statusCode]
       const [responseData] = data;
       if (responseData && responseData.length > 0) {
-        setPeriodos(responseData);
+        const filteredPeriodos = responseData.filter(
+          (periodo) => periodo.condicion_pago_id === null
+        );
+        if (filteredPeriodos.length > 0) {
+          setPeriodos(filteredPeriodos);
+        } else {
+          Swal.fire('Sin periodos', 'No hay periodos no facturados para este cliente.', 'info');
+        }
       } else {
         Swal.fire('Sin periodos', 'No hay periodos no facturados para este cliente.', 'info');
       }
@@ -122,6 +140,7 @@ const RecibosBombeoForm = () => {
       setLoading(false);
     }
   }, []);
+  // --- Fin actualización fetchPeriodos ---
 
   // Al seleccionar un cliente, obtenemos la info completa (incluyendo dirección) mediante fetchClienteById
   const handleClientSelect = useCallback(
@@ -241,7 +260,8 @@ const RecibosBombeoForm = () => {
     setFilteredClients(allClients);
     setSelectedPeriodos([]);
     setTotalAmount(0);
-    setVencimiento('');
+    // Al limpiar, se vuelve a setear la fecha de vencimiento con la fecha actual
+    setVencimiento(getTodayDate());
     setPeriodos([]);
     setSelectedClient({});
     setObservaciones('');
@@ -266,14 +286,6 @@ const RecibosBombeoForm = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [handleClickOutside]);
-
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">

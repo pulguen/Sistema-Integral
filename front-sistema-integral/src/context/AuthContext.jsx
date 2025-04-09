@@ -7,16 +7,24 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Incluimos "services" en el objeto user (lo inicializamos con lo que haya en localStorage si existe)
+  // Inicializamos el token y los datos del usuario desde localStorage
+  const storedToken = localStorage.getItem('token') || null;
+  const [token, setToken] = useState(storedToken);
+
+  const storedUserId = localStorage.getItem('userId') || null;
+  const storedUserName = localStorage.getItem('userName') || null;
+  const storedUserRoles = JSON.parse(localStorage.getItem('userRoles') || '[]');
+  const storedUserPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
+  const storedUserServices = JSON.parse(localStorage.getItem('userServices') || '[]');
+
+  const [isAuthenticated, setIsAuthenticated] = useState(!!storedToken);
   const [user, setUser] = useState({
-    id: localStorage.getItem('userId') || null,
-    name: localStorage.getItem('userName') || null,
-    roles: JSON.parse(localStorage.getItem('userRoles')) || [],
-    permissions: JSON.parse(localStorage.getItem('userPermissions')) || [],
-    services: JSON.parse(localStorage.getItem('userServices')) || [], // <-- nuevo
+    id: storedUserId,
+    name: storedUserName,
+    roles: storedUserRoles,
+    permissions: storedUserPermissions,
+    services: storedUserServices,
   });
 
   const [loading, setLoading] = useState(true);
@@ -24,6 +32,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setToken(null);
     localStorage.clear();
+
     setIsAuthenticated(false);
     setUser({
       id: null,
@@ -39,22 +48,13 @@ export const AuthProvider = ({ children }) => {
    * Función para obtener los roles, permisos y servicios actualizados del usuario.
    */
   const fetchUserPermissions = useCallback(async () => {
-    if (!user.id) return; // si no hay user.id, no hacemos la petición
+    if (!user.id) return;
     try {
-      // Llamada a /users/{user.id} que debe devolver algo como:
-      // {
-      //   id: number,
-      //   name: string,
-      //   roles: [...],
-      //   servicios: [ { id: number, nombre: string, ... }, ... ]
-      //   ...
-      // }
       const data = await customFetch(`/users/${user.id}`, 'GET');
       const updatedRoles = data.roles.map((role) => role.name);
       const updatedPermissions = data.roles.flatMap((role) =>
         role.permissions.map((permission) => permission.name)
       );
-      // Si el backend retorna "servicios" en data.servicios, convertimos a array de IDs
       const updatedServices = data.servicios
         ? data.servicios.map((serv) => serv.id)
         : [];
@@ -63,10 +63,9 @@ export const AuthProvider = ({ children }) => {
         ...prevUser,
         roles: updatedRoles,
         permissions: updatedPermissions,
-        services: updatedServices, // <-- guardamos array de IDs de servicios
+        services: updatedServices,
       }));
 
-      // Actualizar localStorage
       localStorage.setItem('userRoles', JSON.stringify(updatedRoles));
       localStorage.setItem('userPermissions', JSON.stringify(updatedPermissions));
       localStorage.setItem('userServices', JSON.stringify(updatedServices));
@@ -80,9 +79,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user.id]);
 
-  /**
-   * Efecto que valida el token al montar (o cambiar `token`)
-   */
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
@@ -94,7 +90,6 @@ export const AuthProvider = ({ children }) => {
       const userId = localStorage.getItem('userId');
       if (userId) {
         setIsAuthenticated(true);
-        // Actualizar permisos y servicios cuando la sesión esté activa.
         await fetchUserPermissions();
       } else {
         logout();
@@ -105,9 +100,6 @@ export const AuthProvider = ({ children }) => {
     validateToken();
   }, [token, logout, fetchUserPermissions]);
 
-  /**
-   * Efecto para manejar un token expirado (opcional)
-   */
   useEffect(() => {
     const handleTokenExpired = () => {
       logout();
@@ -126,7 +118,8 @@ export const AuthProvider = ({ children }) => {
   }, [logout]);
 
   /**
-   * Función para hacer login
+   * Función para hacer login.
+   * Ahora solo se reciben email y password, y se almacena la sesión en localStorage.
    */
   const login = async (email, password) => {
     try {
@@ -140,8 +133,6 @@ export const AuthProvider = ({ children }) => {
         const permissions = userData.roles.flatMap((role) =>
           role.permissions.map((permission) => permission.name)
         );
-        // Si la respuesta del login ya incluye userData.servicios, 
-        // mapeamos a IDs
         let servicesArray = [];
         if (Array.isArray(userData.servicios)) {
           servicesArray = userData.servicios.map((s) => s.id);
@@ -153,7 +144,7 @@ export const AuthProvider = ({ children }) => {
           name: userData.name,
           roles,
           permissions,
-          services: servicesArray, // <-- guardamos también
+          services: servicesArray,
         });
 
         localStorage.setItem('token', token);

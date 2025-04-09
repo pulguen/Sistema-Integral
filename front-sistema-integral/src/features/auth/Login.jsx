@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../../components/layout/Footer/Footer';
 import CustomButton from '../../components/common/botons/CustomButton.jsx';
+import ForgotPasswordModal from '../../components/common/modals/ForgotPasswordModal.jsx';
 
 export default function LoginForm() {
   const { login, isAuthenticated } = useContext(AuthContext);
@@ -14,12 +15,12 @@ export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberUser, setRememberUser] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
-  
+  const [showForgotModal, setShowForgotModal] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/'); // Redirigir a la página de inicio si ya está logueado
+      navigate('/'); // Redirige a la página principal si ya está autenticado.
     }
   }, [isAuthenticated, navigate]);
 
@@ -66,7 +67,7 @@ export default function LoginForm() {
     try {
       const success = await login(email, password);
       if (!success) {
-        setLoginAttempts((prev) => prev + 1);
+        setLoginAttempts(prev => prev + 1);
       } else {
         setLoginAttempts(0);
       }
@@ -121,15 +122,6 @@ export default function LoginForm() {
                 </InputGroup>
               </Form.Group>
 
-              <Form.Group className="mb-3" controlId="formRememberUser">
-                <Form.Check
-                  type="checkbox"
-                  label="Recordame"
-                  checked={rememberUser}
-                  onChange={(e) => setRememberUser(e.target.checked)}
-                />
-              </Form.Group>
-
               <CustomButton type="submit" className="w-100 mb-3 primary">
                 Ingresar
               </CustomButton>
@@ -143,6 +135,7 @@ export default function LoginForm() {
                     textDecoration: 'none',
                     color: 'var(--secundary-color)',
                   }}
+                  onClick={() => setShowForgotModal(true)}
                 >
                   ¿Olvidaste tu contraseña?
                 </Button>
@@ -162,6 +155,9 @@ export default function LoginForm() {
           </Col>
         </Row>
       </Container>
+
+      {/* Se abre el modal para recuperar la contraseña */}
+      <ForgotPasswordModal show={showForgotModal} handleClose={() => setShowForgotModal(false)} />
 
       <Footer />
     </>

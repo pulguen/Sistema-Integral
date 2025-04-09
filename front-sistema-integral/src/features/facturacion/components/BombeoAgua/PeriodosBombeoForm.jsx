@@ -400,7 +400,7 @@ const BombeoAguaForm = () => {
       <Form onSubmit={handleSubmit} className="px-4">
         {/* Información del Cliente */}
         <section className="form-section mb-4">
-          <h4 className="mb-4 text-secondary font-weight-bold">
+          <h4 className="mb-3 text-secondary font-weight-bold">
             Información del Cliente
           </h4>
           <Row>
@@ -459,7 +459,7 @@ const BombeoAguaForm = () => {
           <>
             {/* Tabla de Períodos del Cliente */}
             <section className="form-section mb-4">
-              <h4 className="mb-4 text-secondary font-weight-bold">
+              <h4 className="mb-3 text-secondary font-weight-bold">
                 Historial de Períodos
               </h4>
               <div className="table-responsive">
@@ -522,7 +522,7 @@ const BombeoAguaForm = () => {
                               {periodo.n_recibo_generado ||
                                 "Sin recibo generado"}
                             </td>
-                            <td>{periodo.condicion_pago || "No pago"}</td>
+                            <td>{periodo.condicion_pago_id || "No pago"}</td>
                             <td>
                               {periodo.f_pago
                                 ? new Date(periodo.f_pago).toLocaleDateString(
@@ -564,6 +564,9 @@ const BombeoAguaForm = () => {
             </section>
 
             <section className="form-section mb-4">
+            <h4 className="mb-3 text-secondary font-weight-bold">
+                Nuevo Periodo
+              </h4>
               <Row>
                 <Col md={6}>
                   <Form.Group controlId="volume">

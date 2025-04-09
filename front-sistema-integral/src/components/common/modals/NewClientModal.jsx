@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch.js';
 
 export default function NewClientModal({ show, handleClose, handleSubmit, onClientCreated }) {
-  // Estado local para el modal, de modo que podamos ocultarlo temporalmente sin resetear el formulario
+  // Estado local para el modal (para mostrar/ocultar sin resetear el formulario)
   const [localShow, setLocalShow] = useState(show);
 
   useEffect(() => {
@@ -33,6 +33,8 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
   const [municipios, setMunicipios] = useState([]);
   const [provincias, setProvincias] = useState([]);
   const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
+  // Estado para almacenar los detalles de cada tributo (mapeo: id -> objeto tributo)
+  const [tributos, setTributos] = useState({});
 
   // Obtener tipos de cliente desde /cliente-tipos
   useEffect(() => {
@@ -88,6 +90,53 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
     fetchLists();
   }, []);
 
+  // Una vez que se carguen los servicios, extraemos los IDs únicos de tributo
+  // y hacemos un GET a http://10.0.200.31:8001/api/tributos/{id} para traer los datos
+  useEffect(() => {
+    const uniqueTributoIds = [
+      ...new Set(serviciosDisponibles.map((s) => s.tributo_id))
+    ];
+    if (uniqueTributoIds.length > 0) {
+      Promise.all(
+        uniqueTributoIds.map((id) =>
+          customFetch(`/tributos/${id}`, 'GET')
+        )
+      )
+        .then((results) => {
+          const mapping = {};
+          results.forEach((tributo) => {
+            if (tributo && tributo.id) {
+              mapping[tributo.id] = tributo;
+            }
+          });
+          setTributos(mapping);
+        })
+        .catch((error) => {
+          console.error("Error fetching tributos details:", error);
+        });
+    }
+  }, [serviciosDisponibles]);
+
+  // Agrupar servicios por tributo usando los datos obtenidos
+  const groupedServices = React.useMemo(() => {
+    return serviciosDisponibles.reduce((acc, servicio) => {
+      const tributoId = servicio.tributo_id;
+      // Se utiliza el nombre obtenido del GET a tributos; si no existe, se usa un valor por defecto.
+      const tributoName = tributos[tributoId]?.nombre || `Tributo ${tributoId}`;
+      if (!acc[tributoId]) {
+        acc[tributoId] = {
+          tributo: {
+            id: tributoId,
+            nombre: tributoName,
+          },
+          services: [],
+        };
+      }
+      acc[tributoId].services.push(servicio);
+      return acc;
+    }, {});
+  }, [serviciosDisponibles, tributos]);
+
   // Al cambiar el campo provincia, resetea el municipio
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -99,7 +148,7 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
     }));
   };
 
-  // Manejar la selección de servicios
+  // Manejar la selección de servicios (checkboxes)
   const handleServiceCheckboxChange = (e) => {
     const serviceId = parseInt(e.target.value, 10);
     console.log(`Servicio ${serviceId} seleccionado/des-seleccionado`);
@@ -179,13 +228,13 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
     return true;
   };
 
-  // onSubmit: crea el cliente y sincroniza servicios; si falla la asignación, elimina el cliente
+  // onSubmit: crear el cliente y sincronizar servicios; si falla la asignación, se elimina el cliente
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!validateFields()) return;
     console.log('Datos del formulario validados.');
 
-    // Objeto para crear el cliente (sin la propiedad "servicios")
+    // Objeto para crear el cliente (sin incluir "servicios")
     const clientToSend = {
       nombre: newClient.nombre,
       apellido: newClient.apellido,
@@ -281,18 +330,15 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
     });
   };
 
-  // Para el cierre definitivo del modal (resetear y notificar al padre)
+  // Cierre definitivo del modal (resetear y notificar al padre)
   const handleModalClose = () => {
     handleReset();
     handleClose();
   };
 
-  // Función para agregar nueva calle (se envía id y nombre; el id se genera automáticamente en el back)
-  // Se oculta temporalmente el modal padre y luego se vuelve a mostrar para seguir creando el cliente.
+  // Función para agregar nueva calle
   const handleAddNewCalle = async () => {
-    // Ocultar el modal localmente sin resetear el formulario
     setLocalShow(false);
-
     const { value: nombre } = await Swal.fire({
       title: 'Agregar nueva calle',
       input: 'text',
@@ -307,18 +353,12 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
         }
       }
     });
-
-    // Reabrir el modal para que el usuario continúe creando el cliente,
-    // independientemente de si se ingresó un nombre o no.
     setLocalShow(true);
-
     if (nombre) {
       const nombreTrimmed = nombre.trim();
-      // Verificar si ya existe una calle con ese nombre (ignorando mayúsculas/minúsculas)
       const calleExiste = calles.some(
         (calle) => calle.nombre.toLowerCase() === nombreTrimmed.toLowerCase()
       );
-
       if (calleExiste) {
         Swal.fire({
           icon: 'warning',
@@ -327,16 +367,11 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
         });
         return;
       }
-
       try {
-        // En este caso, la API requiere un id; generamos uno temporal.
-        const payload = { 
-          nombre: nombreTrimmed 
-        };
+        const payload = { nombre: nombreTrimmed };
         const newCalleResponse = await customFetch('/calles', 'POST', payload);
         console.log('Nueva calle agregada:', newCalleResponse);
         Swal.fire('Éxito', 'Calle agregada correctamente', 'success');
-        // Actualizar la lista de calles y seleccionar la nueva calle en el formulario
         setCalles((prevCalles) => [...prevCalles, newCalleResponse]);
         setNewClient((prev) => ({ ...prev, calle_id: newCalleResponse.id }));
       } catch (error) {
@@ -414,26 +449,36 @@ export default function NewClientModal({ show, handleClose, handleSubmit, onClie
                 </Form.Group>
               )}
 
-              {/* Selección de Servicios */}
+              {/* Selección de Servicios agrupados por Tributo */}
               <Form.Group controlId="servicios" className="mb-3">
                 <Form.Label className="font-weight-bold">
                   Servicios a asignar
                 </Form.Label>
-                <Row>
-                  {serviciosDisponibles.map((servicio) => (
-                    <Col md={6} key={servicio.id}>
-                      <Form.Check
-                        id={`servicio-${servicio.id}`}
-                        name={`servicio-${servicio.id}`}
-                        type="checkbox"
-                        label={servicio.nombre}
-                        value={servicio.id}
-                        checked={newClient.servicios.includes(servicio.id)}
-                        onChange={handleServiceCheckboxChange}
-                      />
-                    </Col>
-                  ))}
-                </Row>
+                {Object.keys(groupedServices).length === 0 ? (
+                  <p>No hay servicios disponibles</p>
+                ) : (
+                  Object.entries(groupedServices).map(([tributoId, group]) => (
+                    <div key={tributoId} className="mb-3">
+                      {/* Se muestra el nombre del tributo obtenido vía GET */}
+                      <h6 className="text-primary">{group.tributo.nombre}</h6>
+                      <Row>
+                        {group.services.map((servicio) => (
+                          <Col md={6} key={servicio.id}>
+                            <Form.Check
+                              id={`servicio-${servicio.id}`}
+                              name={`servicio-${servicio.id}`}
+                              type="checkbox"
+                              label={servicio.nombre}
+                              value={servicio.id}
+                              checked={newClient.servicios.includes(servicio.id)}
+                              onChange={handleServiceCheckboxChange}
+                            />
+                          </Col>
+                        ))}
+                      </Row>
+                    </div>
+                  ))
+                )}
               </Form.Group>
 
               {/* DNI/CUIT */}
