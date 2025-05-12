@@ -1,6 +1,5 @@
-// LoginForm.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { Form, Container, Row, Col, InputGroup, Button } from 'react-bootstrap';
+import { Form, Container, Row, Col, InputGroup, Button, Spinner } from 'react-bootstrap';
 import { AuthContext } from '../../context/AuthContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import Swal from 'sweetalert2';
@@ -12,10 +11,12 @@ import ForgotPasswordModal from '../../components/common/modals/ForgotPasswordMo
 export default function LoginForm() {
   const { login, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
   useEffect(() => {
@@ -64,10 +65,13 @@ export default function LoginForm() {
       return;
     }
 
+    // Indicar que se está iniciando sesión.
+    setIsLoggingIn(true);
+
     try {
       const success = await login(email, password);
       if (!success) {
-        setLoginAttempts(prev => prev + 1);
+        setLoginAttempts((prev) => prev + 1);
       } else {
         setLoginAttempts(0);
       }
@@ -77,6 +81,8 @@ export default function LoginForm() {
         title: 'Error de conexión',
         text: 'Hubo un problema al iniciar sesión. Verifica tu conexión a internet.',
       });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -122,8 +128,15 @@ export default function LoginForm() {
                 </InputGroup>
               </Form.Group>
 
-              <CustomButton type="submit" className="w-100 mb-3 primary">
-                Ingresar
+              <CustomButton type="submit" className="w-100 mb-3 primary" disabled={isLoggingIn}>
+                {isLoggingIn ? (
+                  <>
+                    <Spinner animation="border" size="sm" role="status" style={{ marginRight: '8px' }} />
+                    Iniciando...
+                  </>
+                ) : (
+                  'Ingresar'
+                )}
               </CustomButton>
 
               <div className="d-flex justify-content-between mb-4">
@@ -156,7 +169,7 @@ export default function LoginForm() {
         </Row>
       </Container>
 
-      {/* Se abre el modal para recuperar la contraseña */}
+      {/* Modal para recuperar contraseña */}
       <ForgotPasswordModal show={showForgotModal} handleClose={() => setShowForgotModal(false)} />
 
       <Footer />

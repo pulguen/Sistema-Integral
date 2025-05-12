@@ -1,9 +1,10 @@
-// src/features/facturacion/components/HistorialCaja.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Form, Table, Row, Col, Button, Spinner } from 'react-bootstrap';
+import { Card, Breadcrumb, Form, Table, Row, Col, Spinner } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch.js';
 import DetalleReciboModal from '../../../components/common/modals/DetalleReciboModal.jsx';
+import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 
 const HistorialCaja = () => {
   const [recibos, setRecibos] = useState([]);
@@ -22,11 +23,12 @@ const HistorialCaja = () => {
   const [selectedRecibo, setSelectedRecibo] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Función para obtener el historial de recibos (todos los que tengan f_pago !== null)
+  // Función para obtener el historial de recibos (todos aquellos que tengan f_pago !== null)
   const fetchHistorialRecibos = useCallback(async () => {
     setLoading(true);
     try {
-      let data = await customFetch('/recibos');
+      let data = await customFetch('/recibos', 'GET');
+      // En algunos casos la respuesta viene encapsulada en otro array
       if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
         data = data[0];
       }
@@ -66,8 +68,6 @@ const HistorialCaja = () => {
     if (filtroImporteMax) {
       pass = pass && r.i_total <= parseFloat(filtroImporteMax);
     }
-    // Como en la tabla ya no mostramos los nombres enriquecidos,
-    // para filtrar por cliente o cajero se usan los ID (o se puede omitir este filtro)
     if (filtroCliente) {
       pass = pass && r.cliente_id && r.cliente_id.toString().includes(filtroCliente);
     }
@@ -95,7 +95,16 @@ const HistorialCaja = () => {
 
   return (
     <Card className="shadow-sm p-4 mt-4">
-      <h2 className="text-center mb-4">Historial de Recibos</h2>
+      <Breadcrumb>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
+          Inicio
+        </Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/caja" }}>
+          Home Caja
+        </Breadcrumb.Item>
+        <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
+      </Breadcrumb>
+      <h2 className="text-center mb-4 text-primary">Historial de Recibos</h2>
       <Card.Body>
         <Form className="mb-4">
           <Row>
@@ -177,39 +186,40 @@ const HistorialCaja = () => {
               </Form.Group>
             </Col>
             <Col md={3} className="d-flex align-items-end">
-              <Button variant="secondary" onClick={resetFilters}>
+              <CustomButton variant="secondary" onClick={resetFilters}>
                 Limpiar filtros
-              </Button>
+              </CustomButton>
             </Col>
           </Row>
           <Row className="mt-3">
             <Col md={12} className="text-end">
-              <Button variant="primary" onClick={fetchHistorialRecibos}>
+              <CustomButton variant="primary" onClick={fetchHistorialRecibos}>
                 Actualizar Historial
-              </Button>
-              <Button variant="primary" onClick={resetFilters} className="ms-2">
+              </CustomButton>
+              <CustomButton variant="primary" onClick={resetFilters} className="ms-2">
                 Limpiar filtros
-              </Button>
-              <Button variant="primary" onClick={() => {
-                // Si se aplica algún filtro, ejecutar la búsqueda manual
-                if (
-                  filtroRecibo ||
-                  filtroFechaDesde ||
-                  filtroFechaHasta ||
-                  filtroImporteMin ||
-                  filtroImporteMax ||
-                  filtroCliente ||
-                  filtroCajero
-                ) {
-                  // Aquí se usa la función de filtrado local; si se quisiera hacer la búsqueda desde el servidor, se ajusta la llamada.
-                  // Por ahora, simplemente se actualiza la lista filtrada:
-                  // (Si el endpoint soporta filtros, se puede construir un query string y llamar a customFetch)
-                } else {
-                  Swal.fire('Advertencia', 'Debe ingresar al menos un criterio de búsqueda.', 'warning');
-                }
-              }} className="ms-2">
+              </CustomButton>
+              <CustomButton
+                variant="primary"
+                onClick={() => {
+                  if (
+                    filtroRecibo ||
+                    filtroFechaDesde ||
+                    filtroFechaHasta ||
+                    filtroImporteMin ||
+                    filtroImporteMax ||
+                    filtroCliente ||
+                    filtroCajero
+                  ) {
+                    // Aquí se ejecuta la búsqueda local (ya se realiza el filtrado en filteredRecibos)
+                  } else {
+                    Swal.fire('Advertencia', 'Debe ingresar al menos un criterio de búsqueda.', 'warning');
+                  }
+                }}
+                className="ms-2"
+              >
                 Buscar
-              </Button>
+              </CustomButton>
             </Col>
           </Row>
         </Form>
@@ -237,9 +247,9 @@ const HistorialCaja = () => {
                     <td>{new Date(recibo.f_pago).toLocaleDateString()}</td>
                     <td>$ {recibo.i_total.toFixed(2)}</td>
                     <td>
-                      <Button variant="info" onClick={() => handleVerDetalle(recibo)}>
+                      <CustomButton variant="info" onClick={() => handleVerDetalle(recibo)}>
                         Ver Detalle
-                      </Button>
+                      </CustomButton>
                     </td>
                   </tr>
                 ))

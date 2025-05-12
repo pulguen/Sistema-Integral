@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
-import { Card, Button, Spinner } from "react-bootstrap";
+import { Card, Spinner, Breadcrumb } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import customFetch from "../../../context/CustomFetch.js";
 import Swal from "sweetalert2";
 import CommonTable from "../../../components/common/table/table.jsx";
+import CustomButton from "../../../components/common/botons/CustomButton.jsx";
 import { AuthContext } from "../../../context/AuthContext"; // Asegúrate de que la ruta sea la correcta
 
-const CierreCaja = () => {
-  // Se obtiene el usuario del contexto de autenticación y se define la función para validar permisos.
+const ArqueoCaja = () => {
+  // Se obtiene el usuario desde AuthContext y se define hasPermission
   const { user } = useContext(AuthContext);
   const hasPermission = (permission) => user.permissions.includes(permission);
 
@@ -74,12 +76,8 @@ const CierreCaja = () => {
         setCierresList([]);
       }
     } catch (error) {
-      console.error("Error al obtener el historial de cierres:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo obtener el historial de cierres.",
-      });
+      Swal.fire("Error", "Error al obtener clientes.", "error");
+      console.error("Error al obtener clientes:", error);
     } finally {
       setLoadingList(false);
     }
@@ -137,18 +135,27 @@ const CierreCaja = () => {
 
   return (
     <Card className="p-4 mt-4">
-      <h2>Cierre de Caja</h2>
+      <Breadcrumb>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
+          Inicio
+        </Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/Home Caja" }}>
+          Caja
+        </Breadcrumb.Item>
+        <Breadcrumb.Item active>Cierre de Caja</Breadcrumb.Item>
+      </Breadcrumb>
+      <h2 className="text-center mb-4 text-primary">Cierre de Caja</h2>
       <p>Genera el cierre de caja correspondiente a la fecha actual.</p>
-      <Button
-        onClick={hasPermission('cierres.store') ? handleCierreCaja : undefined}
-        disabled={loading || !hasPermission('cierres.store')}
+      <CustomButton
+        onClick={hasPermission("cierres.store") ? handleCierreCaja : undefined}
+        disabled={loading || !hasPermission("cierres.store")}
       >
         {loading ? (
           <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
         ) : (
           "Generar Cierre de Caja"
         )}
-      </Button>
+      </CustomButton>
       {cierre && (
         <div className="mt-3">
           <h4>Detalle del Cierre Generado:</h4>
@@ -158,23 +165,22 @@ const CierreCaja = () => {
 
       <div className="mt-4">
         <h4>Historial de Cierres de Caja</h4>
-        <Button onClick={fetchCierresList} disabled={loadingList}>
+        <CustomButton onClick={fetchCierresList} disabled={loadingList}>
           {loadingList ? "Cargando..." : "Refrescar Historial"}
-        </Button>
+        </CustomButton>
         {loadingList ? (
           <div className="text-center mt-3">
             <Spinner animation="border" role="status">
               <span className="visually-hidden">Cargando...</span>
             </Spinner>
           </div>
-        ) : hasPermission('cierres.show') ? (
+        ) : hasPermission("cierres.show") ? (
           cierresList.length > 0 ? (
             <CommonTable columns={columns} data={cierresList} />
           ) : (
             <p className="mt-3 text-center">No se encontraron cierres anteriores.</p>
           )
         ) : (
-          // Aquí se muestra la tabla (o contenedor) con el mensaje informativo cuando no se tienen permisos
           <div className="mt-3 text-center text-danger">
             Tu usuario no cuenta con autorización para visualizar el historial de cierres de caja.
           </div>
@@ -184,4 +190,4 @@ const CierreCaja = () => {
   );
 };
 
-export default CierreCaja;
+export default ArqueoCaja;

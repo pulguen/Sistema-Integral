@@ -1,647 +1,601 @@
 // src/components/common/modals/NewClientModal.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import Swal from 'sweetalert2';
-import customFetch from '../../../context/CustomFetch.js';
+import customFetch from '../../../context/CustomFetch';
+import { FacturacionContext } from '../../../context/FacturacionContext';
 
-export default function NewClientModal({ show, handleClose, handleSubmit, onClientCreated }) {
-  // Estado local para el modal (para mostrar/ocultar sin resetear el formulario)
+export default function NewClientModal({
+  show,
+  handleClose,
+  handleSubmit,
+  onClientCreated,
+}) {
+  const {
+    calles,
+    municipiosOrdenados,
+    provincias,
+    serviciosDisponibles,
+    tributos,
+  } = useContext(FacturacionContext);
+
+  // Estados
+  const [localCalles, setLocalCalles] = useState(calles);
   const [localShow, setLocalShow] = useState(show);
+  const [keyboardEnabled, setKeyboardEnabled] = useState(true);
+  const [step, setStep] = useState(1);
 
-  useEffect(() => {
-    setLocalShow(show);
-  }, [show]);
-
-  const [newClient, setNewClient] = useState({
-    tipo_cliente: '',      // id obtenido de /cliente-tipos
+  const [clientType, setClientType] = useState(''); // 'Persona' | 'Empresa'
+  const [personaData, setPersonaData] = useState({
     nombre: '',
     apellido: '',
     dni: '',
     email: '',
     telefono: '',
     f_nacimiento: '',
-    calle_id: '',          // id obtenido de /calles
-    altura: '',
-    municipio_id: '',      // id obtenido de /municipios
-    provincia_id: '',      // id obtenido de /provincias
-    servicios: []          // IDs de servicios seleccionados
+  });
+  const [empresaData, setEmpresaData] = useState({
+    nombre: '',
+    cuit: '',
   });
 
-  // Estados para las listas dinámicas
-  const [clienteTipos, setClienteTipos] = useState([]);
-  const [calles, setCalles] = useState([]);
-  const [municipios, setMunicipios] = useState([]);
-  const [provincias, setProvincias] = useState([]);
-  const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
-  // Estado para almacenar los detalles de cada tributo (mapeo: id -> objeto tributo)
-  const [tributos, setTributos] = useState({});
+  const [domicilio, setDomicilio] = useState({
+    provincia_id: '',
+    municipio_id: '',
+    calle_id: '',
+    altura: '',
+    codigo_postal: '',
+    n_casa: '',
+    n_piso: '',
+    n_departamento: '',
+    es_esquina: false,
+    calle_esquina_id: '',
+    referencia: '',
+  });
 
-  // Obtener tipos de cliente desde /cliente-tipos
-  useEffect(() => {
-    async function fetchClienteTipos() {
-      try {
-        const data = await customFetch('/cliente-tipos', 'GET');
-        console.log('Tipos de cliente recibidos:', data);
-        setClienteTipos(data);
-      } catch (error) {
-        console.error('Error fetching cliente tipos:', error);
-      }
-    }
-    fetchClienteTipos();
-  }, []);
+  const [serviciosSeleccionados, setServiciosSeleccionados] = useState([]);
 
-  // Función auxiliar para desempaquetar datos anidados
-  const unpackData = (data) => {
-    return Array.isArray(data) && Array.isArray(data[0]) ? data[0] : data;
-  };
+  // Sincronizar props/contexto
+  useEffect(() => setLocalCalles(calles), [calles]);
+  useEffect(() => setLocalShow(show), [show]);
 
-  // Obtener listas: calles, municipios, provincias y servicios
-  useEffect(() => {
-    async function fetchLists() {
-      try {
-        const callesData = await customFetch('/calles', 'GET');
-        console.log('Calles recibidas:', callesData);
-        setCalles(unpackData(callesData));
-      } catch (error) {
-        console.error('Error fetching calles:', error);
-      }
-      try {
-        const municipiosData = await customFetch('/municipios', 'GET');
-        console.log('Municipios recibidos:', municipiosData);
-        setMunicipios(unpackData(municipiosData));
-      } catch (error) {
-        console.error('Error fetching municipios:', error);
-      }
-      try {
-        const provinciasData = await customFetch('/provincias', 'GET');
-        console.log('Provincias recibidas:', provinciasData);
-        setProvincias(unpackData(provinciasData));
-      } catch (error) {
-        console.error('Error fetching provincias:', error);
-      }
-      try {
-        const serviciosData = await customFetch('/servicios', 'GET');
-        console.log('Servicios recibidos:', serviciosData);
-        setServiciosDisponibles(unpackData(serviciosData));
-      } catch (error) {
-        console.error('Error fetching servicios:', error);
-      }
-    }
-    fetchLists();
-  }, []);
-
-  // Una vez que se carguen los servicios, extraemos los IDs únicos de tributo
-  // y hacemos un GET a http://10.0.200.31:8001/api/tributos/{id} para traer los datos
-  useEffect(() => {
-    const uniqueTributoIds = [
-      ...new Set(serviciosDisponibles.map((s) => s.tributo_id))
-    ];
-    if (uniqueTributoIds.length > 0) {
-      Promise.all(
-        uniqueTributoIds.map((id) =>
-          customFetch(`/tributos/${id}`, 'GET')
-        )
-      )
-        .then((results) => {
-          const mapping = {};
-          results.forEach((tributo) => {
-            if (tributo && tributo.id) {
-              mapping[tributo.id] = tributo;
-            }
-          });
-          setTributos(mapping);
-        })
-        .catch((error) => {
-          console.error("Error fetching tributos details:", error);
-        });
-    }
-  }, [serviciosDisponibles]);
-
-  // Agrupar servicios por tributo usando los datos obtenidos
-  const groupedServices = React.useMemo(() => {
-    return serviciosDisponibles.reduce((acc, servicio) => {
-      const tributoId = servicio.tributo_id;
-      // Se utiliza el nombre obtenido del GET a tributos; si no existe, se usa un valor por defecto.
-      const tributoName = tributos[tributoId]?.nombre || `Tributo ${tributoId}`;
-      if (!acc[tributoId]) {
-        acc[tributoId] = {
-          tributo: {
-            id: tributoId,
-            nombre: tributoName,
-          },
-          services: [],
-        };
-      }
-      acc[tributoId].services.push(servicio);
+  // Agrupar servicios por tributo
+  const groupedServices = useMemo(() => {
+    return serviciosDisponibles.reduce((acc, svc) => {
+      const tid = svc.tributo_id;
+      const tname =
+        tributos.find((t) => t.id === tid)?.nombre || `Tributo ${tid}`;
+      if (!acc[tid]) acc[tid] = { tributo: { id: tid, nombre: tname }, services: [] };
+      acc[tid].services.push(svc);
       return acc;
     }, {});
   }, [serviciosDisponibles, tributos]);
 
-  // Al cambiar el campo provincia, resetea el municipio
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    console.log(`Cambio en ${name}: ${value}`);
-    setNewClient((prev) => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'provincia_id' && { municipio_id: '' }),
+  // Filtrar municipios
+  const filteredMunicipios = useMemo(() => {
+    if (!domicilio.provincia_id) return [];
+    return municipiosOrdenados.filter(
+      (m) => String(m.provincia_id) === domicilio.provincia_id
+    );
+  }, [municipiosOrdenados, domicilio.provincia_id]);
+
+  // Handlers
+  const handleClientTypeChange = (e) => {
+    const v = e.target.value;
+    setClientType(v);
+    if (v === 'Persona') {
+      setEmpresaData({ nombre: '', cuit: '' });
+    } else {
+      setPersonaData({
+        nombre: '',
+        apellido: '',
+        dni: '',
+        email: '',
+        telefono: '',
+        f_nacimiento: '',
+      });
+    }
+  };
+  const handlePersonaChange = (e) =>
+    setPersonaData((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleEmpresaChange = (e) =>
+    setEmpresaData((eP) => ({ ...eP, [e.target.name]: e.target.value }));
+  const handleDomicilioChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setDomicilio((d) => ({
+      ...d,
+      [name]: type === 'checkbox' ? checked : value,
+      ...(name === 'provincia_id' && { municipio_id: '', calle_id: '' }),
+      ...(name === 'municipio_id' && { calle_id: '' }),
     }));
   };
-
-  // Manejar la selección de servicios (checkboxes)
   const handleServiceCheckboxChange = (e) => {
-    const serviceId = parseInt(e.target.value, 10);
-    console.log(`Servicio ${serviceId} seleccionado/des-seleccionado`);
-    setNewClient((prev) => {
-      let newServicios = [...prev.servicios];
-      if (newServicios.includes(serviceId)) {
-        newServicios = newServicios.filter((id) => id !== serviceId);
-      } else {
-        newServicios.push(serviceId);
+    const id = Number(e.target.value);
+    setServiciosSeleccionados((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+  const handleAddNewCalle = async () => {
+    setKeyboardEnabled(false);
+    try {
+      const { value: nombre } = await Swal.fire({
+        title: 'Agregar nueva calle',
+        input: 'text',
+        inputLabel: 'Nombre de la calle',
+        inputPlaceholder: 'Ingresa el nombre de la calle',
+        showCancelButton: true,
+        inputValidator: (v) => (!v?.trim() && 'Ingresa un nombre válido.'),
+      });
+      if (!nombre) return;
+      const trimmed = nombre.trim();
+      if (
+        localCalles.some((c) => c.nombre.toLowerCase() === trimmed.toLowerCase())
+      ) {
+        await Swal.fire('Calle existente', 'Ya existe esa calle.', 'warning');
+        return;
       }
-      console.log('Servicios actualizados:', newServicios);
-      return { ...prev, servicios: newServicios };
-    });
+      const nueva = await customFetch('/calles', 'POST', { nombre: trimmed });
+      setLocalCalles((c) => [...c, nueva]);
+      setDomicilio((d) => ({ ...d, calle_id: String(nueva.id) }));
+      await Swal.fire('Éxito', 'Calle agregada correctamente.', 'success');
+    } catch {
+      await Swal.fire('Error', 'No se pudo agregar la calle.', 'error');
+    } finally {
+      setKeyboardEnabled(true);
+    }
   };
 
-  // Filtrar municipios según la provincia seleccionada
-  const filteredMunicipios = newClient.provincia_id
-    ? municipios.filter((mun) => mun.provincia_id.toString() === newClient.provincia_id)
-    : [];
-
-  // Validar campos requeridos
-  const validateFields = () => {
-    const { tipo_cliente, nombre, apellido, dni, email, telefono, altura, calle_id, municipio_id, provincia_id, f_nacimiento } = newClient;
-    if (
-      !tipo_cliente ||
-      !nombre ||
-      (clienteTipos.find(tipo => tipo.nombre.toLowerCase() === 'físico')?.id.toString() === newClient.tipo_cliente && !apellido) ||
-      !dni ||
-      !email ||
-      !telefono ||
-      !altura ||
-      !calle_id ||
-      !municipio_id ||
-      !provincia_id ||
-      !f_nacimiento
-    ) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos vacíos',
-        text: 'Por favor, completa todos los campos requeridos.',
-      });
+  // Validaciones
+  const validateStep1 = () => {
+    if (!clientType) {
+      Swal.fire('Atención', 'Selecciona Persona o Empresa.', 'warning');
       return false;
     }
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Correo inválido',
-        text: 'Por favor, ingresa un correo electrónico válido.',
-      });
+    if (clientType === 'Persona') {
+      const { nombre, apellido, dni, email, telefono, f_nacimiento } = personaData;
+      if (!nombre || !apellido || !dni || !email || !telefono || !f_nacimiento) {
+        Swal.fire('Campos incompletos', 'Completa todos los datos.', 'warning');
+        return false;
+      }
+      if (!/^\d+$/.test(dni)) {
+        Swal.fire('Error', 'DNI solo números.', 'error');
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        Swal.fire('Error', 'Email inválido.', 'error');
+        return false;
+      }
+      if (!/^\d+$/.test(telefono)) {
+        Swal.fire('Error', 'Teléfono solo números.', 'error');
+        return false;
+      }
+    } else {
+      const { nombre, cuit } = empresaData;
+      if (!nombre || !cuit) {
+        Swal.fire('Campos incompletos', 'Completa nombre y CUIT.', 'warning');
+        return false;
+      }
+      if (!/^\d+$/.test(cuit)) {
+        Swal.fire('Error', 'CUIT solo números.', 'error');
+        return false;
+      }
+    }
+    return true;
+  };
+  const validateStep2 = () => {
+    const { provincia_id, municipio_id, calle_id, altura, codigo_postal } = domicilio;
+    if (!provincia_id || !municipio_id || !calle_id || !altura) {
+      Swal.fire('Campos incompletos', 'Completa la dirección.', 'warning');
       return false;
     }
-    if (!/^\d+$/.test(dni)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'DNI/CUIT inválido',
-        text: 'El DNI/CUIT solo debe contener números.',
-      });
+    if (Number(altura) <= 0) {
+      Swal.fire('Error', 'Altura debe ser positiva.', 'error');
       return false;
     }
-    if (!/^\d+$/.test(telefono)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Teléfono inválido',
-        text: 'El teléfono solo debe contener números.',
-      });
-      return false;
-    }
-    if (isNaN(altura) || parseInt(altura, 10) <= 0) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Altura inválida',
-        text: 'La altura debe ser un número positivo.',
-      });
+    if (codigo_postal !== '' && !/^\d+$/.test(codigo_postal)) {
+      Swal.fire('Error', 'Código postal solo números.', 'error');
       return false;
     }
     return true;
   };
 
-  // onSubmit: crear el cliente y sincronizar servicios; si falla la asignación, se elimina el cliente
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateFields()) return;
-    console.log('Datos del formulario validados.');
-
-    // Objeto para crear el cliente (sin incluir "servicios")
-    const clientToSend = {
-      nombre: newClient.nombre,
-      apellido: newClient.apellido,
-      f_nacimiento: newClient.f_nacimiento,
-      dni: parseInt(newClient.dni, 10),
-      email: newClient.email,
-      telefono: newClient.telefono,
-      cliente_tipo_id: newClient.tipo_cliente,
-      calle_id: parseInt(newClient.calle_id, 10),
-      altura: parseInt(newClient.altura, 10),
-      municipio_id: parseInt(newClient.municipio_id, 10),
-      provincia_id: parseInt(newClient.provincia_id, 10),
-    };
-
-    console.log('Datos a enviar para crear cliente:', clientToSend);
-
-    try {
-      const confirmation = await Swal.fire({
-        title: '¿Estás seguro?',
-        text: '¿Estás seguro de que quieres agregar este cliente?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, agregar',
-        cancelButtonText: 'Cancelar',
-      });
-
-      if (confirmation.isConfirmed) {
-        // 1. Crear el cliente
-        const newClientResponse = await handleSubmit(clientToSend);
-        console.log('Cliente creado:', newClientResponse);
-        if (!newClientResponse || !newClientResponse.id) {
-          console.error("No se obtuvo el ID del cliente creado:", newClientResponse);
-          throw new Error("No se obtuvo el ID del cliente creado.");
-        }
-
-        // 2. Si se seleccionaron servicios, sincronizarlos
-        if (newClient.servicios && newClient.servicios.length > 0) {
-          const serviciosToSend = newClient.servicios.map(String);
-          console.log(`Sincronizando servicios para el cliente ${newClientResponse.id}:`, serviciosToSend);
-          try {
-            await customFetch(
-              `/clientes/${newClientResponse.id}/serv-sinc`,
-              'POST',
-              { servicios: serviciosToSend }
-            );
-            console.log('Servicios asignados correctamente.');
-          } catch (assignError) {
-            console.error('Error al asignar servicios:', assignError);
-            // Eliminar el cliente si falla la asignación de servicios
-            await customFetch(`/clientes/${newClientResponse.id}`, 'DELETE');
-            throw new Error('Error al asignar los servicios. Se eliminó el cliente.');
-          }
-        }
-
-        await Swal.fire({
-          icon: 'success',
-          title: 'Cliente agregado',
-          text: 'El cliente ha sido agregado exitosamente!',
-        });
-        console.log('Proceso completado exitosamente.');
-        handleReset();
-        handleClose();
-        if (typeof onClientCreated === 'function') {
-          onClientCreated();
-        }
-      }
-    } catch (error) {
-      console.error('Error en el proceso de creación y asignación:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.message || 'No se pudo agregar el cliente. Intenta nuevamente.',
-      });
-    }
+  // Navegación
+  const goNext = () => {
+    if (step === 1 && validateStep1()) setStep(2);
+    else if (step === 2 && validateStep2()) setStep(3);
   };
-
-  const handleReset = () => {
-    setNewClient({
-      tipo_cliente: '',
-      nombre: '',
-      apellido: '',
-      dni: '',
-      email: '',
-      telefono: '',
-      f_nacimiento: '',
-      calle_id: '',
-      altura: '',
-      municipio_id: '',
-      provincia_id: '',
-      servicios: [],
+  const goBack = () => step > 1 && setStep((s) => s - 1);
+  const resetForm = () => {
+    setStep(1);
+    setClientType('');
+    setPersonaData({ nombre:'', apellido:'', dni:'', email:'', telefono:'', f_nacimiento:'' });
+    setEmpresaData({ nombre:'', cuit:'' });
+    setDomicilio({
+      provincia_id:'', municipio_id:'', calle_id:'',
+      altura:'', codigo_postal:'', n_casa:'', n_piso:'', n_departamento:'',
+      es_esquina:false, calle_esquina_id:'', referencia:'',
     });
+    setServiciosSeleccionados([]);
   };
-
-  // Cierre definitivo del modal (resetear y notificar al padre)
   const handleModalClose = () => {
-    handleReset();
+    resetForm();
     handleClose();
   };
 
-  // Función para agregar nueva calle
-  const handleAddNewCalle = async () => {
-    setLocalShow(false);
-    const { value: nombre } = await Swal.fire({
-      title: 'Agregar nueva calle',
-      input: 'text',
-      inputLabel: 'Nombre de la calle',
-      inputPlaceholder: 'Ingresa el nombre de la calle',
-      target: document.body,
-      focusConfirm: false,
+  // Envío final
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStep1() || !validateStep2()) return;
+
+    // Armar payload
+    let payload = {
+      provincia_id: Number(domicilio.provincia_id),
+      municipio_id: Number(domicilio.municipio_id),
+      calle_id: Number(domicilio.calle_id),
+      altura: Number(domicilio.altura),
+      ...(domicilio.codigo_postal !== '' && { codigo_postal: Number(domicilio.codigo_postal) }),
+      ...(domicilio.n_casa && { n_casa: Number(domicilio.n_casa) }),
+      ...(domicilio.n_piso && { n_piso: Number(domicilio.n_piso) }),
+      ...(domicilio.n_departamento && { n_departamento: Number(domicilio.n_departamento) }),
+      es_esquina: domicilio.es_esquina,
+      ...(domicilio.es_esquina && { calle_esquina_id: Number(domicilio.calle_esquina_id) }),
+      ...(domicilio.referencia && { referencia: domicilio.referencia }),
+    };
+
+    if (clientType === 'Persona') {
+      payload = {
+        ...payload,
+        nombre: personaData.nombre,
+        apellido: personaData.apellido,
+        dni: Number(personaData.dni),
+        email: personaData.email,
+        telefono: personaData.telefono,
+        f_nacimiento: personaData.f_nacimiento,
+      };
+    } else {
+      payload = {
+        ...payload,
+        nombre: empresaData.nombre,
+        cuit: Number(empresaData.cuit),
+      };
+    }
+
+    // Confirmar
+    const confirm = await Swal.fire({
+      title: 'Revisa los datos ingresados',
+      html: `
+        <strong>Tipo:</strong> ${clientType}<br/>
+        ${clientType === 'Persona'
+          ? `<strong>Nombre:</strong> ${payload.nombre}<br/>
+             <strong>Apellido:</strong> ${payload.apellido}<br/>
+             <strong>DNI:</strong> ${payload.dni}<br/>
+             <strong>Email:</strong> ${payload.email}<br/>
+             <strong>Teléfono:</strong> ${payload.telefono}<br/>
+             <strong>F. Nac.:</strong> ${payload.f_nacimiento}<br/>`
+          : `<strong>Razón Social:</strong> ${payload.nombre}<br/>
+             <strong>CUIT:</strong> ${payload.cuit}<br/>`}
+        <strong>Provincia:</strong> ${provincias.find(p => p.id === payload.provincia_id)?.nombre}<br/>
+        <strong>Municipio:</strong> ${municipiosOrdenados.find(m => m.id === payload.municipio_id)?.nombre}<br/>
+        <strong>Calle:</strong> ${localCalles.find(c => c.id === payload.calle_id)?.nombre}<br/>
+        <strong>Altura:</strong> ${payload.altura}<br/>
+        ${payload.codigo_postal != null ? `<strong>C.P.:</strong> ${payload.codigo_postal}<br/>` : ''}
+        ${serviciosSeleccionados.length > 0
+          ? `<strong>Servicios:</strong> ${serviciosSeleccionados.map(id => serviciosDisponibles.find(s => s.id === id)?.nombre).filter(Boolean).join(', ')}<br/>`
+          : ''}
+      `,
+      icon: 'question',
       showCancelButton: true,
-      inputValidator: (value) => {
-        if (!value || !value.trim()) {
-          return 'Por favor, ingresa un nombre válido.';
-        }
-      }
+      confirmButtonText: 'Sí, crear',
+      cancelButtonText: 'Cancelar',
     });
-    setLocalShow(true);
-    if (nombre) {
-      const nombreTrimmed = nombre.trim();
-      const calleExiste = calles.some(
-        (calle) => calle.nombre.toLowerCase() === nombreTrimmed.toLowerCase()
-      );
-      if (calleExiste) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Calle existente',
-          text: 'La calle ya existe, por favor ingresa otro nombre.'
-        });
-        return;
+    if (!confirm.isConfirmed) return;
+
+    try {
+      // Creo cliente
+      const newClient = await handleSubmit(payload);
+      // Asigno servicios
+      if (serviciosSeleccionados.length > 0) {
+        await customFetch(
+          `/clientes/${newClient.id}/serv-sinc`,
+          'POST',
+          { servicios: serviciosSeleccionados.map((id) => String(id)) }
+        );
       }
-      try {
-        const payload = { nombre: nombreTrimmed };
-        const newCalleResponse = await customFetch('/calles', 'POST', payload);
-        console.log('Nueva calle agregada:', newCalleResponse);
-        Swal.fire('Éxito', 'Calle agregada correctamente', 'success');
-        setCalles((prevCalles) => [...prevCalles, newCalleResponse]);
-        setNewClient((prev) => ({ ...prev, calle_id: newCalleResponse.id }));
-      } catch (error) {
-        console.error('Error agregando la calle:', error);
-        Swal.fire('Error', 'No se pudo agregar la calle', 'error');
-      }
+      await Swal.fire('Éxito', 'Cliente creado correctamente.', 'success');
+      handleModalClose();
+      onClientCreated?.();
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', err.message || 'No se pudo crear el cliente.', 'error');
     }
   };
 
   return (
-    <Modal show={localShow} onHide={handleModalClose} centered>
+    <Modal
+      show={localShow}
+      onHide={handleModalClose}
+      centered
+      keyboard={keyboardEnabled}
+      enforceFocus={false}
+      restoreFocus={false}
+    >
       <Modal.Header closeButton>
-        <Modal.Title>Agregar Cliente</Modal.Title>
+        <Modal.Title>Nuevo Cliente</Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
         <Form onSubmit={onSubmit}>
-          {/* Tipo de Cliente */}
-          <Form.Group controlId="tipo_cliente" className="mb-3">
-            <Form.Label className="font-weight-bold">
-              Tipo de Cliente <span className="text-danger">*</span>
-            </Form.Label>
-            <Form.Control
-              as="select"
-              name="tipo_cliente"
-              value={newClient.tipo_cliente}
-              onChange={handleChange}
-              required
-              className="rounded"
-              aria-label="Seleccione el tipo de cliente"
-            >
-              <option value="">Seleccione el tipo de cliente</option>
-              {clienteTipos.map((tipo) => (
-                <option key={tipo.id} value={tipo.id}>
-                  {tipo.nombre}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-
-          {newClient.tipo_cliente && (
+          {/* STEP 1 */}
+          {step === 1 && (
             <>
-              {/* Nombre */}
-              <Form.Group controlId="nombre" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Nombre <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="nombre"
-                  value={newClient.nombre}
-                  onChange={handleChange}
-                  placeholder="Ingrese el nombre"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese el nombre del cliente"
-                />
+              <Form.Group className="mb-3">
+                <Form.Label>¿Es Persona o Empresa?</Form.Label>
+                <Form.Select value={clientType} onChange={handleClientTypeChange}>
+                  <option value="">-- Seleccione --</option>
+                  <option value="Persona">Persona</option>
+                  <option value="Empresa">Empresa</option>
+                </Form.Select>
               </Form.Group>
+              {clientType === 'Persona' ? (
+                <>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Nombre</Form.Label>
+                    <Form.Control
+                      name="nombre"
+                      value={personaData.nombre}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Apellido</Form.Label>
+                    <Form.Control
+                      name="apellido"
+                      value={personaData.apellido}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>DNI</Form.Label>
+                    <Form.Control
+                      name="dni"
+                      value={personaData.dni}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Email</Form.Label>
+                    <Form.Control
+                      type="email"
+                      name="email"
+                      value={personaData.email}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Teléfono</Form.Label>
+                    <Form.Control
+                      name="telefono"
+                      value={personaData.telefono}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Fecha de Nacimiento</Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="f_nacimiento"
+                      value={personaData.f_nacimiento}
+                      onChange={handlePersonaChange}
+                    />
+                  </Form.Group>
+                </>
+              ) : clientType === 'Empresa' ? (
+                <>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Razón Social</Form.Label>
+                    <Form.Control
+                      name="nombre"
+                      value={empresaData.nombre}
+                      onChange={handleEmpresaChange}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>CUIT</Form.Label>
+                    <Form.Control
+                      name="cuit"
+                      value={empresaData.cuit}
+                      onChange={handleEmpresaChange}
+                    />
+                  </Form.Group>
+                </>
+              ) : null}
+              <div className="d-flex justify-content-end">
+                <Button variant="primary" onClick={goNext} disabled={!clientType}>
+                  Siguiente
+                </Button>
+              </div>
+            </>
+          )}
 
-              {/* Apellido (solo si es Físico) */}
-              {clienteTipos.find(tipo => tipo.nombre.toLowerCase() === 'físico')?.id.toString() === newClient.tipo_cliente && (
-                <Form.Group controlId="apellido" className="mb-3">
-                  <Form.Label className="font-weight-bold">
-                    Apellido <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="apellido"
-                    value={newClient.apellido}
-                    onChange={handleChange}
-                    placeholder="Ingrese el apellido"
-                    required
-                    className="rounded"
-                    aria-label="Ingrese el apellido del cliente"
-                  />
-                </Form.Group>
-              )}
+          {/* STEP 2 */}
+          {step === 2 && (
+            <>
+              <h5 className="mb-3">Dirección</h5>
 
-              {/* Selección de Servicios agrupados por Tributo */}
-              <Form.Group controlId="servicios" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Servicios a asignar
-                </Form.Label>
-                {Object.keys(groupedServices).length === 0 ? (
-                  <p>No hay servicios disponibles</p>
-                ) : (
-                  Object.entries(groupedServices).map(([tributoId, group]) => (
-                    <div key={tributoId} className="mb-3">
-                      {/* Se muestra el nombre del tributo obtenido vía GET */}
-                      <h6 className="text-primary">{group.tributo.nombre}</h6>
-                      <Row>
-                        {group.services.map((servicio) => (
-                          <Col md={6} key={servicio.id}>
-                            <Form.Check
-                              id={`servicio-${servicio.id}`}
-                              name={`servicio-${servicio.id}`}
-                              type="checkbox"
-                              label={servicio.nombre}
-                              value={servicio.id}
-                              checked={newClient.servicios.includes(servicio.id)}
-                              onChange={handleServiceCheckboxChange}
-                            />
-                          </Col>
-                        ))}
-                      </Row>
-                    </div>
-                  ))
-                )}
-              </Form.Group>
-
-              {/* DNI/CUIT */}
-              <Form.Group controlId="dni" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  DNI/CUIT <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="dni"
-                  value={newClient.dni}
-                  onChange={handleChange}
-                  placeholder="Ingrese el DNI o CUIT"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese el DNI o CUIT del cliente"
-                />
-              </Form.Group>
-
-              {/* Email */}
-              <Form.Group controlId="email" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Email <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="email"
-                  name="email"
-                  value={newClient.email}
-                  onChange={handleChange}
-                  placeholder="Ingrese el correo electrónico"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese el correo electrónico del cliente"
-                />
-              </Form.Group>
-
-              {/* Teléfono */}
-              <Form.Group controlId="telefono" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Teléfono <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="telefono"
-                  value={newClient.telefono}
-                  onChange={handleChange}
-                  placeholder="Ingrese el teléfono"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese el teléfono del cliente"
-                />
-              </Form.Group>
-
-              {/* Dirección: Provincia, Municipio, Calle y Altura */}
-              <Form.Group controlId="provincia_id" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Provincia <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  as="select"
+              <Form.Group className="mb-3">
+                <Form.Label>Provincia</Form.Label>
+                <Form.Select
                   name="provincia_id"
-                  value={newClient.provincia_id}
-                  onChange={handleChange}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione la provincia"
+                  value={domicilio.provincia_id}
+                  onChange={handleDomicilioChange}
                 >
-                  <option value="">Seleccione una provincia</option>
-                  {provincias.map((provincia) => (
-                    <option key={provincia.id} value={provincia.id}>
-                      {provincia.nombre}
-                    </option>
+                  <option value="">-- Seleccione provincia --</option>
+                  {provincias.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
-                </Form.Control>
+                </Form.Select>
               </Form.Group>
 
-              <Form.Group controlId="municipio_id" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Municipio <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  as="select"
+              <Form.Group className="mb-3">
+                <Form.Label>Municipio</Form.Label>
+                <Form.Select
                   name="municipio_id"
-                  value={newClient.municipio_id}
-                  onChange={handleChange}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione el municipio"
-                  disabled={!newClient.provincia_id}
+                  value={domicilio.municipio_id}
+                  onChange={handleDomicilioChange}
+                  disabled={!domicilio.provincia_id}
                 >
-                  <option value="">{newClient.provincia_id ? 'Seleccione un municipio' : 'Seleccione una provincia primero'}</option>
-                  {filteredMunicipios.map((municipio) => (
-                    <option key={municipio.id} value={municipio.id}>
-                      {municipio.nombre}
-                    </option>
+                  <option value="">-- Seleccione municipio --</option>
+                  {filteredMunicipios.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nombre}</option>
                   ))}
-                </Form.Control>
+                </Form.Select>
               </Form.Group>
 
-              <Form.Group controlId="calle_id" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Calle <span className="text-danger">*</span>
-                </Form.Label>
-                <Form.Control
-                  as="select"
+              <Form.Group className="mb-3">
+                <Form.Label>Calle</Form.Label>
+                <Form.Select
                   name="calle_id"
-                  value={newClient.calle_id}
-                  onChange={handleChange}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione la calle"
-                  disabled={!newClient.provincia_id || !newClient.municipio_id}
+                  value={domicilio.calle_id}
+                  onChange={handleDomicilioChange}
+                  disabled={!domicilio.municipio_id}
                 >
-                  <option value="">Seleccione una calle</option>
-                  {calles.map((calle) => (
-                    <option key={calle.id} value={calle.id}>
-                      {calle.nombre}
-                    </option>
+                  <option value="">-- Seleccione calle --</option>
+                  {localCalles.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
-                </Form.Control>
+                </Form.Select>
                 <Button variant="link" onClick={handleAddNewCalle}>
                   Agregar nueva calle
                 </Button>
               </Form.Group>
 
-              <Form.Group controlId="altura" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Altura <span className="text-danger">*</span>
-                </Form.Label>
+              <Form.Group className="mb-3">
+                <Form.Label>Altura</Form.Label>
                 <Form.Control
                   type="number"
                   name="altura"
-                  value={newClient.altura}
-                  onChange={handleChange}
-                  placeholder="Ingrese la altura"
-                  required
-                  className="rounded"
-                  aria-label="Ingrese la altura del cliente"
+                  value={domicilio.altura}
+                  onChange={handleDomicilioChange}
                 />
               </Form.Group>
 
-              <Form.Group controlId="f_nacimiento" className="mb-3">
-                <Form.Label className="font-weight-bold">
-                  Fecha de Nacimiento <span className="text-danger">*</span>
-                </Form.Label>
+              <Form.Group className="mb-3">
+                <Form.Label>Código Postal</Form.Label>
                 <Form.Control
-                  type="date"
-                  name="f_nacimiento"
-                  value={newClient.f_nacimiento}
-                  onChange={handleChange}
-                  required
-                  className="rounded"
-                  aria-label="Seleccione la fecha de nacimiento del cliente"
+                  type="number"
+                  name="codigo_postal"
+                  value={domicilio.codigo_postal}
+                  onChange={handleDomicilioChange}
                 />
               </Form.Group>
 
-              <div className="d-flex justify-content-end mt-4">
-                <Button variant="secondary" onClick={handleModalClose} className="me-3">
-                  Cancelar
-                </Button>
-                <Button variant="primary" type="submit">
-                  Guardar Cliente
-                </Button>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>N° Casa (opc.)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="n_casa"
+                      value={domicilio.n_casa}
+                      onChange={handleDomicilioChange}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Piso (opc.)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="n_piso"
+                      value={domicilio.n_piso}
+                      onChange={handleDomicilioChange}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Depto (opc.)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="n_departamento"
+                      value={domicilio.n_departamento}
+                      onChange={handleDomicilioChange}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  label="¿Es esquina?"
+                  name="es_esquina"
+                  checked={domicilio.es_esquina}
+                  onChange={handleDomicilioChange}
+                />
+              </Form.Group>
+
+              {domicilio.es_esquina && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Calle Esquina</Form.Label>
+                  <Form.Select
+                    name="calle_esquina_id"
+                    value={domicilio.calle_esquina_id}
+                    onChange={handleDomicilioChange}
+                  >
+                    <option value="">-- Seleccione calle --</option>
+                    {localCalles.map((c) => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              )}
+
+              <Form.Group className="mb-3">
+                <Form.Label>Referencia (opc.)</Form.Label>
+                <Form.Control
+                  name="referencia"
+                  value={domicilio.referencia}
+                  onChange={handleDomicilioChange}
+                />
+              </Form.Group>
+
+              <div className="d-flex justify-content-between">
+                <Button variant="secondary" onClick={goBack}>Volver</Button>
+                <Button variant="primary" onClick={goNext}>Siguiente</Button>
+              </div>
+            </>
+          )}
+
+          {/* STEP 3 */}
+          {step === 3 && (
+            <>
+              <h5 className="mb-3">Servicios a Asignar</h5>
+              {Object.keys(groupedServices).length === 0 ? (
+                <p>No hay servicios disponibles</p>
+              ) : (
+                Object.entries(groupedServices).map(([_, g]) => (
+                  <div key={g.tributo.id} className="mb-3">
+                    <h6>{g.tributo.nombre}</h6>
+                    <Row>
+                      {g.services.map((svc) => (
+                        <Col md={6} key={svc.id}>
+                          <Form.Check
+                            type="checkbox"
+                            label={svc.nombre}
+                            value={svc.id}
+                            checked={serviciosSeleccionados.includes(svc.id)}
+                            onChange={handleServiceCheckboxChange}
+                          />
+                        </Col>
+                      ))}
+                    </Row>
+                  </div>
+                ))
+              )}
+              <div className="d-flex justify-content-between mt-4">
+                <Button variant="secondary" onClick={goBack}>Volver</Button>
+                <Button variant="primary" type="submit">Guardar</Button>
               </div>
             </>
           )}

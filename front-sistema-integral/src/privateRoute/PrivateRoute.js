@@ -1,18 +1,36 @@
 import React, { useContext } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext.jsx';
 import Loading from '../components/common/loading/Loading.jsx';
 
-const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useContext(AuthContext);
+export default function PrivateRoute({ requiredPermission }) {
+  const { isAuthenticated, user, loading } = useContext(AuthContext);
+  const location = useLocation();
 
-  // Mostrar un loading si aún está cargando el estado de autenticación
+  // 1. Mientras determinamos el estado de autenticación, mostramos un loader
   if (loading) {
-    return <Loading />; 
+    return <Loading />;
   }
 
-  // Redirigir a login si no está autenticado
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace={true} />;
-};
+  // 2. Si no está autenticado, redirigimos al login
+  if (!isAuthenticated) {
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location }}
+        replace
+      />
+    );
+  }
 
-export default PrivateRoute;
+  // 3. Si se requiere un permiso específico y no lo tiene, va a /unauthorized
+  if (
+    requiredPermission &&
+    !user.permissions?.includes(requiredPermission)
+  ) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // 4. Si todo está OK, renderizamos la ruta hija
+  return <Outlet />;
+}

@@ -45,7 +45,7 @@ const NavBar = () => {
       <Container fluid>
         <Navbar.Brand as={Link} to="/">
           <Image src={logo} alt="Logo" width={100} className="d-inline-block align-top" />{' '}
-          <span className="brand-text">SISTEMA INTEGRAL</span>
+          <span className="brand-text">SIMZA</span>
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="navbarScroll">
           <span className="navbar-toggler-icon">

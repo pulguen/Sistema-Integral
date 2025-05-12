@@ -1,397 +1,398 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
-import { Card, Button, Breadcrumb, Form, OverlayTrigger, Tooltip, Spinner } from "react-bootstrap";
+// src/pages/PeriodosHistorial.jsx
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useMemo
+} from "react";
+import {
+  Card,
+  Breadcrumb,
+  Form,
+  OverlayTrigger,
+  Tooltip,
+  Spinner,
+  Badge
+} from "react-bootstrap";
 import Swal from "sweetalert2";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
 import { Link } from "react-router-dom";
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
-import EditPeriodoModal from '../../../../components/common/modals/EditPeriodoModal.jsx';
-import customFetch from '../../../../context/CustomFetch.js';
-import Select from 'react-select';
-import makeAnimated from 'react-select/animated';
-// Importar AuthContext para obtener user.services y user.permissions
-import { AuthContext } from '../../../../context/AuthContext.jsx';
-import CommonTable from '../../../../components/common/table/table.jsx';
+import { FaEdit, FaTrash } from "react-icons/fa";
+import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
+import EditPeriodoModal from "../../../../components/common/modals/EditPeriodoModal.jsx";
+import customFetch from "../../../../context/CustomFetch.js";
+import Select from "react-select";
+import makeAnimated from "react-select/animated";
+import { AuthContext } from "../../../../context/AuthContext.jsx";
+import CommonTable from "../../../../components/common/table/table.jsx";
 
 const animatedComponents = makeAnimated();
+const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
-/**
- * Filtro por defecto para react-table (opcional).
- */
 function DefaultColumnFilter({ column: { filterValue, setFilter } }) {
   return (
     <input
-      value={filterValue || ''}
-      onChange={(e) => {
-        setFilter(e.target.value || undefined);
-      }}
+      value={filterValue || ""}
+      onChange={e => setFilter(e.target.value || undefined)}
       placeholder="Buscar..."
-      style={{ width: '100%' }}
+      style={{ width: "100%" }}
       aria-label="Filtro de columna"
     />
   );
 }
 
-const PeriodosHistorial = () => {
-  const { clientes, fetchClienteById } = useContext(FacturacionContext);
+export default function PeriodosHistorial() {
+  const { clientes, fetchClienteById, condicionesPago } = useContext(
+    FacturacionContext
+  );
   const { user } = useContext(AuthContext);
 
-  // Permisos existentes
-  const canShowClients = user?.permissions.includes('cuentas.show.cliente');
-  const canEditPeriod = user?.permissions.includes('cuentas.update');
-  const canDeletePeriod = user?.permissions.includes('cuentas.destroy');
+  // permisos
+  const canShowClients = user?.permissions.includes("cuentas.show.cliente");
+  const canEditPeriod = user?.permissions.includes("cuentas.update");
+  const canDeletePeriod = user?.permissions.includes("cuentas.destroy");
+  const canShowTributos = user?.permissions.includes("tributos.show.cliente");
+  const canShowServices = user?.permissions.includes("servicios.show.cliente");
 
-  // Permisos nuevos solicitados
-  const canShowTributos = user?.permissions.includes('tributos.show.cliente');
-  const canShowServices = user?.permissions.includes('servicios.show.cliente');
-
-  // Estados para selección y datos
+  // filtros jerárquicos
   const [clientsByServices, setClientsByServices] = useState([]);
   const [filteredClientes, setFilteredClientes] = useState([]);
   const [selectedCliente, setSelectedCliente] = useState(null);
+
   const [tributosMap, setTributosMap] = useState([]);
   const [selectedTributo, setSelectedTributo] = useState(null);
+
   const [servicios, setServicios] = useState([]);
   const [selectedServicio, setSelectedServicio] = useState(null);
+
+  // datos de periodos ya todos cargados client-side
   const [periodos, setPeriodos] = useState([]);
   const [loadingPeriodos, setLoadingPeriodos] = useState(false);
-  const [clienteDatos, setClienteDatos] = useState([]);
+
+  // edición
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPeriodo, setSelectedPeriodo] = useState(null);
 
-  // Filtrar clientes según servicios del usuario
+  // 1) cargar clientes filtrados por servicios del usuario
   useEffect(() => {
-    if (!Array.isArray(clientes)) return;
-    if (!Array.isArray(user?.services) || user.services.length === 0) {
+    if (!Array.isArray(clientes) || !Array.isArray(user.services)) {
       setClientsByServices([]);
+      setFilteredClientes([]);
       return;
     }
-    const filtered = clientes.filter((cli) => {
-      if (!Array.isArray(cli.servicios)) return false;
-      return cli.servicios.some((s) => user.services.includes(s.id));
-    });
-    setClientsByServices(filtered);
-    setFilteredClientes(filtered);
-  }, [clientes, user?.services]);
+    const filt = clientes.filter(cli =>
+      Array.isArray(cli.servicios) &&
+      cli.servicios.some(s => user.services.includes(s.id))
+    );
+    setClientsByServices(filt);
+    setFilteredClientes(filt);
+  }, [clientes, user.services]);
 
-  // Manejo de búsqueda en el select
-  const handleSearchChange = useCallback((inputValue) => {
-    const term = inputValue.toLowerCase();
-    const result = clientsByServices.filter((cliente) => {
-      const nombre = cliente.persona?.nombre || '';
-      const apellido = cliente.persona?.apellido || '';
-      const fullName = `${nombre} ${apellido}`.toLowerCase();
-      const dni = cliente.persona?.dni?.toString() || '';
-      return fullName.includes(term) || dni.includes(term);
-    });
-    setFilteredClientes(result);    
-  }, [clientsByServices]);
+  // 2) búsqueda interna
+  const handleSearchChange = useCallback(
+    term => {
+      const t = term.toLowerCase();
+      setFilteredClientes(
+        clientsByServices.filter(c => {
+          const full = `${c.persona.nombre} ${c.persona.apellido}`.toLowerCase();
+          return full.includes(t) || (`${c.persona.dni}`).includes(t);
+        })
+      );
+    },
+    [clientsByServices]
+  );
+  const clienteOptions = useMemo(
+    () =>
+      filteredClientes.map(c => ({
+        value: c.id,
+        label: `${c.persona.nombre} ${c.persona.apellido} – DNI: ${c.persona.dni}`
+      })),
+    [filteredClientes]
+  );
 
-  // Opciones para el select (React-Select)
-  const clienteOptions = filteredClientes.map((cliente) => ({
-    value: cliente.id,
-    label: `${cliente.persona?.nombre || ''} ${cliente.persona?.apellido || ''} - DNI: ${cliente.persona?.dni || ''}`,
-  }));
-
-  // Cuando se elige un cliente en el Select
-  const handleClienteSelect = async (selectedOption) => {
-    if (!selectedOption) {
-      handleReset();
-      return;
-    }
-    const cliente = filteredClientes.find((c) => c.id === selectedOption.value);
-    setSelectedCliente(cliente);
-    try {
-      const clienteData = await fetchClienteById(cliente.id);
-      if (!Array.isArray(clienteData) || clienteData.length === 0) {
-        throw new Error("Formato de datos incorrecto");
-      }
-      setClienteDatos(clienteData[0]);
-
-      const tributosMapLocal = {};
-      clienteData[0].forEach((periodo) => {
-        const tributoId = periodo.tributo_id;
-        const tributoNombre = periodo.tributo?.nombre || "Sin nombre";
-        const servicio = periodo.servicio;
-        if (!tributosMapLocal[tributoId]) {
-          tributosMapLocal[tributoId] = {
-            id: tributoId,
-            nombre: tributoNombre,
-            servicios: [],
-          };
-        }
-        if (servicio) {
-          const exists = tributosMapLocal[tributoId].servicios.some(
-            (s) => s.id === servicio.id
-          );
-          if (!exists) {
-            tributosMapLocal[tributoId].servicios.push(servicio);
+  // 3) al seleccionar cliente → cargar tributosMap
+  useEffect(() => {
+    if (!selectedCliente) return;
+    (async () => {
+      try {
+        const resp = await fetchClienteById(selectedCliente.id);
+        const arr = Array.isArray(resp) ? resp[0] : [];
+        const map = {};
+        arr.forEach(p => {
+          if (!map[p.tributo_id]) {
+            map[p.tributo_id] = {
+              id: p.tributo_id,
+              nombre: p.tributo?.nombre || "Sin nombre",
+              servicios: []
+            };
           }
-        }
-      });
-      setTributosMap(Object.values(tributosMapLocal));
-      setServicios([]);
-      setSelectedTributo(null);
-      setSelectedServicio(null);
-      setPeriodos([]);
-    } catch (error) {
-      console.error("Error al procesar los datos del cliente:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Hubo un problema al obtener los datos del cliente.",
-      });
-    }
-  };
+          if (
+            p.servicio &&
+            !map[p.tributo_id].servicios.some(s => s.id === p.servicio.id)
+          ) {
+            map[p.tributo_id].servicios.push(p.servicio);
+          }
+        });
+        setTributosMap(Object.values(map));
+        // reset niveles inferiores
+        setSelectedTributo(null);
+        setServicios([]);
+        setSelectedServicio(null);
+        setPeriodos([]);
+      } catch {
+        Swal.fire(
+          "Error",
+          "No se pudieron cargar los datos del cliente.",
+          "error"
+        );
+      }
+    })();
+  }, [selectedCliente, fetchClienteById]);
 
-  // Selección de tributo
-  const handleTributoSelect = (e) => {
-    const tributoId = e.target.value;
-    const tributo = tributosMap.find((t) => t.id === parseInt(tributoId, 10));
-    setSelectedTributo(tributoId);
-    setServicios(tributo ? tributo.servicios : []);
+  // 4) al seleccionar tributo → cargar servicios
+  const handleTributoSelect = e => {
+    const id = Number(e.target.value);
+    setSelectedTributo(id);
+    const t = tributosMap.find(x => x.id === id);
+    setServicios(t?.servicios || []);
     setSelectedServicio(null);
     setPeriodos([]);
   };
 
-  // Selección de servicio y obtención de períodos
-  const handleServicioSelect = async (e) => {
-    const servicioId = parseInt(e.target.value, 10);
-    const servicio = servicios.find((s) => s.id === servicioId);
-    setSelectedServicio(servicio);
-    if (selectedCliente && servicio && selectedTributo) {
-      setLoadingPeriodos(true);
+  // 5) al seleccionar servicio → cargar **todos** los periodos (client-side)
+  const [clienteDatos, setClienteDatos] = useState([]);
+  useEffect(() => {
+    // guardamos los datos originales del cliente para filtrar
+    if (!selectedCliente) return;
+    (async () => {
       try {
-        const tributoIdNumber = parseInt(selectedTributo, 10);
-        let filteredPeriodos = clienteDatos
-          .filter(
-            (periodo) =>
-              parseInt(periodo.servicio_id, 10) === servicio.id &&
-              parseInt(periodo.tributo_id, 10) === tributoIdNumber
-          )
-          .map((periodo) => ({
-            ...periodo,
-            i_debito: parseFloat(periodo.i_debito) || 0,
-            i_descuento: parseFloat(periodo.i_descuento) || 0,
-            i_recargo_actualizado:
-              parseFloat(periodo.i_recargo_actualizado || periodo.i_recargo) || 0,
-            total:
-              (parseFloat(periodo.i_debito) || 0) -
-              (parseFloat(periodo.i_descuento) || 0) +
-              (parseFloat(periodo.i_recargo_actualizado) || 0),
-          }));
-        // Filtrar según user.services
-        if (Array.isArray(user?.services) && user.services.length > 0) {
-          filteredPeriodos = filteredPeriodos.filter((p) =>
-            user.services.includes(parseInt(p.servicio_id, 10))
-          );
-        } else {
-          filteredPeriodos = [];
-        }
-        setPeriodos(filteredPeriodos);
-      } catch (error) {
-        console.error("Error al obtener los períodos:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Hubo un problema al obtener los períodos.",
-        });
-      } finally {
-        setLoadingPeriodos(false);
-      }
-    } else if (!selectedTributo) {
-      Swal.fire({
-        icon: "warning",
-        title: "Tributo no seleccionado",
-        text: "Por favor, seleccione un tributo antes de seleccionar un servicio.",
-      });
-    }
+        const resp = await fetchClienteById(selectedCliente.id);
+        const arr = Array.isArray(resp) ? resp[0] : [];
+        setClienteDatos(arr);
+      } catch {}
+    })();
+  }, [selectedCliente, fetchClienteById]);
+
+  const handleServicioSelect = e => {
+    const id = Number(e.target.value);
+    setSelectedServicio(id);
+    setLoadingPeriodos(true);
+    const tp = clienteDatos
+      .filter(
+        p =>
+          p.servicio_id === id &&
+          p.tributo_id === selectedTributo &&
+          user.services.includes(p.servicio_id)
+      )
+      .map(p => ({
+        ...p,
+        i_debito: +p.i_debito || 0,
+        i_descuento: +p.i_descuento || 0,
+        i_recargo_actualizado: +p.i_recargo_actualizado || +p.i_recargo || 0,
+        total:
+          (+p.i_debito || 0) -
+          (+p.i_descuento || 0) +
+          (+p.i_recargo_actualizado || +p.i_recargo || 0)
+      }));
+    setPeriodos(tp);
+    setLoadingPeriodos(false);
   };
 
-  // Reiniciar la selección y limpiar datos
+  // 6) reset completo
   const handleReset = () => {
     setSelectedCliente(null);
     setFilteredClientes(clientsByServices);
+    setTributosMap([]);
     setSelectedTributo(null);
     setServicios([]);
     setSelectedServicio(null);
     setPeriodos([]);
-    setClienteDatos([]);
   };
 
-  // Editar Período
-  const handleEdit = useCallback((periodo) => {
-    setSelectedPeriodo(periodo);
+  // 7) CRUD
+  const handleEdit = useCallback(p => {
+    setSelectedPeriodo(p);
     setShowEditModal(true);
   }, []);
-
-  // Confirmar edición
-  const handleUpdatePeriodo = useCallback(async (updatedPeriodo) => {
-    try {
-      await customFetch(`/cuentas/${updatedPeriodo.id}`, 'PUT', updatedPeriodo);
-      setPeriodos((prev) =>
-        prev.map((p) => (p.id === updatedPeriodo.id ? updatedPeriodo : p))
-      );
+  const handleUpdatePeriodo = useCallback(
+    async upd => {
+      await customFetch(`/cuentas/${upd.id}`, "PUT", upd);
+      setPeriodos(prev => prev.map(x => (x.id === upd.id ? upd : x)));
       setShowEditModal(false);
-      Swal.fire('Éxito', 'Periodo modificado exitosamente.', 'success');
-    } catch (error) {
-      console.error('Error al modificar periodo:', error);
-      Swal.fire('Error', 'Hubo un problema al modificar el periodo.', 'error');
-    }
-  }, []);
-
-  // Eliminar Período
-  const handleDelete = useCallback(async (id) => {
-    try {
-      const result = await Swal.fire({
-        title: '¿Estás seguro?',
-        text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este período?',
-        icon: 'warning',
+      Swal.fire("Éxito", "Período actualizado.", "success");
+    },
+    []
+  );
+  const handleDelete = useCallback(
+    async id => {
+      const { isConfirmed } = await Swal.fire({
+        title: "Confirmar",
+        text: "¿Eliminar este período?",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar',
+        confirmButtonText: "Sí"
       });
-      if (result.isConfirmed) {
-        await customFetch(`/cuentas/${id}`, 'DELETE');
-        setPeriodos((prev) => prev.filter((p) => p.id !== id));
-        Swal.fire('Eliminado!', 'El período ha sido eliminado.', 'success');
-      }
-    } catch (error) {
-      console.error('Error al eliminar periodo:', error);
-      Swal.fire('Error', 'Hubo un problema al eliminar el período.', 'error');
-    }
-  }, []);
+      if (!isConfirmed) return;
+      await customFetch(`/cuentas/${id}`, "DELETE");
+      setPeriodos(prev => prev.filter(x => x.id !== id));
+      Swal.fire("Eliminado", "Período eliminado.", "success");
+    },
+    []
+  );
 
-  // Columnas para react-table
-  const columns = React.useMemo(
+  // 8) columnas
+  const columns = useMemo(
     () => [
+      { Header: "Mes", accessor: "mes", Filter: DefaultColumnFilter },
+      { Header: "Año", accessor: "año", Filter: DefaultColumnFilter },
+      { Header: "Cuota", accessor: "cuota", Filter: DefaultColumnFilter },
+      { Header: "Volumen", accessor: "cantidad", Filter: DefaultColumnFilter },
       {
-        Header: 'Mes',
-        accessor: 'mes',
+        Header: "Importe",
+        accessor: "i_debito",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) => `$ ${value.toFixed(2)}`
       },
       {
-        Header: 'Año',
-        accessor: 'año',
+        Header: "Descuento",
+        accessor: "i_descuento",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) => `$ ${value.toFixed(2)}`
       },
       {
-        Header: 'Cuota',
-        accessor: 'cuota',
+        Header: "Recargo",
+        accessor: "i_recargo_actualizado",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) => `$ ${value.toFixed(2)}`
       },
       {
-        Header: 'Volumen',
-        accessor: 'cantidad',
+        Header: "Total",
+        accessor: "total",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) => `$ ${value.toFixed(2)}`
       },
       {
-        Header: 'Importe',
-        accessor: 'i_debito',
-        Cell: ({ value }) => `$ ${value.toFixed(2)}`,
+        Header: "Vencimiento",
+        accessor: "f_vencimiento",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) =>
+          value ? new Date(value).toLocaleDateString() : "N/A"
       },
       {
-        Header: 'Descuento',
-        accessor: 'i_descuento',
-        Cell: ({ value }) => `$ ${value.toFixed(2)}`,
+        Header: "Fecha creación",
+        accessor: "created_at",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) =>
+          value ? new Date(value).toLocaleDateString() : "N/A"
       },
       {
-        Header: 'Recargo',
-        accessor: 'i_recargo_actualizado',
-        Cell: ({ value }) => `$ ${value.toFixed(2)}`,
-        Filter: DefaultColumnFilter,
+        Header: "Recibo gen.",
+        accessor: "n_recibo_generado",
+        Filter: DefaultColumnFilter
       },
       {
-        Header: 'Total',
-        accessor: 'total',
-        Cell: ({ value }) => `$ ${value.toFixed(2)}`,
+        Header: "Condición",
+        accessor: "condicion_pago_id",
         Filter: DefaultColumnFilter,
+        Cell: ({ row }) => {
+          const id = row.original.condicion_pago_id;
+          const c = condicionesPago.find(x => x.id === id);
+          return c ? c.nombre : "Impago";
+        }
       },
       {
-        Header: 'Vencimiento',
-        accessor: 'f_vencimiento',
-        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
+        Header: "Fecha Pago",
+        accessor: "f_pago",
         Filter: DefaultColumnFilter,
+        Cell: ({ value }) =>
+          value ? new Date(value).toLocaleDateString() : "N/A"
       },
       {
-        Header: 'Fecha Creación',
-        accessor: 'created_at',
-        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
-        Filter: DefaultColumnFilter,
+        Header: "Estado",
+        id: "estado",
+        disableSortBy: true,
+        disableFilters: true,
+        Cell: ({ row }) =>
+          row.original.f_pago ? (
+            <Badge bg="success">Pagado</Badge>
+          ) : (
+            <Badge bg="danger">Impago</Badge>
+          )
       },
       {
-        Header: 'Recibo generado',
-        accessor: 'n_recibo_generado',
-        Filter: DefaultColumnFilter,
-      },
-      {
-        Header: 'Condición',
-        accessor: 'condicion_pago',
-        Cell: ({ value }) => value || 'Impago',
-        Filter: DefaultColumnFilter,
-      },
-      {
-        Header: 'Fecha Pago',
-        accessor: 'f_pago',
-        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : 'N/A'),
-        Filter: DefaultColumnFilter,
-      },
-      {
-        Header: 'Acciones',
-        accessor: 'acciones',
+        Header: "Acciones",
+        id: "acciones",
         disableSortBy: true,
         disableFilters: true,
         Cell: ({ row }) => (
           <>
             <OverlayTrigger
               placement="top"
-              overlay={
-                <Tooltip id={`tooltip-edit-${row.original.id}`}>
-                  Editar Período
-                </Tooltip>
-              }
+              overlay={<Tooltip id={`ed-${row.original.id}`}>Editar</Tooltip>}
             >
               <CustomButton
                 variant="warning"
                 size="sm"
                 className="me-2"
                 onClick={() => handleEdit(row.original)}
-                aria-label={`Editar período ${row.original.id}`}
-                disabled={!canEditPeriod}
+                disabled={!canEditPeriod || Boolean(row.original.f_pago)}
               >
                 <FaEdit />
               </CustomButton>
             </OverlayTrigger>
             <OverlayTrigger
               placement="top"
-              overlay={
-                <Tooltip id={`tooltip-delete-${row.original.id}`}>
-                  Eliminar Período
-                </Tooltip>
-              }
+              overlay={<Tooltip id={`del-${row.original.id}`}>Eliminar</Tooltip>}
             >
               <CustomButton
                 variant="danger"
                 size="sm"
                 onClick={() => handleDelete(row.original.id)}
-                aria-label={`Eliminar período ${row.original.id}`}
-                disabled={!canDeletePeriod}
+                disabled={!canDeletePeriod || Boolean(row.original.f_pago)}
               >
                 <FaTrash />
               </CustomButton>
             </OverlayTrigger>
           </>
-        ),
-      },
+        )
+      }
     ],
-    [handleEdit, handleDelete, canEditPeriod, canDeletePeriod]
+    [
+      condicionesPago,
+      canEditPeriod,
+      canDeletePeriod,
+      handleEdit,
+      handleDelete
+    ]
   );
+
+  //
+  // ---------------------------------------------------------
+  // 9) **PAGINACIÓN**: mantenemos pageIndex y pageSize aquí
+  //
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize]   = useState(PAGE_SIZE_OPTIONS[0]);
+
+  // callback que react-table llamará al cambiar de página / tamaño
+  const fetchPage = useCallback(
+    ({ page, per_page }) => {
+      setPageIndex(page - 1);
+      setPageSize(per_page);
+    },
+    []
+  );
+
+  // datos de la página actual
+  const currentPageData = useMemo(() => {
+    const start = pageIndex * pageSize;
+    return periodos.slice(start, start + pageSize);
+  }, [periodos, pageIndex, pageSize]);
+
+  const totalPages = Math.ceil(periodos.length / pageSize);
 
   return (
     <Card className="shadow-sm p-4 mt-4">
-      {/* Migas de Pan */}
       <Breadcrumb>
         <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
           Inicio
@@ -402,12 +403,13 @@ const PeriodosHistorial = () => {
         <Breadcrumb.Item active>Historial de Períodos</Breadcrumb.Item>
       </Breadcrumb>
 
-      <h2 className="text-center mb-4 text-primary">Historial de Períodos</h2>
+      <h2 className="text-center mb-4 text-primary">
+        Historial de Períodos
+      </h2>
 
-      {/* Formulario de búsqueda y selección */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
-          {/* Búsqueda de cliente */}
+          {/* --- Cliente --- */}
           <Form.Group controlId="cliente" className="mb-3">
             <Form.Label>Buscar Cliente</Form.Label>
             <Select
@@ -417,95 +419,101 @@ const PeriodosHistorial = () => {
                 selectedCliente
                   ? {
                       value: selectedCliente.id,
-                      label: `${selectedCliente.persona?.nombre || ''} ${selectedCliente.persona?.apellido || ''} - DNI: ${selectedCliente.persona?.dni || ''}`
+                      label: `${selectedCliente.persona.nombre} ${selectedCliente.persona.apellido}`
                     }
                   : null
               }
-              onChange={handleClienteSelect}
+              onChange={opt =>
+                setSelectedCliente(
+                  opt
+                    ? clientsByServices.find(c => c.id === opt.value)
+                    : null
+                )
+              }
               onInputChange={handleSearchChange}
               options={clienteOptions}
-              placeholder="Ingresa nombre o DNI/CUIT del Cliente"
+              placeholder="Ingresa nombre o DNI/CUIT"
               isClearable
-              isSearchable
-              aria-label="Buscar Cliente"
             />
           </Form.Group>
 
-          {/* Selección de tributo */}
+          {/* --- Tributo --- */}
           {selectedCliente && (
             <Form.Group controlId="tributo" className="mb-3">
               <Form.Label>Seleccionar Tributo</Form.Label>
-              <Form.Control
-                as="select"
+              <Form.Select
                 value={selectedTributo || ""}
                 onChange={handleTributoSelect}
-                aria-label="Seleccionar Tributo"
                 disabled={!canShowTributos}
               >
-                <option value="">Seleccione un tributo</option>
-                {tributosMap.map((tributo) => (
-                  <option key={tributo.id} value={tributo.id}>
-                    {tributo.nombre}
+                <option value="">-- elige un tributo --</option>
+                {tributosMap.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
                   </option>
                 ))}
-              </Form.Control>
+              </Form.Select>
             </Form.Group>
           )}
 
-          {/* Selección de servicio */}
+          {/* --- Servicio --- */}
           {selectedTributo && (
             <Form.Group controlId="servicio" className="mb-3">
               <Form.Label>Seleccionar Servicio</Form.Label>
-              <Form.Control
-                as="select"
-                value={selectedServicio?.id || ""}
+              <Form.Select
+                value={selectedServicio || ""}
                 onChange={handleServicioSelect}
-                aria-label="Seleccionar Servicio"
                 disabled={!canShowServices}
               >
-                <option value="">Seleccione un servicio</option>
-                {servicios.map((serv) => (
-                  <option key={serv.id} value={serv.id}>
-                    {serv.nombre}
+                <option value="">-- elige un servicio --</option>
+                {servicios.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
                   </option>
                 ))}
-              </Form.Control>
+              </Form.Select>
             </Form.Group>
           )}
         </Card.Body>
       </Card>
 
-      {/* Tabla de períodos usando CommonTable o Spinner si se está cargando */}
+      {/* --- Tabla con paginación --- */}
       {selectedServicio && (
-        <>
-          {loadingPeriodos ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" role="status">
-                <span className="visually-hidden">Cargando...</span>
-              </Spinner>
-            </div>
-          ) : (
-            <CommonTable columns={columns} data={periodos} />
-          )}
-
-          {/* Modal de edición */}
-          <EditPeriodoModal
-            show={showEditModal}
-            handleClose={() => setShowEditModal(false)}
-            periodo={selectedPeriodo}
-            handleSubmit={handleUpdatePeriodo}
-          />
-
-          {/* Botón para limpiar datos */}
-          <div className="text-center mt-4">
-            <Button variant="outline-secondary" onClick={handleReset}>
-              Limpiar Datos
-            </Button>
+        loadingPeriodos ? (
+          <div className="text-center py-5">
+            <Spinner animation="border" />
           </div>
-        </>
+        ) : (
+          <>
+            <div className="d-flex justify-content-between mb-3">
+              <small className="text-muted">
+                Total registros: {periodos.length}
+              </small>
+              <CustomButton variant="outline-secondary" onClick={handleReset}>
+                Limpiar Filtros
+              </CustomButton>
+            </div>
+
+            <CommonTable
+              columns={columns}
+              data={currentPageData}
+              loading={loadingPeriodos}
+              fetchData={fetchPage}
+              controlledPageCount={totalPages}
+              initialPageIndex={pageIndex}
+              initialPageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </>
+        )
       )}
+
+      <EditPeriodoModal
+        show={showEditModal}
+        handleClose={() => setShowEditModal(false)}
+        periodo={selectedPeriodo}
+        handleSubmit={handleUpdatePeriodo}
+      />
     </Card>
   );
-};
-
-export default PeriodosHistorial;
+}

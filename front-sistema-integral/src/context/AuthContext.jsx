@@ -28,6 +28,8 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [loading, setLoading] = useState(true);
+  // Flag para distinguir arranque (startup) de la aplicación
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const logout = useCallback(() => {
     setToken(null);
@@ -46,11 +48,13 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Función para obtener los roles, permisos y servicios actualizados del usuario.
+   * Se agrega el parámetro opcional "showAlert" (por defecto true) para poder
+   * controlar la visualización de alertas en las peticiones.
    */
-  const fetchUserPermissions = useCallback(async () => {
+  const fetchUserPermissions = useCallback(async (showAlert = true) => {
     if (!user.id) return;
     try {
-      const data = await customFetch(`/users/${user.id}`, 'GET');
+      const data = await customFetch(`/users/${user.id}`, 'GET', null, showAlert);
       const updatedRoles = data.roles.map((role) => role.name);
       const updatedPermissions = data.roles.flatMap((role) =>
         role.permissions.map((permission) => permission.name)
@@ -70,12 +74,14 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('userPermissions', JSON.stringify(updatedPermissions));
       localStorage.setItem('userServices', JSON.stringify(updatedServices));
     } catch (error) {
-      console.error('Error al actualizar los permisos/servicios:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al actualizar permisos',
-        text: 'Hubo un problema al actualizar los permisos/servicios. Inténtalo más tarde.',
-      });
+      if (showAlert) {
+        console.error('Error al actualizar los permisos/servicios:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al actualizar permisos',
+          text: 'Hubo un problema al actualizar los permisos/servicios. Inténtalo más tarde.',
+        });
+      }
     }
   }, [user.id]);
 
@@ -84,17 +90,20 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         setIsAuthenticated(false);
         setLoading(false);
+        setInitialLoad(false);
         return;
       }
 
       const userId = localStorage.getItem('userId');
       if (userId) {
         setIsAuthenticated(true);
-        await fetchUserPermissions();
+        // Al iniciar la aplicación, se invoca sin mostrar alertas (modo silencioso)
+        await fetchUserPermissions(false);
       } else {
         logout();
       }
       setLoading(false);
+      setInitialLoad(false); // Arranque finalizado
     };
 
     validateToken();
@@ -102,6 +111,8 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const handleTokenExpired = () => {
+      // Solo mostramos alerta si la app ya terminó su arranque y estaba autenticada.
+      if (!isAuthenticated || initialLoad) return;
       logout();
       Swal.fire({
         icon: 'error',
@@ -115,15 +126,18 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener('tokenExpired', handleTokenExpired);
     };
-  }, [logout]);
+  }, [logout, isAuthenticated, initialLoad]);
 
   /**
    * Función para hacer login.
-   * Ahora solo se reciben email y password, y se almacena la sesión en localStorage.
+   * Se reciben email y password, y se almacena la sesión en localStorage.
    */
   const login = async (email, password) => {
     try {
       const data = await customFetch('/login', 'POST', { email, password });
+      // Si data es undefined, detenemos la ejecución retornando false.
+      if (!data) return false;
+
       const token = data.token?.plainTextToken;
       const userData = data.user;
       console.log('Datos del usuario:', userData);
@@ -158,14 +172,15 @@ export const AuthProvider = ({ children }) => {
         navigate('/');
         return true;
       } else {
-        throw new Error('No se recibió un token válido o datos de usuario del servidor.');
+        return false;
       }
     } catch (error) {
       console.error('Error en login:', error);
+      // Mostrar el mensaje específico del error lanzado por customFetch
       Swal.fire({
         icon: 'error',
         title: 'Error de conexión',
-        text: 'No se pudo conectar con el servidor.',
+        text: error.message,
       });
       return false;
     }

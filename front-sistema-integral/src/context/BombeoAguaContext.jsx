@@ -3,6 +3,7 @@ import React, { createContext, useState, useCallback, useEffect, useMemo, useCon
 import customFetch from './CustomFetch';
 import { FacturacionContext } from './../context/FacturacionContext'
 
+
 export const BombeoAguaContext = createContext();
 
 export const BombeoAguaProvider = ({ children }) => {
@@ -15,11 +16,19 @@ export const BombeoAguaProvider = ({ children }) => {
 
   const { registerModule } = useContext(FacturacionContext); // Conectar al contexto global
 
-  // Fetch de servicios
+  // Fetch de servicios de provisión de agua
   const fetchServicios = useCallback(async () => {
+    console.log('fetchServicios: llamando a /tributos/1');
     try {
-      const data = await customFetch('/tributos/1');
-      setServicios(data.servicios || []);
+      const response = await customFetch('/tributos/1');
+      console.log('fetchServicios response raw:', response);
+      const lista = Array.isArray(response.servicios)
+        ? response.servicios
+        : Array.isArray(response.data?.servicios)
+          ? response.data.servicios
+          : [];
+      console.log('fetchServicios: lista de servicios parseada:', lista);
+      setServicios(lista);
     } catch (error) {
       console.error('Error al obtener los servicios:', error);
     } finally {
@@ -33,38 +42,42 @@ export const BombeoAguaProvider = ({ children }) => {
 
   // Fetch de periodos
   const fetchHomePeriodos = useCallback(async () => {
+    console.log('fetchHomePeriodos: llamando a /cuentas');
     setLoadingHomePeriodos(true);
     try {
-      // Desestructuramos el array para obtener los datos y el código de estado
-      const [data] = await customFetch('/cuentas');
-      
-      if (Array.isArray(data)) {
-        // Filtrar periodos que tienen cliente y persona
-        const validPeriodos = data.filter(
-          (periodo) => periodo.cliente && periodo.cliente.persona
-        );
+      const response = await customFetch('/cuentas');
+      console.log('fetchHomePeriodos response raw:', response);
 
-        const sortedPeriodos = validPeriodos.sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at)
-        );
-        setHomePeriodos(sortedPeriodos);
-
-        // Verificar si algún periodo tiene created_at inválido
-        sortedPeriodos.forEach((periodo) => {
-          const fecha = new Date(periodo.created_at);
-          if (isNaN(fecha.getTime())) {
-            console.warn(`Periodo ID ${periodo.id} tiene created_at inválido:`, periodo.created_at);
-          }
-        });
+      let raw;
+      if (Array.isArray(response) && Array.isArray(response[0])) {
+        raw = response[0];
+      } else if (Array.isArray(response)) {
+        raw = response;
+      } else if (Array.isArray(response.data)) {
+        raw = response.data;
       } else {
-        console.error('No se encontraron datos de periodos.');
+        raw = [];
       }
-    } catch (error) {
-      console.error('Error al obtener los periodos:', error);
+      console.log('fetchHomePeriodos: raw periodos extraídos:', raw.length);
+
+      // Ahora la propiedad del cliente viene en cliente.clientable
+      const valid = raw.filter(p => p.cliente && p.cliente.clientable);
+      console.log('fetchHomePeriodos: valid periodos antes de ordenar:', valid.length);
+
+      // Ordenamos de más reciente a más antiguo
+      valid.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      console.log('fetchHomePeriodos: valid periodos después de ordenar (primeros 5):', valid.slice(0, 5));
+
+      setHomePeriodos(valid);
+    } catch (err) {
+      console.error('Error al obtener los periodos:', err);
     } finally {
       setLoadingHomePeriodos(false);
     }
   }, []);
+
 
   useEffect(() => {
     fetchHomePeriodos();

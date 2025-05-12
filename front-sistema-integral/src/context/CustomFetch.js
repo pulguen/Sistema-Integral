@@ -1,3 +1,4 @@
+// CustomFetch.js
 import Swal from 'sweetalert2';
 
 // Definir la clase CustomError
@@ -11,6 +12,11 @@ export class CustomError extends Error {
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 const customFetch = async (endpoint, method = 'GET', body = null, showAlert = true) => {
+  // Capturamos el stack trace para identificar el llamador
+  const stack = new Error().stack || '';
+  const callerLine = stack.split('\n')[2]?.trim() || 'desconocido';
+  console.log(`[customFetch] ${method} ${endpoint} llamado desde: ${callerLine}`);
+
   // Se busca el token únicamente en localStorage
   const token = localStorage.getItem('token');
 
@@ -21,10 +27,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
   };
 
   const options = { method, headers };
-
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
+  if (body) options.body = JSON.stringify(body);
 
   try {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -40,6 +43,9 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     }
 
     if (response.status === 401 || response.status === 403) {
+      if (endpoint === '/login') {
+        throw new CustomError('Credenciales incorrectas', response.status);
+      }
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('tokenExpired'));
       if (showAlert) {
@@ -69,7 +75,6 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
     }
 
     return JSON.parse(responseText);
-
   } catch (error) {
     if (showAlert) {
       console.error('Error en la petición:', error.message);

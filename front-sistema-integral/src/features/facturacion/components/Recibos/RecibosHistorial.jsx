@@ -1,24 +1,40 @@
-import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
-import { FacturacionContext } from "../../../../context/FacturacionContext";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  Card,
+  Spinner,
+  Button,
+  Breadcrumb,
+  Form,
+  OverlayTrigger,
+  Tooltip,
+} from "react-bootstrap";
 import Swal from "sweetalert2";
 import Select from "react-select";
-import { Card, Spinner, Button, Breadcrumb, Form, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { FaTrash } from "react-icons/fa";
-import CommonTable from "../../../../components/common/table/table.jsx";
+import makeAnimated from "react-select/animated";
+import { FacturacionContext } from "../../../../context/FacturacionContext";
 import { AuthContext } from "../../../../context/AuthContext.jsx";
+import CommonTable from "../../../../components/common/table/table.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
+import { FaTrash } from "react-icons/fa";
+
+const animatedComponents = makeAnimated();
 
 const RecibosHistorial = () => {
-  const { 
-    clientes, 
-    fetchClienteById, 
+  const {
+    clientes,
+    fetchClienteById,
     fetchRecibosByCliente,
-    condicionesPago 
+    condicionesPago,
   } = useContext(FacturacionContext);
   const { user } = useContext(AuthContext);
 
   const canShowClients = user?.permissions.includes("recibos.show.cliente");
-  // Se eliminó la referencia a editar recibos, por lo que ya no se utiliza canEditRecibo
   const canDeleteRecibo = user?.permissions.includes("recibos.destroy");
   const canShowTributo = user?.permissions.includes("tributos.show.cliente");
   const canShowServicio = user?.permissions.includes("servicios.show.cliente");
@@ -33,170 +49,144 @@ const RecibosHistorial = () => {
   const [recibos, setRecibos] = useState([]);
   const [loadingRecibos, setLoadingRecibos] = useState(false);
 
+  // 1) Filtrar clientes que tengan al menos un servicio en user.services
   useEffect(() => {
-    if (!Array.isArray(clientes)) {
+    if (!Array.isArray(clientes) || !Array.isArray(user?.services)) {
       setClientsByServices([]);
       setFilteredClientes([]);
       return;
     }
-    if (!Array.isArray(user?.services) || user.services.length === 0) {
-      setClientsByServices([]);
-      setFilteredClientes([]);
-      return;
-    }
-    const filtered = clientes.filter((cliente) => {
-      if (!Array.isArray(cliente.servicios)) return false;
-      return cliente.servicios.some((servicio) => user.services.includes(servicio.id));
-    });
+    const filtered = clientes.filter((c) =>
+      Array.isArray(c.servicios) &&
+      c.servicios.some((s) => user.services.includes(s.id))
+    );
     setClientsByServices(filtered);
     setFilteredClientes(filtered);
   }, [clientes, user?.services]);
 
+  // 2) Búsqueda interna
   const handleSearchChange = (inputValue) => {
     const term = inputValue.toLowerCase();
-    const result = clientsByServices.filter((cliente) => {
-      const nombre = cliente.persona?.nombre || "";
-      const apellido = cliente.persona?.apellido || "";
-      const fullName = `${nombre} ${apellido}`.toLowerCase();
-      const dni = cliente.persona?.dni?.toString() || "";
-      return fullName.includes(term) || dni.includes(term);
-    });
-    setFilteredClientes(result);
+    setFilteredClientes(
+      clientsByServices.filter((c) => {
+        const full = `${c.persona?.nombre || ""} ${c.persona?.apellido || ""}`.toLowerCase();
+        const dni = (c.persona?.dni || "").toString();
+        return full.includes(term) || dni.includes(term);
+      })
+    );
   };
 
-  const clienteOptions = filteredClientes.map((cliente) => ({
-    value: cliente.id,
-    label: `${cliente.persona?.nombre || ""} ${cliente.persona?.apellido || ""} - DNI: ${cliente.persona?.dni || ""}`,
+  const clienteOptions = filteredClientes.map((c) => ({
+    value: c.id,
+    label: `${c.persona?.nombre || ""} ${c.persona?.apellido || ""} - DNI: ${c.persona?.dni || ""}`,
   }));
 
-  const handleClienteSelect = async (selectedOption) => {
-    if (!selectedOption) {
+  // 3) Seleccionar cliente → cargar tributos y servicios
+  const handleClienteSelect = async (opt) => {
+    if (!opt) {
       handleReset();
       return;
     }
-    const cliente = clientes.find((c) => c.id === selectedOption.value);
-    setSelectedCliente(cliente);
+    const cli = filteredClientes.find((c) => c.id === opt.value);
+    setSelectedCliente(cli);
     try {
-      const clienteData = await fetchClienteById(cliente.id);
-      console.log("JSON clienteData:", clienteData);
-      if (!Array.isArray(clienteData) || clienteData.length === 0) {
+      const data = await fetchClienteById(cli.id);
+      if (!Array.isArray(data) || data.length === 0) {
         throw new Error("Formato de datos incorrecto");
       }
-      // Construir mapa de tributos a partir del primer elemento de la respuesta
-      const tributosMapLocal = {};
-      clienteData[0].forEach((entry) => {
-        const tributoId = entry.tributo_id;
-        const tributoNombre = entry.tributo?.nombre || "Sin nombre";
-        const servicio = entry.servicio;
-        if (!tributosMapLocal[tributoId]) {
-          tributosMapLocal[tributoId] = {
-            id: tributoId,
-            nombre: tributoNombre,
+      // data[0] es un array de entradas { tributo_id, tributo, servicio, ... }
+      const map = {};
+      data[0].forEach((e) => {
+        const tId = e.tributo_id;
+        if (!map[tId]) {
+          map[tId] = {
+            id: tId,
+            nombre: e.tributo?.nombre || "Sin nombre",
             servicios: [],
           };
         }
-        if (servicio) {
-          const exists = tributosMapLocal[tributoId].servicios.some((s) => s.id === servicio.id);
-          if (!exists) {
-            tributosMapLocal[tributoId].servicios.push(servicio);
-          }
+        if (e.servicio && !map[tId].servicios.find((s) => s.id === e.servicio.id)) {
+          map[tId].servicios.push(e.servicio);
         }
       });
-      setTributosMap(Object.values(tributosMapLocal));
+      setTributosMap(Object.values(map));
       setServicios([]);
       setSelectedTributo(null);
       setSelectedServicio(null);
       setRecibos([]);
-    } catch (error) {
-      console.error("Error al procesar los datos del cliente:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Hubo un problema al obtener los datos del cliente.",
-      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "No se pudieron cargar los datos del cliente.", "error");
     }
   };
 
+  // 4) Seleccionar tributo → mostrar sus servicios
   const handleTributoSelect = (e) => {
-    const tributoId = e.target.value;
-    const tributo = tributosMap.find((t) => t.id === parseInt(tributoId, 10));
-    setSelectedTributo(tributoId);
-    setServicios(tributo ? tributo.servicios : []);
+    const tId = parseInt(e.target.value, 10);
+    setSelectedTributo(tId);
+    const t = tributosMap.find((x) => x.id === tId);
+    setServicios(t ? t.servicios : []);
     setSelectedServicio(null);
     setRecibos([]);
   };
 
-  // Al seleccionar un servicio, se obtienen los recibos del cliente
-  // Dado que la nueva ruta ya retorna los recibos del cliente, no se realiza filtrado extra
+  // 5) Seleccionar servicio → cargar recibos del cliente
   const handleServicioSelect = async (e) => {
-    const servicioId = e.target.value;
-    const servicio = servicios.find((s) => s.id === parseInt(servicioId, 10));
-    setSelectedServicio(servicio);
-    if (selectedCliente && servicio && selectedTributo) {
-      setLoadingRecibos(true);
-      try {
-        const allRecibos = await fetchRecibosByCliente(selectedCliente.id);
-        console.log("Recibos totales del cliente:", allRecibos);
-        // Aquí podrías aplicar filtrado extra si la respuesta incluyera "servicio_id" y "tributo_id"
-        // Pero si no vienen, simplemente asignamos todos
-        setRecibos(allRecibos);
-      } catch (error) {
-        console.error("Error al obtener los recibos:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Hubo un problema al obtener los recibos.",
-        });
-      } finally {
-        setLoadingRecibos(false);
-      }
-    } else {
-      Swal.fire({
-        icon: "warning",
-        title: "Datos insuficientes",
-        text: "Debe seleccionar un tributo y un servicio antes de continuar.",
-      });
+    const sId = parseInt(e.target.value, 10);
+    const serv = servicios.find((s) => s.id === sId);
+    setSelectedServicio(serv);
+    if (!selectedTributo || !selectedCliente) {
+      Swal.fire("Atención", "Selecciona primero un tributo y un servicio.", "warning");
+      return;
+    }
+    setLoadingRecibos(true);
+    try {
+      const all = await fetchRecibosByCliente(selectedCliente.id);
+      setRecibos(Array.isArray(all) ? all : []);
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
+    } finally {
+      setLoadingRecibos(false);
     }
   };
 
+  // 6) Reset de todo
   const handleReset = () => {
     setSelectedCliente(null);
-    setFilteredClientes(clientes);
+    setFilteredClientes(clientsByServices);
     setSelectedTributo(null);
     setServicios([]);
     setSelectedServicio(null);
     setRecibos([]);
   };
 
+  // 7) Anular recibo
   const handleAnular = useCallback(
     (recibo) => {
       Swal.fire({
         title: "Anular Recibo",
-        text: "Ingrese el motivo de la anulación:",
+        text: "Ingresa el motivo de la anulación:",
         input: "text",
-        inputPlaceholder: "Motivo de anulación",
+        inputPlaceholder: "Motivo",
         showCancelButton: true,
         confirmButtonText: "Anular",
-        cancelButtonText: "Cancelar",
         preConfirm: (motivo) => {
-          if (!motivo) {
-            Swal.showValidationMessage("El motivo es obligatorio");
-          }
+          if (!motivo) Swal.showValidationMessage("El motivo es obligatorio");
           return motivo;
         },
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          const comentario = result.value;
+      }).then(async (res) => {
+        if (res.isConfirmed) {
           try {
             await customFetch("/recibos/anular", "POST", {
               recibo: recibo.n_recibo,
-              comentario: comentario,
+              comentario: res.value,
             });
             setRecibos((prev) => prev.filter((r) => r.id !== recibo.id));
-            Swal.fire("Recibo Anulado", "El recibo se ha anulado correctamente.", "success");
-          } catch (error) {
-            console.error("Error al anular recibo:", error);
-            Swal.fire("Error", "Hubo un problema al anular el recibo.", "error");
+            Swal.fire("Anulado", "El recibo ha sido anulado.", "success");
+          } catch (err) {
+            console.error(err);
+            Swal.fire("Error", "No se pudo anular el recibo.", "error");
           }
         }
       });
@@ -204,13 +194,14 @@ const RecibosHistorial = () => {
     []
   );
 
+  // 8) Columnas de la tabla
   const columns = useMemo(
     () => [
       { Header: "N° Recibo", accessor: "n_recibo" },
-      { 
-        Header: "Emisor", 
-        accessor: "emisor", 
-        Cell: ({ value }) => (value && value.name ? value.name : "N/A") 
+      {
+        Header: "Emisor",
+        accessor: "emisor",
+        Cell: ({ value }) => value?.name || "N/A",
       },
       {
         Header: "Importe Débito",
@@ -228,49 +219,50 @@ const RecibosHistorial = () => {
         Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
       },
       {
-        Header: "Fecha Vencimiento",
+        Header: "Vencimiento",
         accessor: "f_vencimiento",
-        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : "N/A"),
+        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A",
       },
       {
         Header: "Condición",
         accessor: "condicion_pago_id",
         Cell: ({ value }) => {
-          const cond = condicionesPago.find((c) => c.id === value);
-          return cond ? cond.nombre : "Impago";
+          const c = condicionesPago.find((x) => x.id === value);
+          return c?.nombre || "Impago";
         },
       },
       {
-        Header: "Fecha condición",
+        Header: "Fecha Pago",
         accessor: "f_pago",
-        Cell: ({ value }) => (value ? new Date(value).toLocaleDateString() : "N/A"),
+        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A",
       },
-      { 
-        Header: "Cajero", 
-        accessor: "cajero", 
-        Cell: ({ value }) => (value && value.name ? value.name : "N/A") 
+      {
+        Header: "Cajero",
+        accessor: "cajero",
+        Cell: ({ value }) => value?.name || "N/A",
       },
       {
         Header: "Acciones",
-        accessor: "acciones",
+        id: "acciones",
         disableSortBy: true,
         Cell: ({ row }) => (
-          <>
-            <OverlayTrigger
-              placement="top"
-              overlay={<Tooltip id={`tooltip-anular-${row.original.id}`}>Anular Recibo</Tooltip>}
+          <OverlayTrigger
+            placement="top"
+            overlay={
+              <Tooltip id={`tooltip-anular-${row.original.id}`}>
+                Anular recibo
+              </Tooltip>
+            }
+          >
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleAnular(row.original)}
+              disabled={!canDeleteRecibo}
             >
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => handleAnular(row.original)}
-                disabled={!canDeleteRecibo}
-                aria-label={`Anular recibo ${row.original.id}`}
-              >
-                <FaTrash />
-              </Button>
-            </OverlayTrigger>
-          </>
+              <FaTrash />
+            </Button>
+          </OverlayTrigger>
         ),
       },
     ],
@@ -280,16 +272,21 @@ const RecibosHistorial = () => {
   return (
     <Card className="shadow-sm p-4 mt-4">
       <Breadcrumb>
-        <Breadcrumb.Item>Inicio</Breadcrumb.Item>
+        <Breadcrumb.Item linkAs="a" href="/">
+          Inicio
+        </Breadcrumb.Item>
         <Breadcrumb.Item>Facturación</Breadcrumb.Item>
         <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
       </Breadcrumb>
+
       <h2 className="text-center mb-4 text-primary">Historial de Recibos</h2>
+
       <Card className="mb-4 shadow-sm">
         <Card.Body>
           <Form.Group controlId="cliente" className="mb-3">
             <Form.Label>Buscar Cliente</Form.Label>
             <Select
+              components={animatedComponents}
               isDisabled={!canShowClients}
               value={
                 selectedCliente
@@ -302,59 +299,56 @@ const RecibosHistorial = () => {
               onChange={handleClienteSelect}
               onInputChange={handleSearchChange}
               options={clienteOptions}
-              placeholder="Ingresa nombre o DNI/CUIT del Cliente"
+              placeholder="Ingresa nombre o DNI del Cliente"
               isClearable
               isSearchable
               aria-label="Buscar Cliente"
             />
           </Form.Group>
+
           {selectedCliente && (
             <Form.Group controlId="tributo" className="mb-3">
               <Form.Label>Seleccionar Tributo</Form.Label>
-              <Form.Control
-                as="select"
+              <Form.Select
                 value={selectedTributo || ""}
                 onChange={handleTributoSelect}
-                aria-label="Seleccionar Tributo"
                 disabled={!canShowTributo}
               >
-                <option value="">Seleccione un tributo</option>
-                {tributosMap.map((tributo) => (
-                  <option key={tributo.id} value={tributo.id}>
-                    {tributo.nombre}
+                <option value="">-- elige un tributo --</option>
+                {tributosMap.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
                   </option>
                 ))}
-              </Form.Control>
+              </Form.Select>
             </Form.Group>
           )}
+
           {selectedTributo && (
             <Form.Group controlId="servicio" className="mb-3">
               <Form.Label>Seleccionar Servicio</Form.Label>
-              <Form.Control
-                as="select"
+              <Form.Select
                 value={selectedServicio?.id || ""}
                 onChange={handleServicioSelect}
-                aria-label="Seleccionar Servicio"
                 disabled={!canShowServicio}
               >
-                <option value="">Seleccione un servicio</option>
-                {servicios.map((servicio) => (
-                  <option key={servicio.id} value={servicio.id}>
-                    {servicio.nombre}
+                <option value="">-- elige un servicio --</option>
+                {servicios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
                   </option>
                 ))}
-              </Form.Control>
+              </Form.Select>
             </Form.Group>
           )}
         </Card.Body>
       </Card>
+
       {selectedServicio && (
         <div className="table-responsive">
           {loadingRecibos ? (
             <div className="text-center py-5">
-              <Spinner animation="border" role="status">
-                <span className="visually-hidden">Cargando...</span>
-              </Spinner>
+              <Spinner animation="border" role="status" />
             </div>
           ) : (
             <CommonTable columns={columns} data={recibos} />

@@ -1,15 +1,13 @@
+// src/components/common/table/table.jsx
 import React from 'react';
-import { Table, Button, Spinner, Form } from 'react-bootstrap';
+import { Table, Button, Spinner, Form, Alert } from 'react-bootstrap';
 import { useTable, useSortBy, usePagination } from 'react-table';
 
-/**
- * Filtro por defecto para cada columna.
- */
 function DefaultColumnFilter({ column: { filterValue, setFilter } }) {
   return (
     <input
       value={filterValue || ''}
-      onChange={(e) => setFilter(e.target.value || undefined)}
+      onChange={e => setFilter(e.target.value || undefined)}
       placeholder="Buscar..."
       style={{ width: '100%' }}
       aria-label="Filtro de columna"
@@ -17,43 +15,29 @@ function DefaultColumnFilter({ column: { filterValue, setFilter } }) {
   );
 }
 
-/**
- * Componente de Tabla Común
- *
- * Props:
- * - columns: Arreglo de columnas para react-table (con propiedades como Header, accessor, Cell, Filter, etc.).
- * - data: Arreglo de objetos con la información de las filas.
- * - loading: Booleano para indicar si se debe mostrar un spinner (opcional).
- * - initialPageIndex: Página inicial de la paginación (por defecto 0).
- * - initialPageSize: Tamaño inicial de página (por defecto 10).
- * - pageSizeOptions: Opciones para seleccionar cantidad de filas por página (por defecto [10,20,30,40,50]).
- * - onRowClick: Función callback opcional que se dispara al hacer clic en una fila.
- * - className: Clases CSS adicionales para el contenedor.
- * - ...rest: Otras props que se pueden pasar al componente Table de react-bootstrap.
- */
 const CommonTable = ({
   columns,
   data,
   loading = false,
+  fetchData,             // si lo pasas, modo servidor
+  controlledPageCount,
   initialPageIndex = 0,
-  initialPageSize = 10,
-  pageSizeOptions = [10, 20, 30, 40, 50],
+  initialPageSize = 15,
+  pageSizeOptions = [15, 30, 45, 60],
   onRowClick,
   className = '',
   ...rest
 }) => {
-  // Define una columna por defecto que incluya el filtro
-  const defaultColumn = React.useMemo(() => ({
-    Filter: DefaultColumnFilter,
-  }), []);
+  const isServerSide = typeof fetchData === 'function';
 
-  // Configuración de react-table con ordenamiento y paginación
+  const defaultColumn = React.useMemo(() => ({ Filter: DefaultColumnFilter }), []);
+
   const {
     getTableProps,
     getTableBodyProps,
     headerGroups,
     prepareRow,
-    page, // filas de la página actual
+    page,               // filas de la página actual
     canPreviousPage,
     canNextPage,
     pageOptions,
@@ -62,138 +46,103 @@ const CommonTable = ({
     nextPage,
     previousPage,
     setPageSize,
-    state: { pageIndex, pageSize },
+    state: { pageIndex, pageSize }
   } = useTable(
     {
       columns,
       data,
       defaultColumn,
-      initialState: { pageIndex: initialPageIndex, pageSize: initialPageSize },
+      manualPagination: isServerSide,
+      pageCount: isServerSide ? controlledPageCount : undefined,
+      autoResetPage: false,
+      initialState: { pageIndex: initialPageIndex, pageSize: initialPageSize }
     },
     useSortBy,
     usePagination
   );
 
+  // si estamos en remoto, cada vez que cambie pageIndex o pageSize...
+  React.useEffect(() => {
+    if (isServerSide) {
+      fetchData({ page: pageIndex + 1, per_page: pageSize });
+    }
+  }, [isServerSide, fetchData, pageIndex, pageSize]);
+
+  if (loading) {
+    return <div className="text-center py-5"><Spinner animation="border"/></div>;
+  }
+  if (!loading && data.length === 0) {
+    return <Alert variant="info" className="mt-3">No hay registros para mostrar.</Alert>;
+  }
+
   return (
     <div className={`common-table ${className}`}>
-      {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Cargando...</span>
-          </Spinner>
-        </div>
-      ) : (
-        <>
-          {/* Contenedor responsivo para evitar desbordamientos */}
-          <div className="table-responsive">
-            <Table {...getTableProps()} striped bordered hover {...rest}>
-              <thead>
-                {headerGroups.map((headerGroup) => (
-                  <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
-                    {headerGroup.headers.map((column) => (
-                      <th
-                        {...column.getHeaderProps(column.getSortByToggleProps())}
-                        key={column.id}
-                      >
-                        {column.render('Header')}
-                        {/* Iconos de ordenamiento */}
-                        {column.isSorted
-                          ? column.isSortedDesc
-                            ? ' 🔽'
-                            : ' 🔼'
-                          : ''}
-                        {/* Filtro de columna (si se permite) */}
-                        {column.canFilter && <div>{column.render('Filter')}</div>}
-                      </th>
-                    ))}
-                  </tr>
+      <div className="table-responsive">
+        <Table {...getTableProps()} striped bordered hover {...rest}>
+          <thead>
+            {headerGroups.map(hg => (
+              <tr key={hg.id} {...hg.getHeaderGroupProps()}>
+                {hg.headers.map(col => (
+                  <th key={col.id} {...col.getHeaderProps(col.getSortByToggleProps())}>
+                    {col.render('Header')}
+                    {col.isSorted ? (col.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
+                    {col.canFilter && <div>{col.render('Filter')}</div>}
+                  </th>
                 ))}
-              </thead>
-              <tbody {...getTableBodyProps()}>
-                {page.map((row) => {
-                  prepareRow(row);
-                  return (
-                    <tr
-                      {...row.getRowProps()}
-                      key={row.id}
-                      onClick={() => onRowClick && onRowClick(row.original)}
-                      style={{ cursor: onRowClick ? 'pointer' : 'default' }}
-                    >
-                      {row.cells.map((cell) => (
-                        <td {...cell.getCellProps()} key={cell.column.id}>
-                          {cell.render('Cell')}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </div>
-
-          {/* Controles de paginación */}
-          <div className="pagination d-flex justify-content-between align-items-center">
-            <div>
-              <Button
-                onClick={() => gotoPage(0)}
-                disabled={!canPreviousPage}
-                className="me-2"
-              >
-                {'<<'}
-              </Button>
-              <Button
-                onClick={() => previousPage()}
-                disabled={!canPreviousPage}
-                className="me-2"
-              >
-                {'<'}
-              </Button>
-              <Button
-                onClick={() => nextPage()}
-                disabled={!canNextPage}
-                className="me-2"
-              >
-                {'>'}
-              </Button>
-              <Button
-                onClick={() => gotoPage(pageCount - 1)}
-                disabled={!canNextPage}
-              >
-                {'>>'}
-              </Button>
-            </div>
-            <span>
-              Página <strong>{pageIndex + 1} de {pageOptions.length}</strong>
-            </span>
-            <span>
-              | Ir a la página:{' '}
-              <input
-                type="number"
-                defaultValue={pageIndex + 1}
-                onChange={(e) => {
-                  const pageNumber = e.target.value
-                    ? Number(e.target.value) - 1
-                    : 0;
-                  gotoPage(pageNumber);
-                }}
-                style={{ width: '100px' }}
-                aria-label="Ir a la página"
-              />
-            </span>
-            <Form.Select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              style={{ width: '150px' }}
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={size}>
-                  Mostrar {size}
-                </option>
-              ))}
-            </Form.Select>
-          </div>
-        </>
-      )}
+              </tr>
+            ))}
+          </thead>
+          <tbody {...getTableBodyProps()}>
+            {page.map(row => {
+              prepareRow(row);
+              return (
+                <tr
+                  key={row.id}
+                  {...row.getRowProps({
+                    onClick: () => onRowClick && onRowClick(row.original),
+                    style: { cursor: onRowClick ? 'pointer' : 'default' }
+                  })}
+                >
+                  {row.cells.map(cell => (
+                    <td key={cell.column.id} {...cell.getCellProps()}>
+                      {cell.render('Cell')}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+      <div className="pagination d-flex justify-content-between align-items-center">
+        <div>
+          <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="me-2">{'<<'}</Button>
+          <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="me-2">{'<'}</Button>
+          <Button onClick={() => nextPage()} disabled={!canNextPage} className="me-2">{'>'}</Button>
+          <Button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>{'>>'}</Button>
+        </div>
+        <span>Página <strong>{pageIndex + 1} de {pageOptions.length}</strong></span>
+        <span>| Ir a la página: {' '}
+          <input
+            type="number"
+            value={pageIndex + 1}
+            onChange={e => {
+              const p = e.target.value ? Number(e.target.value) - 1 : 0;
+              gotoPage(p);
+            }}
+            style={{ width: '60px' }}
+          />
+        </span>
+        <Form.Select
+          value={pageSize}
+          onChange={e => setPageSize(Number(e.target.value))}
+          style={{ width: '120px' }}
+        >
+          {pageSizeOptions.map(size => (
+            <option key={size} value={size}>Mostrar {size}</option>
+          ))}
+        </Form.Select>
+      </div>
     </div>
   );
 };

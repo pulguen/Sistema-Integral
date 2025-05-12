@@ -1,5 +1,4 @@
 // src/features/facturacion/components/BombeoAgua/RecibosBombeoForm.jsx
-
 import React, {
   useState,
   useEffect,
@@ -16,10 +15,9 @@ import CommonTable from "../../../../components/common/table/table.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
 import { AuthContext } from "../../../../context/AuthContext";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
-import { transformarCliente } from "../../../../utils/clienteUtils.js";
+import { transformarCliente } from "../../../../utils/ClienteUtils.js";
 
 const PAGE_SIZE = 15;
-const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const TRIBUTO_ID = 1;
 
 const getTodayDate = () => {
@@ -40,7 +38,7 @@ export default function RecibosBombeoForm() {
   const { handleCreateRecibo } = useContext(BombeoAguaContext);
   const { user } = useContext(AuthContext);
 
-  // —— Clientes filtrados by servicio ——  
+  // Clientes filtrados por servicio
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
@@ -55,13 +53,15 @@ export default function RecibosBombeoForm() {
       const res = await customFetch(
         `/clientes?page=${pageNum}&per_page=${PAGE_SIZE}`
       );
+      console.log("fetchClients response:", res);
       const raw = Array.isArray(res.data) ? res.data : [];
       const filt = raw
-        .map(transformarCliente)
+        .map((c) => transformarCliente(c))
         .filter((c) => c.servicios?.some((s) => s.tributo_id === TRIBUTO_ID));
+      console.log("fetchClients filtered:", filt);
       setClients((prev) => (pageNum === 1 ? filt : [...prev, ...filt]));
       setPage(pageNum);
-      setPageCount(res.last_page || 0);
+      setPageCount(res.last_page || 1);
       setShowClientList(true);
     } catch (err) {
       console.error("fetchClients error:", err);
@@ -87,7 +87,10 @@ export default function RecibosBombeoForm() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
+      ) {
         setShowClientList(false);
       }
     };
@@ -107,48 +110,39 @@ export default function RecibosBombeoForm() {
     });
   }, [clients, searchTerm]);
 
-  // —— Períodos impagos por cliente ——  
+  // --- Carga de períodos ---
   const [clientId, setClientId] = useState(null);
-  const [selectedClient, setSelectedClient] = useState(null);
   const [periodos, setPeriodos] = useState([]);
   const [loadingPeriodos, setLoadingPeriodos] = useState(false);
 
-  const fetchPeriodos = useCallback(async (id) => {
-    setLoadingPeriodos(true);
-    try {
-      const [data] = await customFetch(`/cuentas/cliente/${id}`);
-      const arr = Array.isArray(data) ? data : [];
-      const impagos = arr.filter((p) => p.condicion_pago_id === null);
-      setPeriodos(impagos);
-      if (!impagos.length) {
-        Swal.fire(
-          "Sin períodos",
-          "No hay períodos impagos para este cliente.",
-          "info"
-        );
-      }
-    } catch (err) {
-      console.error("fetchPeriodos error:", err);
-      Swal.fire("Error", "No se pudieron cargar los períodos.", "error");
-    } finally {
-      setLoadingPeriodos(false);
-    }
-  }, []);
-
   const handleClientSelect = useCallback(
-    (id) => {
+    async (id) => {
       setClientId(id);
-      const clienteObj = clients.find((c) => c.id === id);
-      setSelectedClient(clienteObj);
       setShowClientList(false);
-      const persona = clienteObj?.persona || {};
-      setSearchTerm(`${persona.nombre} ${persona.apellido}`.trim());
-      fetchPeriodos(id);
+      const p = clients.find((c) => c.id === id)?.persona || {};
+      setSearchTerm(`${p.nombre || ""} ${p.apellido || ""}`.trim());
+
+      setLoadingPeriodos(true);
+      try {
+        const resp = await customFetch(`/cuentas/cliente/${id}`);
+        console.log("Raw periodos response:", resp);
+        const data = Array.isArray(resp) ? resp : resp.data || [];
+        console.log("Flattened periodos data:", data);
+        setPeriodos(data);
+        if (!data.length) {
+          Swal.fire("Sin períodos", "No hay períodos para este cliente.", "info");
+        }
+      } catch (err) {
+        console.error("Error cargando períodos:", err);
+        Swal.fire("Error", "No se pudieron cargar los períodos.", "error");
+      } finally {
+        setLoadingPeriodos(false);
+      }
     },
-    [clients, fetchPeriodos]
+    [clients]
   );
 
-  // —— Selección múltiple y suma ——  
+  // --- Selección múltiple y suma ---
   const [selectedPeriodos, setSelectedPeriodos] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
 
@@ -168,6 +162,7 @@ export default function RecibosBombeoForm() {
     });
   }, []);
 
+  // --- Table columns: filtrar solo impagos en render -}--
   const columns = useMemo(
     () => [
       { Header: "#", id: "idx", Cell: ({ row }) => row.index + 1 },
@@ -221,26 +216,11 @@ export default function RecibosBombeoForm() {
     [selectedPeriodos, togglePeriodo]
   );
 
-  // —— Vencimiento y observaciones ——  
+  // --- Vencimiento y observaciones ---
   const [vencimiento, setVencimiento] = useState(getTodayDate());
   const [observaciones, setObservaciones] = useState("");
 
-  // —— PAGINACIÓN CLIENTE-SIDE ——  
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
-  const totalPages = Math.ceil(periodos.length / pageSize);
-
-  const currentPageData = useMemo(() => {
-    const start = pageIndex * pageSize;
-    return periodos.slice(start, start + pageSize);
-  }, [periodos, pageIndex, pageSize]);
-
-  const fetchPage = useCallback(({ page, per_page }) => {
-    setPageIndex(page - 1);
-    setPageSize(per_page);
-  }, []);
-
-  // —— Envía Recibo ——  
+  // --- Envío ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!clientId) {
@@ -264,29 +244,27 @@ export default function RecibosBombeoForm() {
     });
     if (!isConfirmed) return;
 
-    const volumenTotal = selectedPeriodos.reduce(
-      (sum, p) => sum + (parseFloat(p.cantidad) || 0),
-      0
-    );
-
-    handleCreateRecibo({
+    console.log("Generando recibo con:", {
       cliente_id: clientId,
-      cliente_nombre: selectedClient.persona.nombre,
-      cliente_apellido: selectedClient.persona.apellido,
-      cliente_dni: selectedClient.persona.dni,
       totalAmount,
       periodos: selectedPeriodos,
-      volumen: volumenTotal,
       vencimiento,
       observaciones,
       cajero_nombre: user.name,
     });
 
+    handleCreateRecibo({
+      cliente_id: clientId,
+      totalAmount,
+      periodos: selectedPeriodos,
+      vencimiento,
+      observaciones,
+      cajero_nombre: user.name,
+    });
     Swal.fire("Hecho", "Recibo generado correctamente.", "success");
 
     // reset
     setClientId(null);
-    setSelectedClient(null);
     setSearchTerm("");
     setPeriodos([]);
     setSelectedPeriodos([]);
@@ -298,15 +276,16 @@ export default function RecibosBombeoForm() {
   return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">
       <h2 className="text-center mb-5 text-primary fw-bold">
+        <i className="fas fa-file-invoice-dollar me-2" />
         Generar Recibo de Bombeo de Agua
       </h2>
       <Form onSubmit={handleSubmit} className="px-4">
+        {/* Buscador */}
         <ClientSearch
           searchTerm={searchTerm}
           onSearchTermChange={(val) => {
             setSearchTerm(val);
             setClientId(null);
-            setSelectedClient(null);
             setPeriodos([]);
             setShowClientList(true);
           }}
@@ -318,6 +297,7 @@ export default function RecibosBombeoForm() {
           dropdownRef={dropdownRef}
         />
 
+        {/* Períodos impagos */}
         {clientId && (
           <section className="form-section mb-4">
             <h4 className="mb-3 text-secondary">Períodos Impagos</h4>
@@ -328,18 +308,17 @@ export default function RecibosBombeoForm() {
             ) : (
               <CommonTable
                 columns={columns}
-                data={currentPageData}
+                // aquí filtramos explícitamente
+                data={periodos.filter((p) => p.condicion_pago_id === null)}
                 loading={false}
-                fetchData={fetchPage}
-                controlledPageCount={totalPages}
-                initialPageIndex={pageIndex}
-                initialPageSize={pageSize}
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                initialPageSize={10}
+                pageSizeOptions={[5, 10, 20]}
               />
             )}
           </section>
         )}
 
+        {/* Vencimiento/Total */}
         {clientId && (
           <section className="form-section mb-4">
             <Row>
@@ -376,7 +355,7 @@ export default function RecibosBombeoForm() {
                     AR$ {totalAmount.toFixed(2)}
                   </h1>
                   <p className="text-muted">
-                    Períodos:{" "}
+                    Periodos:{" "}
                     {selectedPeriodos.map((p) => `${p.mes}/${p.año}`).join(", ")}
                     <br />
                     Fecha de Vencimiento: {formatDate(vencimiento)}
@@ -387,6 +366,7 @@ export default function RecibosBombeoForm() {
           </section>
         )}
 
+        {/* Botones */}
         {clientId && (
           <div className="d-flex justify-content-center mt-4">
             <CustomButton type="submit" className="me-3 px-5">
@@ -396,7 +376,6 @@ export default function RecibosBombeoForm() {
               variant="outline-secondary"
               onClick={() => {
                 setClientId(null);
-                setSelectedClient(null);
                 setSearchTerm("");
                 setPeriodos([]);
                 setSelectedPeriodos([]);
