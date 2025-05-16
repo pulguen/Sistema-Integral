@@ -282,7 +282,7 @@ export default function RecibosBombeoForm() {
       cajero_nombre: user.name,
     });
 
-    Swal.fire("Hecho", "Recibo generado correctamente.", "success");
+    Swal.fire("Hecho", "Recibo temporal generado correctamente.", "success");
 
     // reset
     setClientId(null);

@@ -5,10 +5,17 @@ import customFetch from "../../../context/CustomFetch.js";
 import Swal from "sweetalert2";
 import CommonTable from "../../../components/common/table/table.jsx";
 import CustomButton from "../../../components/common/botons/CustomButton.jsx";
-import { AuthContext } from "../../../context/AuthContext"; // Asegúrate de que la ruta sea la correcta
+import { AuthContext } from "../../../context/AuthContext";
+import { formatDateToDMY } from "../../../utils/dateUtils.js";
+
+// FontAwesome
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCashRegister, faSyncAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
+
+// Reutilizado del sistema de caja
+import RecibosPagadosHoy from "./RecibosPagadosHoy";
 
 const ArqueoCaja = () => {
-  // Se obtiene el usuario desde AuthContext y se define hasPermission
   const { user } = useContext(AuthContext);
   const hasPermission = (permission) => user.permissions.includes(permission);
 
@@ -16,33 +23,34 @@ const ArqueoCaja = () => {
   const [cierre, setCierre] = useState(null);
   const [cierresList, setCierresList] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [recibosHoy, setRecibosHoy] = useState([]);
+  const [loadingRecibosHoy, setLoadingRecibosHoy] = useState(false);
 
-  // Función para generar el cierre de caja (se asume que el servidor genera el cierre con la fecha actual)
   const handleCierreCaja = async () => {
     setLoading(true);
     try {
       const response = await customFetch("/cierres", "POST");
-      console.log("Cierre de caja generado:", response);
       setCierre(response);
+
       Swal.fire({
         icon: "success",
-        title: "Cierre de caja generado",
-        text: `Cierre creado para ${response.f_cierre}`,
+        title: "Cierre generado correctamente",
+        text: `Cierre creado para el día ${formatDateToDMY(response.f_cierre)}`,
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
       });
-      // Refrescar el historial luego de generar el cierre
+
       fetchCierresList();
+      fetchRecibosHoy(); // refrescar también el resumen
     } catch (error) {
       console.error("Error generando cierre de caja:", error);
       let errorString = "";
-      if (typeof error === "string") {
-        errorString = error;
-      } else if (error.error) {
-        errorString = error.error;
-      } else if (error.body) {
-        errorString = error.body;
-      } else if (error.message) {
-        errorString = error.message;
-      }
+      if (typeof error === "string") errorString = error;
+      else if (error.error) errorString = error.error;
+      else if (error.body) errorString = error.body;
+      else if (error.message) errorString = error.message;
+
       if (errorString.includes("Duplicate entry")) {
         Swal.fire({
           icon: "error",
@@ -61,13 +69,25 @@ const ArqueoCaja = () => {
     }
   };
 
-  // Función para obtener el historial de cierres (GET /cierres)
+  const handleConfirmCierre = () => {
+    Swal.fire({
+      title: "¿Confirmás el cierre de caja?",
+      text: "Esta acción no puede deshacerse. Se generará un cierre para el día actual.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, generar cierre",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleCierreCaja();
+      }
+    });
+  };
+
   const fetchCierresList = useCallback(async () => {
     setLoadingList(true);
     try {
       const response = await customFetch("/cierres", "GET");
-      console.log("Listado de cierres:", response);
-      // Si la respuesta está paginada, se extrae la propiedad "data"
       if (response && Array.isArray(response.data)) {
         setCierresList(response.data);
       } else if (Array.isArray(response)) {
@@ -76,61 +96,80 @@ const ArqueoCaja = () => {
         setCierresList([]);
       }
     } catch (error) {
-      Swal.fire("Error", "Error al obtener clientes.", "error");
-      console.error("Error al obtener clientes:", error);
+      Swal.fire("Error", "Error al obtener cierres.", "error");
+      console.error("Error al obtener cierres:", error);
     } finally {
       setLoadingList(false);
     }
   }, []);
 
+  const fetchRecibosHoy = useCallback(async () => {
+    setLoadingRecibosHoy(true);
+    try {
+      const fechaPago = new Date().toISOString().split("T")[0];
+      const response = await customFetch(`/recibos/pagados/${fechaPago}`);
+      let dataArray = [];
+      if (response?.data && Array.isArray(response.data)) {
+        dataArray = response.data;
+      } else if (Array.isArray(response)) {
+        dataArray = response;
+      }
+      setRecibosHoy(dataArray);
+    } catch (err) {
+      console.error("Error al obtener los recibos de hoy:", err);
+    } finally {
+      setLoadingRecibosHoy(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCierresList();
-  }, [fetchCierresList]);
+    fetchRecibosHoy();
+  }, [fetchCierresList, fetchRecibosHoy]);
 
-  // Definición de columnas para mostrar la información del cierre
   const columns = useMemo(() => [
     { Header: "ID", accessor: "id" },
     {
       Header: "Fecha Cierre",
       accessor: "f_cierre",
-      Cell: ({ value }) => new Date(value).toLocaleString()
+      Cell: ({ value }) => formatDateToDMY(value),
     },
     {
       Header: "Fecha Creación",
       accessor: "created_at",
-      Cell: ({ value }) => new Date(value).toLocaleString()
+      Cell: ({ value }) => formatDateToDMY(value),
     },
     {
       Header: "Fecha Actualización",
       accessor: "updated_at",
-      Cell: ({ value }) => new Date(value).toLocaleString()
+      Cell: ({ value }) => formatDateToDMY(value),
     },
+    { Header: "Total de Recibos", accessor: "t_recibos" },
     {
       Header: "Débito",
       accessor: "i_debito",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: "Crédito",
       accessor: "i_credito",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: "Recargo",
       accessor: "i_recargo",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: "Descuento",
       accessor: "i_descuento",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
     {
       Header: "Total",
       accessor: "i_total",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
-    { Header: "Total de Recibos", accessor: "t_recibos" },
   ], []);
 
   return (
@@ -144,18 +183,53 @@ const ArqueoCaja = () => {
         </Breadcrumb.Item>
         <Breadcrumb.Item active>Cierre de Caja</Breadcrumb.Item>
       </Breadcrumb>
+
       <h2 className="text-center mb-4 text-primary">Cierre de Caja</h2>
       <p>Genera el cierre de caja correspondiente a la fecha actual.</p>
-      <CustomButton
-        onClick={hasPermission("cierres.store") ? handleCierreCaja : undefined}
-        disabled={loading || !hasPermission("cierres.store")}
-      >
-        {loading ? (
-          <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-        ) : (
-          "Generar Cierre de Caja"
-        )}
-      </CustomButton>
+
+      {/* Mostramos resumen de recibos pagados hoy */}
+      <RecibosPagadosHoy
+        recibosHoy={recibosHoy}
+        loadingRecibosHoy={loadingRecibosHoy}
+        fetchRecibosHoy={fetchRecibosHoy}
+        canViewPaid={hasPermission("recibos.index-pagados")}
+      />
+
+      {/* Card de acción para cierre */}
+      {hasPermission("cierres.store") && (
+        <Card className="mb-4 shadow-sm text-center bg-light-subtle border border-danger-subtle">
+          <Card.Body>
+            <div className="mb-3">
+              <FontAwesomeIcon icon={faCashRegister} size="3x" className="text-danger" />
+            </div>
+            <h4 className="text-danger">¿Listo para cerrar la caja de hoy?</h4>
+            <p className="text-muted">
+              Esta acción registrará todos los movimientos realizados hoy. Verificá que no falte ningún cobro.
+            </p>
+            <CustomButton
+              variant="danger"
+              size="lg"
+              className="px-4 py-2 fs-5 fw-bold"
+              onClick={handleConfirmCierre}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
+                  Generando cierre...
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faCashRegister} className="me-2" />
+                  Generar Cierre de Caja
+                </>
+              )}
+            </CustomButton>
+          </Card.Body>
+        </Card>
+      )}
+
+      {/* Detalle del cierre generado */}
       {cierre && (
         <div className="mt-3">
           <h4>Detalle del Cierre Generado:</h4>
@@ -163,9 +237,11 @@ const ArqueoCaja = () => {
         </div>
       )}
 
+      {/* Historial de cierres */}
       <div className="mt-4">
         <h4>Historial de Cierres de Caja</h4>
         <CustomButton onClick={fetchCierresList} disabled={loadingList}>
+          <FontAwesomeIcon icon={faSyncAlt} className="me-2" />
           {loadingList ? "Cargando..." : "Refrescar Historial"}
         </CustomButton>
         {loadingList ? (

@@ -1,3 +1,4 @@
+// SearchRecibo.jsx
 import React from 'react';
 import { Form } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
@@ -20,7 +21,7 @@ const SearchRecibo = ({
         <Form.Label>Buscar recibo</Form.Label>
         <Form.Control
           type="text"
-          placeholder="Lea el código de barras con el lector o ingrese número de recibo"
+          placeholder="Escanee el código de barras con el lector o ingrese número de recibo"
           value={busqueda}
           ref={inputRef}
           onChange={(e) => setBusqueda(e.target.value)}
@@ -32,6 +33,11 @@ const SearchRecibo = ({
           }}
           aria-label="Búsqueda de recibo"
         />
+        <Form.Text muted>
+          {busquedaManual
+            ? "Ingrese el número de recibo manualmente."
+            : "Escanee el código de barras completo con el lector."}
+        </Form.Text>
         <Form.Switch
           id="busqueda-manual-switch"
           label="Búsqueda manual"

@@ -26,18 +26,48 @@ const CajaHome = () => {
   const inputRef = useRef(null);
 
   // Callback para buscar un recibo
-  const handleBuscarRecibo = useCallback(async () => {
-    if (!busqueda.trim()) {
-      console.warn("Debe ingresar un término de búsqueda.");
-      return;
+const extractReciboNumber = useCallback((codigo) => {
+  return codigo.length >= 15 ? codigo.slice(12, 24) : codigo;
+}, []);
+
+const buscarReciboConChecksum = useCallback(async (codigoCompleto) => {
+  try {
+    const endpoint = `/recibos/${codigoCompleto}/verificar-checksum`;
+    const data = await customFetch(endpoint);
+    console.log("Checksum verificado:", data);
+    return data;
+  } catch (err) {
+    console.error("Error en verificación de checksum:", err);
+    throw err;
+  }
+}, []);
+
+const handleBuscarRecibo = useCallback(async () => {
+  if (!busqueda.trim()) {
+    Swal.fire('Advertencia', 'Debe ingresar un valor para buscar.', 'warning');
+    return;
+  }
+
+  try {
+    let data;
+
+    if (busquedaManual) {
+      data = await buscarRecibo(busqueda);
+    } else {
+      await buscarReciboConChecksum(busqueda);
+      const numeroRecibo = extractReciboNumber(busqueda);
+      setBusqueda(numeroRecibo);
+      data = await buscarRecibo(numeroRecibo);
     }
-    try {
-      const data = await buscarRecibo(busqueda);
-      setResultado(Array.isArray(data) ? data : [data]);
-    } catch (err) {
-      console.error("Error al buscar recibo:", err);
-    }
-  }, [busqueda, buscarRecibo]);
+
+    setResultado(Array.isArray(data) ? data : [data]);
+  } catch (err) {
+    console.error("Error al buscar recibo:", err);
+    Swal.fire('Error', 'No se pudo validar o encontrar el recibo.', 'error');
+    setResultado([]);
+  }
+}, [busqueda, busquedaManual, buscarRecibo, buscarReciboConChecksum, extractReciboNumber]);
+
 
   // Callback para limpiar búsqueda y resultados
   const handleLimpiar = useCallback(() => {
@@ -84,8 +114,44 @@ const CajaHome = () => {
     }
   }, [pagarRecibo, error]);
 
+  const handleAnular = useCallback(async (recibo) => {
+  const result = await Swal.fire({
+    title: "Anular Recibo",
+    text: "Ingrese el motivo de la anulación:",
+    input: "text",
+    inputPlaceholder: "Motivo de anulación",
+    showCancelButton: true,
+    confirmButtonText: "Anular",
+    cancelButtonText: "Cancelar",
+    preConfirm: (motivo) => {
+      if (!motivo) Swal.showValidationMessage("El motivo es obligatorio");
+      return motivo;
+    },
+  });
+
+  if (result.isConfirmed) {
+    try {
+      await customFetch("/recibos/anular", "POST", {
+        recibo: recibo.n_recibo,
+        comentario: result.value,
+      });
+      setResultado(prev => prev.filter(r => r.id !== recibo.id));
+      setRecibosHoy(prev => prev.filter(r => r.id !== recibo.id));
+      Swal.fire("Recibo Anulado", "El recibo fue anulado correctamente.", "success");
+    } catch (err) {
+      console.error("Error al anular recibo:", err);
+      Swal.fire("Error", "No se pudo anular el recibo.", "error");
+    }
+  }
+}, []);
+
+const handleQuitarRecibo = useCallback((reciboId) => {
+  setResultado(prev => prev.filter(r => r.id !== reciboId));
+}, []);
+
+
   return (
-    <Card className="shadow-sm p-4 mt-4">
+    <Card className="shadow-sm p-4 mt-2">
       <Breadcrumb>
         <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
           Inicio
@@ -95,7 +161,7 @@ const CajaHome = () => {
       
       <h2 className="text-center mb-4 text-primary">Sistema de Caja</h2>
       <p className="mb-4">
-        Busca un recibo ingresando su número, descripción o medio de pago.
+        Busca un recibo leyendo el código de barra o activa la busqueda manual e ingresa el número de recibo.
       </p>
       
       <SearchRecibo
@@ -114,7 +180,11 @@ const CajaHome = () => {
         resultado={resultado} 
         loading={loading} 
         handleCobrarRecibo={handleCobrarRecibo}
+        handleAnular={handleAnular}
+        handleQuitarRecibo={handleQuitarRecibo}
+        hasPermission={hasPermission}
       />
+
 
       <RecibosPagadosHoy
         recibosHoy={recibosHoy}

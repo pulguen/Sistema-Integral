@@ -30,7 +30,7 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
   if (body) options.body = JSON.stringify(body);
 
   try {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
     const response = await fetch(url, options);
     const responseText = await response.text();
 

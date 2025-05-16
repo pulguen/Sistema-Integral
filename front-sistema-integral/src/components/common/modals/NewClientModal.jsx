@@ -226,6 +226,10 @@ export default function NewClientModal({
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep1() || !validateStep2()) return;
+    if (serviciosSeleccionados.length === 0) {
+    Swal.fire('Servicios requeridos', 'Debes asignar al menos un servicio al cliente.', 'warning');
+    return;
+    }
 
     // Armar payload
     let payload = {
@@ -595,7 +599,7 @@ export default function NewClientModal({
               )}
               <div className="d-flex justify-content-between mt-4">
                 <Button variant="secondary" onClick={goBack}>Volver</Button>
-                <Button variant="primary" type="submit">Guardar</Button>
+                <Button variant="primary" type="submit">Crear Cliente</Button>
               </div>
             </>
           )}

@@ -1,3 +1,4 @@
+// ReciboResult.jsx
 import React, { useMemo } from 'react';
 import { Card, Spinner } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
@@ -12,66 +13,50 @@ const ReciboResult = ({
   handleQuitarRecibo,
   hasPermission
 }) => {
-  // Envuelve hasPermission en useMemo para asegurar que su referencia sea estable
   const checkPermission = useMemo(() => {
     return typeof hasPermission === 'function' ? hasPermission : () => false;
   }, [hasPermission]);
 
-  // Definición de columnas tal como en tu implementación original
   const columnasResultado = useMemo(() => [
     { Header: "N° Recibo", accessor: "n_recibo" },
-    { 
-      Header: "Cliente", 
+    {
+      Header: "Cliente",
       accessor: "cliente",
-      Cell: ({ row: { original } }) =>
-        original.cliente && original.cliente.persona
-          ? `${original.cliente.persona.nombre || ''} ${original.cliente.persona.apellido || ''}`.trim()
-          : "N/A"
+      Cell: ({ row: { original } }) => {
+        const clientable = original?.cliente?.clientable;
+        return clientable
+          ? `${clientable.nombre || ''} ${clientable.apellido || ''}`.trim() || "N/A"
+          : "N/A";
+      }
     },
-    { 
-      Header: "F. Vencimiento", 
+    {
+      Header: "F. Vencimiento",
       accessor: "f_vencimiento",
       Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "-"
     },
-    { 
-      Header: "F. Pago", 
-      accessor: "f_pago",
-      Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "-"
-    },
-    { 
-      Header: "Débito", 
-      accessor: "i_debito", 
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
-    },
-    { 
-      Header: "Recargo", 
-      accessor: "i_recargo", 
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
-    },
-    { 
-      Header: "Descuento", 
-      accessor: "i_descuento", 
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
-    },
-    { 
-      Header: "Total", 
-      accessor: "i_total", 
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
-    },
-    { 
-      Header: "Emisor", 
+    { Header: "Débito", accessor: "i_debito", Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}` },
+    { Header: "Recargo", accessor: "i_recargo", Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}` },
+    { Header: "Descuento", accessor: "i_descuento", Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}` },
+    { Header: "Total", accessor: "i_total", Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}` },
+    {
+      Header: "Emisor",
       accessor: "emisor",
       Cell: ({ value }) => value?.name || "N/A"
     },
-    { 
-      Header: "Cajero", 
+    {
+      Header: "Cajero",
       accessor: "cajero",
       Cell: ({ value }) => value?.name || "N/A"
     },
-    { 
-      Header: "Condición de Pago", 
+    {
+      Header: "Condición de Pago",
       accessor: "condicion_pago",
       Cell: ({ value }) => value ? value.nombre : "N/A"
+    },
+    {
+      Header: "F. Pago",
+      accessor: "f_pago",
+      Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "-"
     },
     {
       Header: "Acciones",
@@ -81,16 +66,19 @@ const ReciboResult = ({
         const hoy = new Date();
         const fechaVencimiento = new Date(original.f_vencimiento);
         const isOverdue = fechaVencimiento < hoy;
+        const isAnulado = original.condicion_pago?.nombre.toLowerCase() === 'anulado';
+        const isPagado = Boolean(original.f_pago);
+
         return (
           <div className="d-flex gap-2">
-            {original.condicion_pago && original.condicion_pago.nombre.toLowerCase() === 'anulado' ? (
+            {isAnulado ? (
               <CustomButton variant="secondary" disabled>
                 <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                 Anulado
               </CustomButton>
             ) : (
               <>
-                {original.f_pago ? (
+                {isPagado ? (
                   <CustomButton variant="secondary" disabled>
                     <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                     Pagado
@@ -101,23 +89,26 @@ const ReciboResult = ({
                     Vencido
                   </CustomButton>
                 ) : (
+                  checkPermission('recibos.pagar') && (
+                    <CustomButton
+                      variant="primary"
+                      onClick={() => handleCobrarRecibo(original)}
+                    >
+                      <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
+                      Cobrar
+                    </CustomButton>
+                  )
+                )}
+                {checkPermission('recibos.anular') && (
                   <CustomButton
-                    variant="primary"
-                    onClick={() => handleCobrarRecibo(original)}
-                    disabled={!checkPermission('recibos.pagar')}
+                    variant="warning"
+                    onClick={() => handleAnular(original)}
+                    disabled={isPagado}
                   >
-                    <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
-                    Cobrar
+                    <FaBan style={{ marginRight: '5px' }} />
+                    Anular
                   </CustomButton>
                 )}
-                <CustomButton
-                  variant="warning"
-                  onClick={() => handleAnular(original)}
-                  disabled={!checkPermission('recibos.anular')}
-                >
-                  <FaBan style={{ marginRight: '5px' }} />
-                  Anular
-                </CustomButton>
               </>
             )}
             <CustomButton variant="danger" onClick={() => handleQuitarRecibo(original.id)}>
@@ -126,13 +117,13 @@ const ReciboResult = ({
             </CustomButton>
           </div>
         );
-      },
-    },
+      }
+    }
   ], [handleCobrarRecibo, handleAnular, handleQuitarRecibo, checkPermission]);
 
   return (
     resultado && resultado.length > 0 && (
-      <Card className="mb-4 shadow-sm">
+      <Card className="mb-4 mt-4 shadow-sm">
         <Card.Body>
           <h4>Recibo encontrado</h4>
           {loading ? (
@@ -142,7 +133,12 @@ const ReciboResult = ({
               </Spinner>
             </div>
           ) : (
-            <CommonTable columns={columnasResultado} data={resultado} />
+            <>
+              <CommonTable columns={columnasResultado} data={resultado} />
+              {resultado.length === 0 && (
+                <div className="text-muted text-center mt-2">No se encontró ningún recibo.</div>
+              )}
+            </>
           )}
         </Card.Body>
       </Card>

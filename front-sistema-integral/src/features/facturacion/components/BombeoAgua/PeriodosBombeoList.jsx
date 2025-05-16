@@ -126,6 +126,7 @@ const PeriodosBombeoList = () => {
 
   return periodos.length > 0 ? (
     <div className="table-responsive">
+      <h3 className="mt-4">Vista Previa de datos para el Periodo</h3>
       <Table striped bordered hover className="mt-2">
         <thead>
           <tr>

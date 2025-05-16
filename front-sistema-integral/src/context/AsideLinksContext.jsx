@@ -20,6 +20,7 @@ export const AsideLinksProvider = ({ children }) => {
 
   const subsystemsLinks = {
     facturacion: [
+      
       {
         href: '/facturacion',
         label: (
@@ -30,6 +31,19 @@ export const AsideLinksProvider = ({ children }) => {
               className="me-2"
             />
             Home Facturación
+          </>
+        )
+      },
+            hasPermission('clientes.index') && {
+        href: '/facturacion/clientes',
+        label: (
+          <>
+            <FontAwesomeIcon
+              icon={faUsersViewfinder}
+              size="1x"
+              className="me-2"
+            />
+            Clientes
           </>
         )
       },
@@ -98,20 +112,7 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-      hasPermission('clientes.index') && {
-        href: '/facturacion/clientes',
-        label: (
-          <>
-            <FontAwesomeIcon
-              icon={faUsersViewfinder}
-              size="1x"
-              className="me-2"
-            />
-            Clientes
-          </>
-        )
-      },
-    ].filter(Boolean), // Filtrar elementos falsy si el usuario no tiene los permisos
+    ].filter(Boolean),
 
     inventario: [
       { href: '/inventario/agregar', label: 'Agregar Producto' },

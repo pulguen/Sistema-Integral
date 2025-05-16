@@ -187,20 +187,24 @@ const fetchClientes = useCallback(async () => {
     }
   }, []);
 
-  const fetchCalles = useCallback(async () => {
-    try {
-      const data = await customFetch("/calles");
-      // Aplicamos titleCase a cada nombre de calle
-      const formatted = unpackData(data).map(calle => ({
+const fetchCalles = useCallback(async () => {
+  try {
+    const data = await customFetch("/calles");
+    // Aplicamos titleCase a cada nombre de calle y luego ordenamos
+    const formatted = unpackData(data)
+      .map(calle => ({
         ...calle,
         nombre: titleCase(calle.nombre)
-      }));
-      console.log("Calles formateadas:", formatted);
-      setCalles(formatted);
-    } catch (error) {
-      console.error("Error al obtener las calles:", error);
-    }
-  }, []);
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre)); // orden alfabético por nombre
+
+    console.log("Calles formateadas y ordenadas:", formatted);
+    setCalles(formatted);
+  } catch (error) {
+    console.error("Error al obtener las calles:", error);
+  }
+}, []);
+
   
   
 

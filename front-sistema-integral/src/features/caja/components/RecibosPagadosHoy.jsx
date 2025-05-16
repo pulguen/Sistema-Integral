@@ -27,7 +27,7 @@ const RecibosPagadosHoy = ({ recibosHoy, loadingRecibosHoy, fetchRecibosHoy, can
   const cols = columns || defaultColumns;
 
   return (
-    <Card className="mb-4 shadow-sm">
+    <Card className="mt-3 mb-3 shadow-sm">
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4>Recibos pagados hoy</h4>

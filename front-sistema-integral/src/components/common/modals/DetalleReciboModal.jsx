@@ -1,5 +1,5 @@
 // src/features/facturacion/components/DetalleReciboModal.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Table } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch';
@@ -8,52 +8,53 @@ const DetalleReciboModal = ({ show, handleClose, recibo }) => {
   const [detalleRecibo, setDetalleRecibo] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Función para "enriquecer" el recibo: obtener nombres de cliente, emisor y cajero
-  const fetchDetalleRecibo = async () => {
-    setLoading(true);
-    try {
-      let clientName = '';
-      let clientSurname = '';
-      if (recibo.cliente_id) {
-        const clientData = await customFetch(`/clientes/${recibo.cliente_id}`, 'GET');
-        if (clientData && clientData.persona) {
-          clientName = clientData.persona.nombre || '';
-          clientSurname = clientData.persona.apellido || '';
-        }
+const fetchDetalleRecibo = useCallback(async () => {
+  setLoading(true);
+  try {
+    let clientName = 'N/A';
+
+    if (recibo?.cliente?.clientable) {
+      const c = recibo.cliente.clientable;
+      clientName = `${c.nombre || ''} ${c.apellido || ''}`.trim();
+    } else if (recibo.cliente_id) {
+      const clientData = await customFetch(`/clientes/${recibo.cliente_id}`, 'GET');
+      if (clientData && clientData.persona) {
+        clientName = `${clientData.persona.nombre || ''} ${clientData.persona.apellido || ''}`.trim();
       }
-      let emitterName = recibo.emisor_id || 'N/A';
-      if (recibo.emisor_id) {
-        const emitterData = await customFetch(`/users/${recibo.emisor_id}`, 'GET');
-        if (emitterData && emitterData.name) {
-          emitterName = emitterData.name;
-        }
-      }
-      let cashierName = recibo.cajero_id || 'N/A';
-      if (recibo.cajero_id) {
-        const cashierData = await customFetch(`/users/${recibo.cajero_id}`, 'GET');
-        if (cashierData && cashierData.name) {
-          cashierName = cashierData.name;
-        }
-      }
-      setDetalleRecibo({
-        ...recibo,
-        cliente_nombre: `${clientName} ${clientSurname}`.trim(),
-        emisor_nombre: emitterName,
-        cajero_nombre: cashierName,
-      });
-    } catch (error) {
-      console.error("Error al obtener detalle del recibo:", error);
-      Swal.fire('Error', 'Error al obtener detalle del recibo.', 'error');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    let emitterName = 'N/A';
+    if (recibo.emisor_id) {
+      const emitterData = await customFetch(`/users/${recibo.emisor_id}`, 'GET');
+      if (emitterData?.name) emitterName = emitterData.name;
+    }
+
+    let cashierName = 'N/A';
+    if (recibo.cajero_id) {
+      const cashierData = await customFetch(`/users/${recibo.cajero_id}`, 'GET');
+      if (cashierData?.name) cashierName = cashierData.name;
+    }
+
+    setDetalleRecibo({
+      ...recibo,
+      cliente_nombre: clientName,
+      emisor_nombre: emitterName,
+      cajero_nombre: cashierName,
+    });
+  } catch (error) {
+    console.error("Error al obtener detalle del recibo:", error);
+    Swal.fire('Error', 'Error al obtener detalle del recibo.', 'error');
+  } finally {
+    setLoading(false);
+  }
+}, [recibo]);
+
 
   useEffect(() => {
     if (show) {
       fetchDetalleRecibo();
     }
-  }, [show]);
+  }, [show, fetchDetalleRecibo]);
 
   return (
     <Modal show={show} onHide={handleClose} size="lg" centered>

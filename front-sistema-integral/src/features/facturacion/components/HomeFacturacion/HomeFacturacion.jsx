@@ -1,14 +1,23 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { Breadcrumb, Container, Row } from "react-bootstrap"; 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import CommonCard from "../../../../components/common/Cards/Cards";
-import { AuthContext } from "../../../../context/AuthContext"; // Importar el AuthContext para usar los permisos
+import { AuthContext } from "../../../../context/AuthContext";
 
 const FacturacionHome = () => {
-  const { user } = useContext(AuthContext); // Obtener los permisos del usuario
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [loadingCard, setLoadingCard] = useState(null);
 
-  // Función para verificar los permisos
   const hasAccess = (permission) => user.permissions.includes(permission);
+
+  const handleCardClick = (route, key) => {
+    setLoadingCard(key);
+    setTimeout(() => {
+      navigate(route);
+      setLoadingCard(null);
+    }, 1500);
+  };
 
   return (
     <div>
@@ -27,7 +36,6 @@ const FacturacionHome = () => {
       
       <h2 className="text-center mb-4 text-primary">Facturación</h2>
 
-      {/* Sección de Tarjetas */}
       <Container className="mt-5">
         <Row className="justify-content-center">
           {hasAccess('alquilerterminal.access') && (
@@ -37,6 +45,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Alquiler Terminal"
               route="/facturacion/alquiler-terminal"
               variant="primary"
+              isLoading={loadingCard === 'alquilerterminal'}
+              onClick={() => handleCardClick('/facturacion/alquiler-terminal', 'alquilerterminal')}
             />
           )}
 
@@ -47,6 +57,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Bombeo de Agua"
               route="/facturacion/bombeo-agua"
               variant="success"
+              isLoading={loadingCard === 'bombeoagua'}
+              onClick={() => handleCardClick('/facturacion/bombeo-agua', 'bombeoagua')}
             />
           )}
 
@@ -57,6 +69,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Horno Pirolítico"
               route="/facturacion/horno-pirolitico"
               variant="warning"
+              isLoading={loadingCard === 'hornopirolitico'}
+              onClick={() => handleCardClick('/facturacion/horno-pirolitico', 'hornopirolitico')}
             />
           )}
 
@@ -67,6 +81,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Gestión de Clientes"
               route="/facturacion/clientes"
               variant="info"
+              isLoading={loadingCard === 'clientes'}
+              onClick={() => handleCardClick('/facturacion/clientes', 'clientes')}
             />
           )}
 
@@ -77,6 +93,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Periodos de Facturación"
               route="/facturacion/periodos"
               variant="dark"
+              isLoading={loadingCard === 'periodos'}
+              onClick={() => handleCardClick('/facturacion/periodos', 'periodos')}
             />
           )}
 
@@ -87,6 +105,8 @@ const FacturacionHome = () => {
               buttonText="Ir a Recibos de Facturación"
               route="/facturacion/recibos"
               variant="secondary"
+              isLoading={loadingCard === 'recibos'}
+              onClick={() => handleCardClick('/facturacion/recibos', 'recibos')}
             />
           )}
         </Row>

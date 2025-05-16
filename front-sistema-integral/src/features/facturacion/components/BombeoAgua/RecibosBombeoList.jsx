@@ -108,7 +108,7 @@ const RecibosBombeoList = () => {
     <>
       {recibos.length > 0 ? (
         <div className="table-responsive">
-          <h3 className="mt-4">Vista Previa de datos para el recibo</h3>
+          <h3 className="mt-4">Vista Previa de datos para el Recibo</h3>
           <Table striped bordered hover className="mt-3">
             <thead>
               <tr>
