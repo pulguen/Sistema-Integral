@@ -91,12 +91,12 @@ export default function LoginForm() {
                       marginBottom: '10px',
                     }}
                   />
-                  <h2 style={{ fontSize: '1.8rem', color: 'var(--secundary-color)', fontWeight: '600' }}>
+                  <h2 style={{ fontSize: '1.8rem', color: 'var(--secundary-color)', fontWeight: '700' }}>
                     Bienvenido 👋
                   </h2>
-                  <h5 style={{ fontSize: '1rem', color: 'var(--dark-color)', fontWeight: '400' }}>
+                  <h3 style={{ fontSize: '1.2rem', color: 'var(--dark-color)', fontWeight: '600' }}>
                     Sistema Integral Municipalidad de Zapala
-                  </h5>
+                  </h3>
                 </div>
 
                 {errorMessage && (
