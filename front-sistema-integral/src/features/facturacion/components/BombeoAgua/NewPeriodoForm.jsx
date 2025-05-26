@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Form, Row, Col, InputGroup } from "react-bootstrap";
 import Swal from "sweetalert2";
+import { FaExclamationCircle } from "react-icons/fa";
 import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
 
 export default function NewPeriodoForm({
@@ -23,7 +24,8 @@ export default function NewPeriodoForm({
   getServiceNameById,
   onSubmit,
   onReset,
-  formatLocalDate
+  formatLocalDate,
+  extraInfo // ← la tarjeta de módulo
 }) {
   const yearOptions = useMemo(() => {
     const curr = new Date().getFullYear();
@@ -32,163 +34,185 @@ export default function NewPeriodoForm({
 
   const monthOptions = useMemo(
     () => [
-      "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
     ],
     []
   );
 
-  // Validaciones locales antes de disparar onSubmit
+  // ---- Validación UX/UI ----
+  const missingFields = [];
+  if (!service) missingFields.push("Tipo de Servicio");
+  if (!volume || parseFloat(volume) <= 0) missingFields.push("Volumen");
+  if (!month) missingFields.push("Mes");
+  if (!year) missingFields.push("Año");
+  if (!cuota || cuota < 1) missingFields.push("Cuota");
+  if (!vencimiento) missingFields.push("Vencimiento");
+  const isComplete = missingFields.length === 0;
+
+  // Validaciones antes de submit
   const handleLocalSubmit = (e) => {
     e.preventDefault();
-    if (!(parseFloat(volume) > 0)) {
-      return Swal.fire("Error", "Ingrese un volumen válido (> 0).", "error");
+    if (!isComplete) {
+      Swal.fire("Faltan datos", `Complete: ${missingFields.join(", ")}`, "warning");
+      return;
     }
-    if (!service) {
-      return Swal.fire("Error", "Seleccione un tipo de servicio.", "error");
-    }
-    if (!month) {
-      return Swal.fire("Error", "Seleccione el mes de facturación.", "error");
-    }
-    if (!year) {
-      return Swal.fire("Error", "Seleccione el año.", "error");
-    }
-    if (cuota < 1) {
-      return Swal.fire("Error", "La cuota debe ser al menos 1.", "error");
-    }
-    if (!vencimiento) {
-      return Swal.fire("Error", "Seleccione la fecha de vencimiento.", "error");
-    }
-    // Todos los campos válidos: delegar al padre
     onSubmit(e);
   };
 
   return (
-    <>
-      <section className="form-section mb-4">
-        <h4 className="mb-3 text-secondary">Nuevo Período</h4>
-        <Row>
-          <Col md={6}>
-            <Form.Group controlId="volume" className="mb-3">
-              <Form.Label className="fw-bold">
-                Volumen de Agua Bombeada (m³) <span className="text-danger">*</span>
-              </Form.Label>
-              <InputGroup>
-                <Form.Control
-                  type="number"
-                  value={volume}
-                  onChange={e => onVolumeChange(e.target.value)}
-                  placeholder="Ingrese volumen"
-                  required
-                />
-                <InputGroup.Text>m³</InputGroup.Text>
-              </InputGroup>
-            </Form.Group>
-          </Col>
-          <Col md={6}>
-            <Form.Group controlId="service" className="mb-3">
-              <Form.Label className="fw-bold">
-                Tipo de Servicio <span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Select
-                value={service}
-                onChange={e => onServiceChange(e.target.value)}
-                required
-              >
-                <option value="">Seleccione un servicio</option>
-                {filteredServices.map(s => (
-                  <option key={s.id} value={s.id}>{s.nombre}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </Col>
-        </Row>
-      </section>
-
-      <section className="form-section mb-4">
-        <h4 className="mb-3 text-secondary">Información de Período a generar</h4>
-        <Row>
-          <Col md={6}>
-            <Form.Group controlId="month" className="mb-3">
-              <Form.Label className="fw-bold">
-                Mes de Facturación <span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Select
-                value={month}
-                onChange={e => onMonthChange(e.target.value)}
-                required
-              >
-                <option value="">Seleccione un mes</option>
-                {monthOptions.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group controlId="year" className="mb-3">
-              <Form.Label className="fw-bold">
-                Año <span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Select
-                value={year}
-                onChange={e => onYearChange(Number(e.target.value))}
-                required
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group controlId="cuota" className="mb-3">
-              <Form.Label className="fw-bold">
-                Cuota <span className="text-danger">*</span>
-              </Form.Label>
+    <section className="form-section mb-4 mt-4">
+      <h4 className="mb-3 text-secondary">Nuevo Período</h4>
+      <Row className="gy-4">
+        {/* ---- DATOS DEL PERIODO ---- */}
+        <Col xs={12} md={6}>
+          <Form.Group controlId="service" className="mb-3">
+            <Form.Label className="fw-bold">
+              Tipo de Servicio <span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Select
+              value={service}
+              onChange={e => onServiceChange(e.target.value)}
+              required
+            >
+              <option value="">Seleccione un servicio</option>
+              {filteredServices.map(s => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group controlId="volume" className="mb-3">
+            <Form.Label className="fw-bold">
+              Volumen de Agua Bombeada (m³) <span className="text-danger">*</span>
+            </Form.Label>
+            <InputGroup>
               <Form.Control
                 type="number"
-                value={cuota}
-                min={1}
-                onChange={e => onCuotaChange(Math.max(1, Number(e.target.value)))}
+                value={volume}
+                min={0}
+                onChange={e => onVolumeChange(Math.max(0, e.target.value))}
+                placeholder="Ingrese volumen"
                 required
               />
-            </Form.Group>
+              <InputGroup.Text><strong>m³</strong></InputGroup.Text>
+            </InputGroup>
+          </Form.Group>
+          <Form.Group controlId="month" className="mb-3">
+            <Form.Label className="fw-bold">
+              Mes de Facturación <span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Select
+              value={month}
+              onChange={e => onMonthChange(e.target.value)}
+              required
+            >
+              <option value="">Seleccione un mes</option>
+              {monthOptions.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group controlId="year" className="mb-3">
+            <Form.Label className="fw-bold">
+              Año <span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Select
+              value={year}
+              onChange={e => onYearChange(Number(e.target.value))}
+              required
+            >
+              {yearOptions.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group controlId="cuota" className="mb-3">
+            <Form.Label className="fw-bold">
+              Cuota <span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Control
+              type="number"
+              value={cuota}
+              min={1}
+              onChange={e => onCuotaChange(Math.max(1, Number(e.target.value)))}
+              required
+            />
+          </Form.Group>
+          <Form.Group controlId="vencimiento" className="mb-3">
+            <Form.Label className="fw-bold">
+              Fecha de Vencimiento <span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Control
+              type="date"
+              value={vencimiento}
+              onChange={e => onVencimientoChange(e.target.value)}
+              required
+            />
+          </Form.Group>
+        </Col>
 
-            <Form.Group controlId="vencimiento" className="mb-3">
-              <Form.Label className="fw-bold">
-                Fecha de Vencimiento <span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Control
-                type="date"
-                value={vencimiento}
-                onChange={e => onVencimientoChange(e.target.value)}
-                required
-              />
-            </Form.Group>
-          </Col>
-
-          <Col md={6} className="d-flex justify-content-center align-items-center">
-            <div className="text-center">
-              <h4 className="mb-4 text-secondary fw-bold">Total a Pagar</h4>
-              <h1 className="display-4 text-primary mb-0">
-                AR$ {totalInPesos.toFixed(2)}
-              </h1>
-              <h3 className="text-secondary">{totalModules} Módulos</h3>
-              <p className="text-muted">
-                Cliente: {searchTerm}<br/>
-                Servicio: {getServiceNameById(service)}<br/>
-                Volumen: {volume} m³<br/>
-                Cuota: {cuota}<br/>
-                Mes/Año: {month} / {year}<br/>
-                Vencimiento: {vencimiento ? formatLocalDate(vencimiento) : "Sin fecha"}
-              </p>
+        {/* ---- TOTAL A PAGAR Y MODULO INFO ---- */}
+        <Col xs={12} md={6} className="d-flex flex-column justify-content-center align-items-center">
+          <div className="text-center py-2 w-100">
+            <h4 className="mb-2 text-secondary fw-bold">Total a Pagar</h4>
+            <h2
+              className="display-6 mb-1"
+              style={{
+                color: isComplete ? "var(--secundary-color)" : "#adb5bd",
+                opacity: isComplete ? 1 : 0.7,
+                transition: "color 0.3s, opacity 0.3s"
+              }}
+            >
+              AR$ {
+                isComplete
+                  ? (Number(totalInPesos) || 0).toLocaleString("es-AR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : "—"
+              }
+            </h2>            
+            <div
+              className="fs-4 mb-2"
+              style={{ color: isComplete ? "var(--secundary-color)" : "#adb5bd" }}
+            >
+              {isComplete ? `${totalModules} módulos` : "—"}
             </div>
-          </Col>
-        </Row>
-      </section>
+            {/* Fórmula de cálculo */}
+            <div className="text-center mt-2 mb-1" style={{ fontSize: 13, color: 'var(--secundary-color)', fontWeight: 500 }}>
+              <span style={{ background: "#F5F8F2", borderRadius: 6, padding: "0.15em 0.75em", display: "inline-block" }}>
+                <b>Fórmula:</b> <span style={{ color: "var(--dark-color)" }}>
+                  [Volumen] x [Valor Módulo] x [Módulos por Unidad]
+                </span>
+              </span>
+            </div>
+            {!isComplete && (
+              <div className="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-center mb-2" style={{ fontSize: "1rem", borderRadius: "0.5rem" }}>
+                <FaExclamationCircle className="me-2" style={{ color: "#f8bb86" }} />
+                <span>
+                  Faltan completar: <b>{missingFields.join(", ")}</b>
+                </span>
+              </div>
+            )}
+            <div className="text-muted small mb-3 fs-6">
+              <strong>Cliente:</strong> {searchTerm}<br />
+              <strong>Servicio:</strong> {getServiceNameById(service)}<br />
+              <strong>Volumen:</strong> {volume} m³<br />
+              <strong>Mes/Año:</strong> {month} / {year}<br />
+              <strong>Cuota:</strong> {cuota}<br />
+              <strong>Vencimiento:</strong> {vencimiento ? formatLocalDate(vencimiento) : "Sin fecha"}
+            </div>
+            
+          </div>
 
+          <div className="w-100 d-flex justify-content-center">
+            {extraInfo}
+          </div>
+        </Col>
+      </Row>
       <div className="d-flex justify-content-center mt-4">
         <CustomButton onClick={handleLocalSubmit} className="me-3 px-5 py-2 fw-bold">
-          Generar Periodo
+          Generar Período
         </CustomButton>
         <CustomButton
           variant="outline-secondary"
@@ -198,6 +222,6 @@ export default function NewPeriodoForm({
           Limpiar
         </CustomButton>
       </div>
-    </>
+    </section>
   );
 }

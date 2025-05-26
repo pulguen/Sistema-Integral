@@ -30,5 +30,4 @@ export function normalizePeriodo(raw) {
       });
     }
     return flat.map(normalizePeriodo);
-  }
-  
+  }  

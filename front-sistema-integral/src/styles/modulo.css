@@ -1,0 +1,58 @@
+.valor-modulo-card {
+  background: var(--ligth-color);
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 2px 12px #C1D10122;
+  border-radius: 1.5rem;
+  max-width: 320px;
+  padding: 1rem 1rem;
+  margin-bottom: 0;
+  transition: box-shadow 0.2s;
+}
+
+.valor-modulo-card.modulo-sm {
+  max-width: 250px;
+  padding: 0.8rem 0.7rem 0.6rem 0.7rem;
+}
+
+.valor-modulo-card:hover {
+  box-shadow: 0 30px 30px #C1D10122;
+}
+
+.modulo-title {
+  color: var(--secundary-color);
+  font-size: 1rem;
+  letter-spacing: 0.1px;
+  vertical-align: middle;
+}
+
+.modulo-icon {
+  color: var(--secundary-color);
+  vertical-align: middle;
+}
+
+.modulo-value {
+  color: var(--secundary-color);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 1.1;
+}
+
+.modulo-footer span {
+  color: var(--secundary-color);
+  font-size: 0.93rem;
+}
+
+.valor-modulo-card.modulo-sm {
+  max-width: 320px;
+  padding: 1.25rem 1.25rem;
+  font-size: 1rem;
+}
+
+
+
+
+
+

@@ -1,12 +1,10 @@
-// src/features/facturacion/components/BombeoAgua/RecibosBombeoForm.jsx
-
 import React, {
   useState,
-  useEffect,
   useCallback,
   useRef,
   useContext,
   useMemo,
+  useEffect,
 } from "react";
 import { Form, Row, Col, Card, Spinner } from "react-bootstrap";
 import Swal from "sweetalert2";
@@ -16,74 +14,42 @@ import CommonTable from "../../../../components/common/table/table.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
 import { AuthContext } from "../../../../context/AuthContext";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
-import { transformarCliente } from "../../../../utils/clienteUtils.js";
+import { formatDateToDMY } from "../../../../utils/dateUtils";
+import { FacturacionContext } from "../../../../context/FacturacionContext";
 
-const PAGE_SIZE = 15;
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
-const TRIBUTO_ID = 1;
-
-const getTodayDate = () => {
-  const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
-    t.getDate()
-  ).padStart(2, "0")}`;
-};
-
-const formatDate = (iso) => {
-  if (!iso) return "Sin fecha";
-  const [date] = iso.split("T");
-  const [y, m, d] = date.split("-");
-  return `${d}/${m}/${y}`;
-};
 
 export default function RecibosBombeoForm() {
-  const { handleCreateRecibo } = useContext(BombeoAguaContext);
+  const { handleCreateRecibo, clientesBombeo } = useContext(BombeoAguaContext);
   const { user } = useContext(AuthContext);
+  const { condicionesPago } = useContext(FacturacionContext);
 
-  // —— Clientes filtrados by servicio ——  
-  const [clients, setClients] = useState([]);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [showClientList, setShowClientList] = useState(false);
+    const noPagoCond = useMemo(() => {
+    if (!Array.isArray(condicionesPago)) return null;
+    return condicionesPago.find(
+      c =>
+        (c.nombre && c.nombre.toLowerCase().includes("no pago")) ||
+        (c.abreviatura && c.abreviatura.toLowerCase() === "np")
+    );
+  }, [condicionesPago]);
+
+  // ---- BUSQUEDA Y SELECCION DE CLIENTE (igual que Periodos) ----
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageCount, setPageCount] = useState(0);
+  const [showClientList, setShowClientList] = useState(false);
   const dropdownRef = useRef(null);
 
-  const fetchClients = useCallback(async (pageNum = 1) => {
-    setLoadingClients(true);
-    try {
-      const res = await customFetch(
-        `/clientes?page=${pageNum}&per_page=${PAGE_SIZE}`
+  const displayedClients = useMemo(() => {
+    const t = searchTerm.trim().toLowerCase();
+    if (!t) return clientesBombeo;
+    return clientesBombeo.filter((c) => {
+      if (!c.persona) return false;
+      const full = `${c.persona.nombre} ${c.persona.apellido}`.toLowerCase();
+      return (
+        full.includes(t) ||
+        (c.persona.dni || "").toLowerCase().includes(t)
       );
-      const raw = Array.isArray(res.data) ? res.data : [];
-      const filt = raw
-        .map(transformarCliente)
-        .filter((c) => c.servicios?.some((s) => s.tributo_id === TRIBUTO_ID));
-      setClients((prev) => (pageNum === 1 ? filt : [...prev, ...filt]));
-      setPage(pageNum);
-      setPageCount(res.last_page || 0);
-      setShowClientList(true);
-    } catch (err) {
-      console.error("fetchClients error:", err);
-    } finally {
-      setLoadingClients(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchClients(1);
-  }, [fetchClients]);
-
-  const onScrollClients = (e) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (
-      scrollTop + clientHeight >= scrollHeight - 10 &&
-      page < pageCount &&
-      !loadingClients
-    ) {
-      fetchClients(page + 1);
-    }
-  };
+    });
+  }, [clientesBombeo, searchTerm]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -95,19 +61,7 @@ export default function RecibosBombeoForm() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const displayedClients = useMemo(() => {
-    const t = searchTerm.trim().toLowerCase();
-    if (!t) return clients;
-    return clients.filter((c) => {
-      const full = `${c.persona.nombre} ${c.persona.apellido}`.toLowerCase();
-      return (
-        full.includes(t) ||
-        (c.persona.dni || "").toLowerCase().includes(t)
-      );
-    });
-  }, [clients, searchTerm]);
-
-  // —— Períodos impagos por cliente ——  
+  // ---- PERÍODOS IMPAGOS DEL CLIENTE ----
   const [clientId, setClientId] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [periodos, setPeriodos] = useState([]);
@@ -116,9 +70,13 @@ export default function RecibosBombeoForm() {
   const fetchPeriodos = useCallback(async (id) => {
     setLoadingPeriodos(true);
     try {
-      const [data] = await customFetch(`/cuentas/cliente/${id}`);
+      // Suponiendo que customFetch te devuelve la lista de periodos como array
+      const [data] = await customFetch(`/cuentas/cliente/${id}`, 'GET', null, false);
       const arr = Array.isArray(data) ? data : [];
-      const impagos = arr.filter((p) => p.condicion_pago_id === null);
+      // Usá el id dinámico:
+      const impagos = arr.filter(
+        p => Number(p.condicion_pago_id) === Number(noPagoCond?.id)
+      );
       setPeriodos(impagos);
       if (!impagos.length) {
         Swal.fire(
@@ -128,27 +86,26 @@ export default function RecibosBombeoForm() {
         );
       }
     } catch (err) {
-      console.error("fetchPeriodos error:", err);
       Swal.fire("Error", "No se pudieron cargar los períodos.", "error");
     } finally {
       setLoadingPeriodos(false);
     }
-  }, []);
+  }, [noPagoCond]);
 
   const handleClientSelect = useCallback(
     (id) => {
       setClientId(id);
-      const clienteObj = clients.find((c) => c.id === id);
+      const clienteObj = clientesBombeo.find((c) => c.id === id);
       setSelectedClient(clienteObj);
       setShowClientList(false);
       const persona = clienteObj?.persona || {};
       setSearchTerm(`${persona.nombre} ${persona.apellido}`.trim());
       fetchPeriodos(id);
     },
-    [clients, fetchPeriodos]
+    [clientesBombeo, fetchPeriodos]
   );
 
-  // —— Selección múltiple y suma ——  
+  // ---- SELECCIÓN DE PERÍODOS Y TOTAL ----
   const [selectedPeriodos, setSelectedPeriodos] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
 
@@ -168,6 +125,7 @@ export default function RecibosBombeoForm() {
     });
   }, []);
 
+  // ---- COLUMNAS DE LA TABLA ----
   const columns = useMemo(
     () => [
       { Header: "#", id: "idx", Cell: ({ row }) => row.index + 1 },
@@ -203,7 +161,7 @@ export default function RecibosBombeoForm() {
       {
         Header: "Vencimiento",
         accessor: "f_vencimiento",
-        Cell: ({ value }) => formatDate(value),
+        Cell: ({ value }) => formatDateToDMY(value),
       },
       { Header: "Recibo gen.", accessor: "n_recibo_generado" },
       {
@@ -221,11 +179,17 @@ export default function RecibosBombeoForm() {
     [selectedPeriodos, togglePeriodo]
   );
 
-  // —— Vencimiento y observaciones ——  
+  // ---- Vencimiento y observaciones ----
+  const getTodayDate = () => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(
+      t.getDate()
+    ).padStart(2, "0")}`;
+  };
   const [vencimiento, setVencimiento] = useState(getTodayDate());
   const [observaciones, setObservaciones] = useState("");
 
-  // —— PAGINACIÓN CLIENTE-SIDE ——  
+  // ---- PAGINACIÓN ----
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
   const totalPages = Math.ceil(periodos.length / pageSize);
@@ -240,7 +204,7 @@ export default function RecibosBombeoForm() {
     setPageSize(per_page);
   }, []);
 
-  // —— Envía Recibo ——  
+  // ---- ENVIAR RECIBO ----
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!clientId) {
@@ -295,7 +259,7 @@ export default function RecibosBombeoForm() {
     setObservaciones("");
   };
 
-  return (
+   return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">
       <h2 className="text-center mb-5 text-primary fw-bold">
         Generar Recibo de Bombeo de Agua
@@ -311,9 +275,8 @@ export default function RecibosBombeoForm() {
             setShowClientList(true);
           }}
           clients={displayedClients}
-          loading={loadingClients}
+          loading={false} // o tu estado loadingClientes si es asíncrono
           showList={showClientList}
-          onScroll={onScrollClients}
           onClientSelect={handleClientSelect}
           dropdownRef={dropdownRef}
         />
@@ -372,14 +335,23 @@ export default function RecibosBombeoForm() {
               >
                 <div className="text-center">
                   <h4 className="text-secondary mb-1">Total a Pagar</h4>
-                  <h1 className="display-4 text-primary mb-2">
-                    AR$ {totalAmount.toFixed(2)}
+                  <h1
+                    className="display-4 mb-2"
+                    style={{
+                      color: selectedPeriodos.length ? "var(--secundary-color)" : "#adb5bd",
+                      opacity: selectedPeriodos.length ? 1 : 0.7,
+                      transition: "color 0.3s, opacity 0.3s"
+                    }}
+                  >
+                    AR$ {selectedPeriodos.length
+                      ? totalAmount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : "—"}
                   </h1>
                   <p className="text-muted">
                     Períodos:{" "}
                     {selectedPeriodos.map((p) => `${p.mes}/${p.año}`).join(", ")}
                     <br />
-                    Fecha de Vencimiento: {formatDate(vencimiento)}
+                    Fecha de Vencimiento: {formatDateToDMY(vencimiento)}
                   </p>
                 </div>
               </Col>
@@ -389,7 +361,11 @@ export default function RecibosBombeoForm() {
 
         {clientId && (
           <div className="d-flex justify-content-center mt-4">
-            <CustomButton type="submit" className="me-3 px-5">
+            <CustomButton
+              type="submit"
+              className="me-3 px-5"
+              disabled={!selectedPeriodos.length || !clientId}
+            >
               Generar Recibo
             </CustomButton>
             <CustomButton

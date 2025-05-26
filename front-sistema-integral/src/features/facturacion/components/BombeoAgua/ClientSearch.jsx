@@ -19,7 +19,8 @@ export default function ClientSearch({
         <Col md={6} ref={dropdownRef} className="position-relative">
           <InputGroup>
             <Form.Control
-              placeholder="Buscar por nombre o DNI"
+              placeholder="Buscar por DNI, NOMBRE o APELLIDO"
+              aria-label="Buscar por DNI, NOMBRE o APELLIDO" 
               value={searchTerm}
               onChange={e => onSearchTermChange(e.target.value)}
               autoComplete="off"
@@ -31,12 +32,14 @@ export default function ClientSearch({
             )}
           </InputGroup>
           {showList && (
-            <ListGroup
-              className="position-absolute w-100 client-dropdown"
-              style={{ maxHeight: 200, overflowY: "auto", zIndex: 1000 }}
-              onScroll={onScroll}
-            >
-              {clients.map(c => (
+          <ListGroup
+            className="position-absolute w-100 client-dropdown"
+            style={{ maxHeight: 200, overflowY: "auto", zIndex: 1000 }}
+            onScroll={onScroll}
+          >
+            {clients.map(c => {
+              if (!c.persona) return null; // Protege ante datos rotos
+              return (
                 <ListGroup.Item
                   key={c.id}
                   action
@@ -44,8 +47,9 @@ export default function ClientSearch({
                 >
                   {c.persona.nombre} {c.persona.apellido} — {c.persona.dni}
                 </ListGroup.Item>
-              ))}
-            </ListGroup>
+              );
+            })}
+          </ListGroup>
           )}
         </Col>
       </Row>

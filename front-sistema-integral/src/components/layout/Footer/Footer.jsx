@@ -45,7 +45,7 @@ function Footer() {
         </Row>
         <Row className="pt-3 border-top border-light">
           <Col className="text-center">
-            &copy; {new Date().getFullYear()} Municipalidad de Zapala. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} Municipalidad de Zapala. Subsecretaria de Gestión Tecnológica
           </Col>
         </Row>
       </Container>

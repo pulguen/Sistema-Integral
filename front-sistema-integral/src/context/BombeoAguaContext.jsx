@@ -1,8 +1,9 @@
 // src/context/BombeoAguaContext.jsx
-import React, { createContext, useState, useCallback, useEffect, useMemo, useContext } from 'react';
+import { createContext, useState, useCallback, useEffect, useMemo, useContext } from 'react';
 import customFetch from './CustomFetch';
-import { FacturacionContext } from './../context/FacturacionContext'
-
+import { FacturacionContext } from './../context/FacturacionContext';
+import { transformarCliente } from '../utils/clienteUtils';
+import { AuthContext } from './../context/AuthContext';
 
 export const BombeoAguaContext = createContext();
 
@@ -13,8 +14,9 @@ export const BombeoAguaProvider = ({ children }) => {
   const [loadingHomePeriodos, setLoadingHomePeriodos] = useState(false);
   const [servicios, setServicios] = useState([]);
   const [loadingServicios, setLoadingServicios] = useState(true);
-
+  const { user } = useContext(AuthContext);
   const { registerModule } = useContext(FacturacionContext); // Conectar al contexto global
+  const TRIBUTO_ID = 1;
 
   // Fetch de servicios de provisión de agua
   const fetchServicios = useCallback(async () => {
@@ -39,6 +41,35 @@ export const BombeoAguaProvider = ({ children }) => {
   useEffect(() => {
     fetchServicios();
   }, [fetchServicios]);
+
+const clientesBombeo = useMemo(() => {
+  if (!servicios.length) return [];
+
+  // 1. Servicios de bombeo
+  const serviciosDeBombeo = servicios.filter(s => s.tributo_id === TRIBUTO_ID);
+
+  // 2. Servicios que el usuario puede gestionar
+  const serviciosPermitidos = Array.isArray(user?.services) && user.services.length > 0
+    ? serviciosDeBombeo.filter(s => user.services.includes(s.id))
+    : serviciosDeBombeo; // Si no hay restricción, todos
+
+  // 3. Juntá todos los clientes de esos servicios
+  let todosClientes = [];
+  for (const servicio of serviciosPermitidos) {
+    if (Array.isArray(servicio.clientes)) {
+      todosClientes.push(...servicio.clientes);
+    }
+  }
+
+  // 4. Sacá duplicados por ID (por si algún cliente está en ambos servicios)
+  const unique = Array.from(new Map(todosClientes.map(c => [c.id, c])).values());
+
+  // 5. Transformá el shape
+  return unique.map(transformarCliente);
+}, [servicios, user?.services]);
+
+
+
 
   // Fetch de periodos
   const fetchHomePeriodos = useCallback(async () => {
@@ -85,8 +116,8 @@ export const BombeoAguaProvider = ({ children }) => {
 
   useEffect(() => {
     // Registrar este módulo en FacturacionContext
-    registerModule("bombeo", { servicios, periodos, fetchHomePeriodos });
-  }, [registerModule, servicios, periodos, fetchHomePeriodos]);
+    registerModule("bombeo", { servicios, periodos, clientesBombeo, fetchHomePeriodos });
+  }, [registerModule, servicios, periodos, clientesBombeo, fetchHomePeriodos]);
 
   // Crear período
   const handleCreatePeriodo = useCallback((newPeriodo) => {
@@ -482,6 +513,8 @@ const getRevenueByService = useCallback(() => {
     handleCreateRecibo,
     handleConfirmRecibo,
     handleDeleteRecibo,
+    clientesBombeo,
+    loadingServicios,
   }), [
     periodos,
     recibos,
@@ -502,6 +535,8 @@ const getRevenueByService = useCallback(() => {
     handleCreateRecibo,
     handleConfirmRecibo,
     handleDeleteRecibo,
+    clientesBombeo,
+    loadingServicios,
   ]);
 
   return (

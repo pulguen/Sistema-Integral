@@ -1,5 +1,3 @@
-// src/features/facturacion/components/BombeoAgua/PeriodosBombeoForm.jsx
-
 import React, {
   useState,
   useEffect,
@@ -15,29 +13,33 @@ import Swal from "sweetalert2";
 import customFetch from "../../../../context/CustomFetch.js";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
-import { transformarCliente } from "../../../../utils/clienteUtils.js";
 import ClientSearch from "./ClientSearch";
 import NewPeriodoForm from "./NewPeriodoForm";
 import CommonTable from "../../../../components/common/table/table.jsx";
 import "../../../../styles/PeriodosBombeoForm.css";
+import { formatDateToDMY } from "../../../../utils/dateUtils";
+import ValorModuloInfo from "../../../../components/common/moduloInfo/ValorModuloInfo.jsx";
 
-const BATCH_SIZE = 15;
-const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 const TRIBUTO_ID = 1;
+const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
-// Convierte nombre de mes a número
-const monthNameToNumber = (monthName) => {
+const monthNameToNumber = (month) => {
   const map = {
     Enero: 1, Febrero: 2, Marzo: 3, Abril: 4,
     Mayo: 5, Junio: 6, Julio: 7, Agosto: 8,
     Septiembre: 9, Octubre: 10, Noviembre: 11, Diciembre: 12,
   };
-  return map[monthName] || 0;
+  return map[month] || 0;
 };
 
 export default function PeriodosBombeoForm() {
-  const { moduleValue, condicionesPago: paymentConditions } = useContext(FacturacionContext);
-  const { handleCreatePeriodo } = useContext(BombeoAguaContext);
+  const { moduleInfo, condicionesPago: paymentConditions } = useContext(FacturacionContext);
+  const {
+    handleCreatePeriodo,
+    clientesBombeo,
+    loadingServicios,
+    servicios, // <-- ahora tomamos los servicios del contexto
+  } = useContext(BombeoAguaContext);
 
   // Formatea YYYY-MM-DD a DD/MM/YYYY
   const formatDDMMYYYY = useCallback((isoDate) => {
@@ -46,49 +48,25 @@ export default function PeriodosBombeoForm() {
     return `${day}/${month}/${year}`;
   }, []);
 
-  // — BÚSQUEDA Y PAGINACIÓN DE CLIENTES —
-  const [clients, setClients] = useState([]);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [showClientList, setShowClientList] = useState(false);
+  // — BÚSQUEDA DE CLIENTES DE BOMBEO —
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageCount, setPageCount] = useState(0);
+  const [showClientList, setShowClientList] = useState(false);
   const dropdownRef = useRef(null);
 
-  const fetchClientsPage = useCallback(async (pageNum = 1) => {
-    setLoadingClients(true);
-    try {
-      const res = await customFetch(`/clientes?page=${pageNum}&per_page=${BATCH_SIZE}`);
-      const raw = Array.isArray(res.data) ? res.data : [];
-      const filtered = raw
-        .map(transformarCliente)
-        .filter(c => c.servicios?.some(s => s.tributo_id === TRIBUTO_ID));
-      setClients(prev => pageNum === 1 ? filtered : [...prev, ...filtered]);
-      setPage(pageNum);
-      setPageCount(res.last_page || 1);
-      setShowClientList(true);
-    } catch (err) {
-      console.error("Error cargando clientes:", err);
-    } finally {
-      setLoadingClients(false);
-    }
-  }, []);
+  // Filtramos en memoria los clientes por término de búsqueda
+  const displayedClients = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return term === ""
+      ? clientesBombeo
+      : clientesBombeo.filter(c => {
+          if (!c.persona) return false;
+          const fullName = `${c.persona.nombre} ${c.persona.apellido}`.toLowerCase();
+          const dni = (c.persona.dni || "").toLowerCase();
+          return fullName.includes(term) || dni.includes(term);
+        });
+  }, [clientesBombeo, searchTerm]);
 
-  useEffect(() => {
-    fetchClientsPage(1);
-  }, [fetchClientsPage]);
-
-  const onClientListScroll = e => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (
-      scrollTop + clientHeight >= scrollHeight - 10 &&
-      page < pageCount &&
-      !loadingClients
-    ) {
-      fetchClientsPage(page + 1);
-    }
-  };
-
+  // Cerrar dropdown al hacer click afuera
   useEffect(() => {
     const handler = e => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -99,16 +77,6 @@ export default function PeriodosBombeoForm() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const displayedClients = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return clients;
-    return clients.filter(c => {
-      const fullName = `${c.persona.nombre} ${c.persona.apellido}`.toLowerCase();
-      const dni = (c.persona.dni || "").toLowerCase();
-      return fullName.includes(term) || dni.includes(term);
-    });
-  }, [clients, searchTerm]);
-
   // — SELECCIÓN DE CLIENTE Y CARGA DE HISTORIAL —
   const [clientId, setClientId] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -118,19 +86,30 @@ export default function PeriodosBombeoForm() {
   const [service, setService] = useState("");
   const [moduleRate, setModuleRate] = useState(0);
 
+  // -- FIX: Obtener todos los servicios asociados a este cliente --
   const handleClientSelect = useCallback(async id => {
-    const cli = clients.find(c => c.id === id);
+    const cli = clientesBombeo.find(c => c.id === id);
     if (!cli) return;
     setClientId(id);
     setSelectedClient(cli);
     setShowClientList(false);
     setSearchTerm(`${cli.persona.nombre} ${cli.persona.apellido}`);
 
-    const svs = cli.servicios.filter(s => s.tributo_id === TRIBUTO_ID);
-    setFilteredServices(svs);
-    if (svs.length === 1) {
-      setService(svs[0].id);
-      setModuleRate(svs[0].modulos);
+    // FIX: Buscar todos los servicios del TRIBUTO_ID asociados a este cliente
+    const serviciosAsociados = servicios.filter(s =>
+      s.tributo_id === TRIBUTO_ID &&
+      Array.isArray(s.clientes) &&
+      s.clientes.some(c2 => c2.id === cli.id)
+    );
+    setFilteredServices(serviciosAsociados);
+
+    // Si hay uno solo, lo selecciona por defecto
+    if (serviciosAsociados.length === 1) {
+      setService(serviciosAsociados[0].id);
+      setModuleRate(serviciosAsociados[0].modulos);
+    } else {
+      setService("");
+      setModuleRate(0);
     }
 
     setLoadingPeriodos(true);
@@ -154,7 +133,7 @@ export default function PeriodosBombeoForm() {
     } finally {
       setLoadingPeriodos(false);
     }
-  }, [clients]);
+  }, [clientesBombeo, servicios]);
 
   // — NUEVO PERÍODO Y TOTALES —
   const [volume, setVolume] = useState("");
@@ -169,8 +148,8 @@ export default function PeriodosBombeoForm() {
     const v = parseFloat(volume) || 0;
     const mods = moduleRate * v;
     setTotalModules(mods);
-    setTotalInPesos(mods * (parseFloat(moduleValue) || 1));
-  }, [volume, moduleRate, moduleValue]);
+    setTotalInPesos(mods * (parseFloat(moduleInfo.valor_modulo) || 1));
+  }, [volume, moduleRate, moduleInfo.valor_modulo]);
 
   const handleClientClear = () => {
     setClientId(null);
@@ -210,13 +189,12 @@ export default function PeriodosBombeoForm() {
     }
 
     const mesNum = monthNameToNumber(month);
-    const isDup = periodos.some(p =>
+    if (periodos.some(p =>
       p.servicio_id === Number(service) &&
       Number(p.año) === year &&
       Number(p.mes) === mesNum &&
       Number(p.cuota) === cuota
-    );
-    if (isDup) {
+    )) {
       return Swal.fire(
         "Duplicado",
         "Ya existe un período con ese Servicio, Año, Mes y Cuota.",
@@ -269,8 +247,7 @@ export default function PeriodosBombeoForm() {
         return cond ? cond.nombre : "—";
       }
     },
-    {
-      Header: "Fecha de Pago",
+    { Header: "Fecha de Pago",
       accessor: "f_pago",
       Cell: ({value}) => value
         ? new Date(value).toLocaleDateString("es-AR", {
@@ -313,72 +290,72 @@ export default function PeriodosBombeoForm() {
             setShowClientList(true);
           }}
           clients={displayedClients}
-          loading={loadingClients}
+          loading={loadingServicios}
           showList={showClientList}
-          onScroll={onClientListScroll}
           onClientSelect={handleClientSelect}
           dropdownRef={dropdownRef}
         />
 
         {clientId && (
-          <>
-            {loadingPeriodos ? (
-              <div className="text-center py-5">
-                <Spinner animation="border" />
+          loadingPeriodos ? (
+            <div className="text-center py-5"><Spinner animation="border" /></div>
+          ) : (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <small className="text-muted">Total registros: {periodos.length}</small>
+                <button type="button" className="btn btn-outline-secondary" onClick={handleReset}>
+                  Limpiar Filtros
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <small className="text-muted">
-                    Total registros: {periodos.length}
-                  </small>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={handleReset}
-                  >
-                    Limpiar Filtros
-                  </button>
-                </div>
 
-                <CommonTable
-                  columns={columns}
-                  data={currentPageData}
-                  loading={loadingPeriodos}
-                  fetchData={fetchPage}
-                  controlledPageCount={totalPages}
-                  initialPageIndex={pageIndex}
-                  initialPageSize={pageSize}
-                  pageSizeOptions={PAGE_SIZE_OPTIONS}
-                />
-              </>
-            )}
+              <CommonTable
+                columns={columns}
+                data={currentPageData}
+                loading={loadingPeriodos}
+                fetchData={fetchPage}
+                controlledPageCount={totalPages}
+                initialPageIndex={pageIndex}
+                initialPageSize={pageSize}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
 
-            <NewPeriodoForm
-              volume={volume}
-              onVolumeChange={setVolume}
-              filteredServices={filteredServices}
-              service={service}
-              onServiceChange={setService}
-              month={month}
-              onMonthChange={setMonth}
-              year={year}
-              onYearChange={setYear}
-              cuota={cuota}
-              onCuotaChange={setCuota}
-              vencimiento={vencimiento}
-              onVencimientoChange={setVencimiento}
-              totalModules={totalModules}
-              totalInPesos={totalInPesos}
-              searchTerm={`${selectedClient.persona.nombre} ${selectedClient.persona.apellido}`}
-              getServiceNameById={id =>
-                filteredServices.find(x => x.id === Number(id))?.nombre || ""
-              }
-              onSubmit={handleSubmit}
-              onReset={handleReset}
-              formatLocalDate={formatDDMMYYYY}
-            />
-          </>
+              <NewPeriodoForm
+                volume={volume}
+                onVolumeChange={setVolume}
+                filteredServices={filteredServices}
+                service={service}
+                onServiceChange={val => {
+                  setService(val);
+                  const selected = filteredServices.find(s => s.id === Number(val));
+                  setModuleRate(selected ? selected.modulos : 0);
+                }}
+                month={month}
+                onMonthChange={setMonth}
+                year={year}
+                onYearChange={setYear}
+                cuota={cuota}
+                onCuotaChange={setCuota}
+                vencimiento={vencimiento}
+                onVencimientoChange={setVencimiento}
+                totalModules={totalModules}
+                totalInPesos={totalInPesos}
+                searchTerm={selectedClient ? `${selectedClient.persona.nombre} ${selectedClient.persona.apellido}` : ""}
+                getServiceNameById={id => filteredServices.find(x => x.id === Number(id))?.nombre || ""}
+                onSubmit={handleSubmit}
+                onReset={handleReset}
+                formatLocalDate={formatDDMMYYYY}
+                extraInfo={
+                  <ValorModuloInfo
+                    valor={moduleInfo?.valor_modulo}
+                    ordenanza={moduleInfo?.ordenanza_modulo}
+                    updatedAt={formatDateToDMY(moduleInfo?.updated_at)}
+                    modulosServicio={moduleRate}
+                    size="sm"
+                  />
+                }
+              />
+            </>
+          )
         )}
       </Form>
     </Card>

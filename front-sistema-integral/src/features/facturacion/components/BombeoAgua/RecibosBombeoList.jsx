@@ -163,13 +163,13 @@ const RecibosBombeoList = () => {
                         variant="success"
                         onClick={() => confirmRecibo(recibo)}
                       >
-                        <FaCheck className="me-1" /> Confirmar
+                        <FaCheck className="me-1" />
                       </CustomButton>{" "}
                       <CustomButton
                         variant="danger"
                         onClick={() => deleteRecibo(recibo)}
                       >
-                        <FaTrash className="me-1" /> Eliminar
+                        <FaTrash className="me-1" />
                       </CustomButton>
                     </td>
                   </tr>

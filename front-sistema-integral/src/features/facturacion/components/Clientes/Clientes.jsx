@@ -86,7 +86,7 @@ export default function Clientes() {
       <div className="d-flex mb-3">
         <InputGroup>
           <Form.Control
-            placeholder="Buscar clientes..."
+            placeholder="Buscar clientes por DNI/CIUT, Apellido o Nombre..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}

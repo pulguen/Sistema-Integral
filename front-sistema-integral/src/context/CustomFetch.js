@@ -1,4 +1,3 @@
-// CustomFetch.js
 import Swal from 'sweetalert2';
 
 // Definir la clase CustomError
@@ -12,11 +11,6 @@ export class CustomError extends Error {
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 const customFetch = async (endpoint, method = 'GET', body = null, showAlert = true) => {
-  // Capturamos el stack trace para identificar el llamador
-  const stack = new Error().stack || '';
-  const callerLine = stack.split('\n')[2]?.trim() || 'desconocido';
-  console.log(`[customFetch] ${method} ${endpoint} llamado desde: ${callerLine}`);
-
   // Se busca el token únicamente en localStorage
   const token = localStorage.getItem('token');
 
@@ -62,23 +56,36 @@ const customFetch = async (endpoint, method = 'GET', body = null, showAlert = tr
       const errorData = JSON.parse(responseText);
       throw new CustomError(`Error 422: ${errorData.message}`, response.status);
     }
+    
+    if (response.status === 429) {
+      const msg = "Demasiadas solicitudes. Por favor, esperá unos segundos e intentá de nuevo.";
+      if (showAlert) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Límite de peticiones',
+          text: msg,
+        });
+      }
+      throw new CustomError(msg, response.status);
+    }
 
     if (!response.ok) {
       if (showAlert) {
-        console.error(`Error en la petición a ${endpoint}:`, {
-          status: response.status,
-          statusText: response.statusText,
-          body: responseText,
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error en la petición',
+          text: `Error ${response.status}: ${response.statusText}`,
         });
       }
       throw new CustomError(`Error ${response.status}: ${responseText}`, response.status);
     }
 
+    if (!responseText.trim()) return [];
+
     return JSON.parse(responseText);
   } catch (error) {
     if (showAlert) {
-      console.error('Error en la petición:', error.message);
-      Swal.fire({
+      await Swal.fire({
         icon: 'error',
         title: 'Error',
         text: error.message,

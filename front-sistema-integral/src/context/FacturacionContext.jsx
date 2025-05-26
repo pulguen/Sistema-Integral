@@ -21,7 +21,11 @@ export const FacturacionProvider = ({ children }) => {
 
 
   // Nuevo estado para el valor del módulo
-  const [moduleValue, setModuleValue] = useState(0);
+const [moduleInfo, setModuleInfo] = useState({
+  valor_modulo: 0,
+  ordenanza_modulo: "",
+  updated_at: ""
+});
 
   // "loading" será verdadero mientras haya al menos una petición pendiente.
   const loading = pendingRequests > 0;
@@ -228,21 +232,24 @@ const fetchCalles = useCallback(async () => {
     }
   }, []);
 
-  // NUEVO: Función para obtener el valor del módulo.
-  const fetchModuleValue = useCallback(async () => {
-    try {
-      const data = await customFetch("/general");
-      console.log("Valor del módulo obtenido:", data);
-      setModuleValue(data.valor_modulo);
-    } catch (error) {
-      console.error("Error al obtener el valor del módulo:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Hubo un problema al obtener el valor del módulo.",
-      });
-    }
-  }, []);
+  // Función para obtener el valor del módulo.
+const fetchModuleValue = useCallback(async () => {
+  try {
+    const data = await customFetch("/general");
+    setModuleInfo({
+      valor_modulo: data.valor_modulo,
+      ordenanza_modulo: data.ordenanza_modulo,
+      updated_at: data.updated_at || data.created_at || ""
+    });
+  } catch (error) {
+    console.error("Error al obtener el valor del módulo:", error);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Hubo un problema al obtener el valor del módulo.",
+    });
+  }
+}, []);
 
   
 
@@ -309,7 +316,7 @@ const fetchCalles = useCallback(async () => {
     municipios,
     municipiosOrdenados,
     provincias,
-    moduleValue,
+    moduleInfo,
   };
 
   return (
