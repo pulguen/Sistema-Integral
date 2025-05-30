@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { Form, Row, Col, InputGroup } from "react-bootstrap";
 import Swal from "sweetalert2";
-import { FaExclamationCircle } from "react-icons/fa";
 import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
+import TotalAPagarInfo from "../../../../components/common/TotalAPagarInfo/TotalAPagarInfo.jsx";
 
 export default function NewPeriodoForm({
   volume,
@@ -153,61 +153,22 @@ export default function NewPeriodoForm({
 
         {/* ---- TOTAL A PAGAR Y MODULO INFO ---- */}
         <Col xs={12} md={6} className="d-flex flex-column justify-content-center align-items-center">
-          <div className="text-center py-2 w-100">
-            <h4 className="mb-2 text-secondary fw-bold">Total a Pagar</h4>
-            <h2
-              className="display-6 mb-1"
-              style={{
-                color: isComplete ? "var(--secundary-color)" : "#adb5bd",
-                opacity: isComplete ? 1 : 0.7,
-                transition: "color 0.3s, opacity 0.3s"
-              }}
-            >
-              AR$ {
-                isComplete
-                  ? (Number(totalInPesos) || 0).toLocaleString("es-AR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })
-                  : "—"
-              }
-            </h2>            
-            <div
-              className="fs-4 mb-2"
-              style={{ color: isComplete ? "var(--secundary-color)" : "#adb5bd" }}
-            >
-              {isComplete ? `${totalModules} módulos` : "—"}
-            </div>
-            {/* Fórmula de cálculo */}
-            <div className="text-center mt-2 mb-1" style={{ fontSize: 13, color: 'var(--secundary-color)', fontWeight: 500 }}>
-              <span style={{ background: "#F5F8F2", borderRadius: 6, padding: "0.15em 0.75em", display: "inline-block" }}>
-                <b>Fórmula:</b> <span style={{ color: "var(--dark-color)" }}>
-                  [Volumen] x [Valor Módulo] x [Módulos por Unidad]
-                </span>
-              </span>
-            </div>
-            {!isComplete && (
-              <div className="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-center mb-2" style={{ fontSize: "1rem", borderRadius: "0.5rem" }}>
-                <FaExclamationCircle className="me-2" style={{ color: "#f8bb86" }} />
-                <span>
-                  Faltan completar: <b>{missingFields.join(", ")}</b>
-                </span>
-              </div>
-            )}
-            <div className="text-muted small mb-3 fs-6">
-              <strong>Cliente:</strong> {searchTerm}<br />
-              <strong>Servicio:</strong> {getServiceNameById(service)}<br />
-              <strong>Volumen:</strong> {volume} m³<br />
-              <strong>Mes/Año:</strong> {month} / {year}<br />
-              <strong>Cuota:</strong> {cuota}<br />
-              <strong>Vencimiento:</strong> {vencimiento ? formatLocalDate(vencimiento) : "Sin fecha"}
-            </div>
-            
-          </div>
-
-          <div className="w-100 d-flex justify-content-center">
-            {extraInfo}
-          </div>
+          <TotalAPagarInfo
+            total={totalInPesos}
+            modulos={totalModules}
+            formula="[Volumen] x [Valor Módulo] x [Módulos por Unidad]"
+            complete={isComplete}
+            missingFields={missingFields}
+            cliente={searchTerm}
+            servicio={getServiceNameById(service)}
+            volumen={volume}
+            mes={month}
+            year={year}
+            cuota={cuota}
+            vencimiento={vencimiento}
+            formatLocalDate={formatLocalDate}
+            extraInfo={extraInfo}
+          />
         </Col>
       </Row>
       <div className="d-flex justify-content-center mt-4">

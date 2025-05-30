@@ -45,29 +45,38 @@ export const ClientProvider = ({ children }) => {
   }, []);
 
   // 2. Búsqueda
-  const searchClients = useCallback(async term => {
+const searchClients = useCallback(
+  async term => {
     setSearchTerm(term);
     if (!term.trim()) {
       setIsSearching(false);
-      return fetchClients({ page: 1, per_page: BATCH_SIZE });
+      await fetchClients({ page: 1, per_page: BATCH_SIZE });
+      return [];
     }
 
     setLoading(true);
     try {
       const res = await customFetch(`/clientes/search/${encodeURIComponent(term)}`);
       const data = Array.isArray(res) ? res : unpackData(res.data);
-      setClients(data.map(transformarCliente));
+      const clientesTransformados = data.map(transformarCliente);
+
+      setClients(clientesTransformados);
       setPageCount(1);
       setIsSearching(true);
+
+      return clientesTransformados;
     } catch (err) {
       console.error('Error searching clients:', err);
       setClients([]);
       setPageCount(0);
       setIsSearching(false);
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [fetchClients]);
+  },
+  [fetchClients]
+);
 
   // 3. Obtener uno por ID
   const fetchClientById = useCallback(async id => {

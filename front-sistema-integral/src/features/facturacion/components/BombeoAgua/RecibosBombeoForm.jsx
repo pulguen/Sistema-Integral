@@ -16,6 +16,7 @@ import { AuthContext } from "../../../../context/AuthContext";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
 import { formatDateToDMY } from "../../../../utils/dateUtils";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
+import TotalAPagarInfo from "../../../../components/common/TotalAPagarInfo/TotalAPagarInfo.jsx";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
@@ -302,62 +303,64 @@ export default function RecibosBombeoForm() {
             )}
           </section>
         )}
+ 
+{clientId && (
+  <section className="form-section mb-4">
+    <Row>
+      <Col md={6}>
+        <Form.Group controlId="vencimiento">
+          <Form.Label className="fw-bold">
+            Fecha de Vencimiento
+          </Form.Label>
+          <Form.Control
+            type="date"
+            value={vencimiento}
+            min={getTodayDate()}
+            onChange={(e) => setVencimiento(e.target.value)}
+            required
+          />
+        </Form.Group>
+        <Form.Group controlId="observaciones" className="mt-3">
+          <Form.Label className="fw-bold">Observaciones</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={3}
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+          />
+        </Form.Group>
+      </Col>
+      <Col
+        md={6}
+        className="d-flex justify-content-center align-items-center"
+      >
+      <TotalAPagarInfo
+        total={totalAmount}
+        modulos={selectedPeriodos.length}
+        periodos={selectedPeriodos}
+        formula={null}
+        complete={selectedPeriodos.length > 0}
+        missingFields={selectedPeriodos.length ? [] : ["Períodos a incluir"]}
+        cliente={
+          selectedClient?.persona
+            ? `${selectedClient.persona.nombre} ${selectedClient.persona.apellido}`
+            : ""
+        }
+        servicio={null}
+        volumen={null}
+        mes={null}
+        year={null}
+        cuota={null}
+        vencimiento={vencimiento}
+        formatLocalDate={formatDateToDMY}
+        extraInfo={null}
+        labelModulos="Períodos"
+      />
+      </Col>
+    </Row>
+  </section>
+)}
 
-        {clientId && (
-          <section className="form-section mb-4">
-            <Row>
-              <Col md={6}>
-                <Form.Group controlId="vencimiento">
-                  <Form.Label className="fw-bold">
-                    Fecha de Vencimiento
-                  </Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={vencimiento}
-                    min={getTodayDate()}
-                    onChange={(e) => setVencimiento(e.target.value)}
-                    required
-                  />
-                </Form.Group>
-                <Form.Group controlId="observaciones" className="mt-3">
-                  <Form.Label className="fw-bold">Observaciones</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    value={observaciones}
-                    onChange={(e) => setObservaciones(e.target.value)}
-                  />
-                </Form.Group>
-              </Col>
-              <Col
-                md={6}
-                className="d-flex justify-content-center align-items-center"
-              >
-                <div className="text-center">
-                  <h4 className="text-secondary mb-1">Total a Pagar</h4>
-                  <h1
-                    className="display-4 mb-2"
-                    style={{
-                      color: selectedPeriodos.length ? "var(--secundary-color)" : "#adb5bd",
-                      opacity: selectedPeriodos.length ? 1 : 0.7,
-                      transition: "color 0.3s, opacity 0.3s"
-                    }}
-                  >
-                    AR$ {selectedPeriodos.length
-                      ? totalAmount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : "—"}
-                  </h1>
-                  <p className="text-muted">
-                    Períodos:{" "}
-                    {selectedPeriodos.map((p) => `${p.mes}/${p.año}`).join(", ")}
-                    <br />
-                    Fecha de Vencimiento: {formatDateToDMY(vencimiento)}
-                  </p>
-                </div>
-              </Col>
-            </Row>
-          </section>
-        )}
 
         {clientId && (
           <div className="d-flex justify-content-center mt-4">

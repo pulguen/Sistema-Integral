@@ -8,7 +8,6 @@ import React, {
 import {
   Card,
   Spinner,
-  Button,
   Breadcrumb,
   Form,
   OverlayTrigger,
@@ -16,8 +15,6 @@ import {
   Badge,
 } from "react-bootstrap";
 import Swal from "sweetalert2";
-import Select from "react-select";
-import makeAnimated from "react-select/animated";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
 import { AuthContext } from "../../../../context/AuthContext.jsx";
 import CommonTable from "../../../../components/common/table/table.jsx";
@@ -25,26 +22,26 @@ import customFetch from "../../../../context/CustomFetch.js";
 import { FaTrash } from "react-icons/fa";
 import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
 import { Link } from "react-router-dom";
+import ClientSearch from "../../../../components/common/clienteSearch/ClientSearch.jsx";
+import { ClientContext } from "../../../../context/ClientContext";
 
-const animatedComponents = makeAnimated();
 const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
 const RecibosHistorial = () => {
   const {
-    clientes,
     fetchClienteById,
     fetchRecibosByCliente,
     condicionesPago,
   } = useContext(FacturacionContext);
   const { user } = useContext(AuthContext);
+  const { searchClients } = useContext(ClientContext);
 
   const canShowClients = user?.permissions.includes("recibos.show.cliente");
   const canDeleteRecibo = user?.permissions.includes("recibos.destroy");
   const canShowTributo = user?.permissions.includes("tributos.show.cliente");
   const canShowServicio = user?.permissions.includes("servicios.show.cliente");
 
-  const [clientsByServices, setClientsByServices] = useState([]);
-  const [filteredClientes, setFilteredClientes] = useState([]);
+  // Estado
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [tributosMap, setTributosMap] = useState([]);
   const [selectedTributo, setSelectedTributo] = useState(null);
@@ -53,8 +50,10 @@ const RecibosHistorial = () => {
   const [recibos, setRecibos] = useState([]);
   const [loadingRecibos, setLoadingRecibos] = useState(false);
 
+  // Paginación
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const totalPages = Math.ceil(recibos.length / pageSize);
 
   const fetchPage = useCallback(({ page, per_page }) => {
     setPageIndex(page - 1);
@@ -66,73 +65,49 @@ const RecibosHistorial = () => {
     return recibos.slice(start, start + pageSize);
   }, [recibos, pageIndex, pageSize]);
 
-  const totalPages = Math.ceil(recibos.length / pageSize);
-
+  // Al seleccionar cliente
   useEffect(() => {
-    if (!Array.isArray(clientes) || !Array.isArray(user?.services)) return;
-    const filtered = clientes.filter(
-      (c) =>
-        Array.isArray(c.servicios) &&
-        c.servicios.some((s) => user.services.includes(s.id))
-    );
-    setClientsByServices(filtered);
-    setFilteredClientes(filtered);
-  }, [clientes, user?.services]);
-
-  const handleSearchChange = useCallback(
-    (term) => {
-      const t = term.toLowerCase();
-      setFilteredClientes(
-        clientsByServices.filter((c) => {
-          const full = `${c.persona?.nombre || ""} ${c.persona?.apellido || ""}`.toLowerCase();
-          const dni = (c.persona?.dni || "").toString();
-          return full.includes(t) || dni.includes(t);
-        })
-      );
-    },
-    [clientsByServices]
-  );
-
-  const clienteOptions = useMemo(
-    () =>
-      filteredClientes.map((c) => ({
-        value: c.id,
-        label: `${c.persona?.nombre || ""} ${c.persona?.apellido || ""} – DNI: ${c.persona?.dni || ""}`,
-      })),
-    [filteredClientes]
-  );
-
-  const handleClienteSelect = async (opt) => {
-    if (!opt) return handleReset();
-    const cli = clientsByServices.find((c) => c.id === opt.value);
-    setSelectedCliente(cli);
-    try {
-      const data = await fetchClienteById(cli.id);
-      const map = {};
-      (data[0] || []).forEach((e) => {
-        const tId = e.tributo_id;
-        if (!map[tId]) {
-          map[tId] = {
-            id: tId,
-            nombre: e.tributo?.nombre || "Sin nombre",
-            servicios: [],
-          };
+    if (!selectedCliente) return;
+    (async () => {
+      try {
+        const data = await fetchClienteById(selectedCliente.id);
+        const arr = Array.isArray(data) ? data[0] : [];
+        if (!arr || arr.length === 0) {
+          setTributosMap([]);
+          setSelectedTributo(null);
+          setServicios([]);
+          setSelectedServicio(null);
+          setRecibos([]);
+          return;
         }
-        if (e.servicio && !map[tId].servicios.some((s) => s.id === e.servicio.id)) {
-          map[tId].servicios.push(e.servicio);
-        }
-      });
-      setTributosMap(Object.values(map));
-      setServicios([]);
-      setSelectedTributo(null);
-      setSelectedServicio(null);
-      setRecibos([]);
-    } catch {
-      Swal.fire("Error", "No se pudieron cargar los datos del cliente.", "error");
-    }
-  };
+        // Map tributos y servicios
+        const map = {};
+        arr.forEach((e) => {
+          const tId = e.tributo_id;
+          if (!map[tId]) {
+            map[tId] = {
+              id: tId,
+              nombre: e.tributo?.nombre || "Sin nombre",
+              servicios: [],
+            };
+          }
+          if (e.servicio && !map[tId].servicios.some((s) => s.id === e.servicio.id)) {
+            map[tId].servicios.push(e.servicio);
+          }
+        });
+        setTributosMap(Object.values(map));
+        setServicios([]);
+        setSelectedTributo(null);
+        setSelectedServicio(null);
+        setRecibos([]);
+      } catch {
+        Swal.fire("Error", "No se pudieron cargar los datos del cliente.", "error");
+      }
+    })();
+  }, [selectedCliente, fetchClienteById]);
 
-  const handleTributoSelect = (e) => {
+  // Selección de tributo
+  const handleTributoSelect = e => {
     const id = parseInt(e.target.value, 10);
     setSelectedTributo(id);
     const tributo = tributosMap.find((t) => t.id === id);
@@ -141,6 +116,7 @@ const RecibosHistorial = () => {
     setRecibos([]);
   };
 
+  // Selección de servicio → cargar recibos
   const handleServicioSelect = async (e) => {
     const id = parseInt(e.target.value, 10);
     const serv = servicios.find((s) => s.id === id);
@@ -149,7 +125,23 @@ const RecibosHistorial = () => {
     setLoadingRecibos(true);
     try {
       const all = await fetchRecibosByCliente(selectedCliente.id);
-      setRecibos(Array.isArray(all) ? all : []);
+      // Si querés filtrar local por tributo y servicio (ajusta según tu API)
+      const recibosFiltrados = Array.isArray(all)
+        ? all.filter(r =>
+            (!r.servicio_id || r.servicio_id === id) &&
+            (!r.tributo_id || r.tributo_id === selectedTributo)
+          )
+        : [];
+      setRecibos(recibosFiltrados);
+      if (recibosFiltrados.length === 0) {
+        Swal.fire({
+          icon: "info",
+          title: "Sin recibos",
+          text: "Este cliente no tiene recibos para este servicio.",
+          timer: 2200,
+          showConfirmButton: false,
+        });
+      }
     } catch {
       Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
     } finally {
@@ -157,15 +149,17 @@ const RecibosHistorial = () => {
     }
   };
 
+  // Reset
   const handleReset = useCallback(() => {
     setSelectedCliente(null);
-    setFilteredClientes(clientsByServices);
+    setTributosMap([]);
     setSelectedTributo(null);
     setServicios([]);
     setSelectedServicio(null);
     setRecibos([]);
-  }, [clientsByServices]);
+  }, []);
 
+  // Anulación de recibo
   const handleAnular = useCallback((recibo) => {
     Swal.fire({
       title: "Anular Recibo",
@@ -194,6 +188,7 @@ const RecibosHistorial = () => {
     });
   }, []);
 
+  // Columnas de la tabla
   const columns = useMemo(
     () => [
       { Header: "N° Recibo", accessor: "n_recibo" },
@@ -231,8 +226,7 @@ const RecibosHistorial = () => {
         accessor: "f_pago",
         Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A"
       },
-            { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
-
+      { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
       {
         Header: "Estado",
         id: "estado",
@@ -251,14 +245,14 @@ const RecibosHistorial = () => {
             placement="top"
             overlay={<Tooltip>Anular recibo</Tooltip>}
           >
-            <Button
+            <CustomButton
               variant="danger"
               size="sm"
               onClick={() => handleAnular(row.original)}
               disabled={!canDeleteRecibo}
             >
               <FaTrash />
-            </Button>
+            </CustomButton>
           </OverlayTrigger>
         )
       }
@@ -266,6 +260,7 @@ const RecibosHistorial = () => {
     [condicionesPago, canDeleteRecibo, handleAnular]
   );
 
+  // Render
   return (
     <Card className="shadow-sm p-4 mt-4">
       <Breadcrumb>
@@ -276,31 +271,26 @@ const RecibosHistorial = () => {
         <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
       </Breadcrumb>
 
-      <h2 className="text-center mb-4 text-primary">Historial de Recibos</h2>
+      <h2 className="text-center mb-2 text-primary">Historial de Recibos</h2>
+      <h5 className="text-center mb-4 text-primary">
+        Seleccioná un cliente y un tributo para ver sus recibos
+      </h5>
 
       <Card className="mb-4 shadow-sm">
         <Card.Body>
+          {/* Buscador de cliente reutilizable */}
           <Form.Group controlId="cliente" className="mb-3">
             <Form.Label>Buscar Cliente</Form.Label>
-            <Select
-              components={animatedComponents}
-              isDisabled={!canShowClients}
-              value={
-                selectedCliente
-                  ? {
-                      value: selectedCliente.id,
-                      label: `${selectedCliente.persona.nombre} ${selectedCliente.persona.apellido}`,
-                    }
-                  : null
-              }
-              onChange={handleClienteSelect}
-              onInputChange={handleSearchChange}
-              options={clienteOptions}
-              placeholder="Ingresa nombre o DNI"
-              isClearable
+            <ClientSearch
+              searchClients={searchClients}
+              onClientSelect={cli => setSelectedCliente(cli)}
+              servicesAllowed={user?.services ?? []}
+              placeholder="Buscar clientes por DNI, nombre o apellido..."
+              disabled={!canShowClients}
             />
           </Form.Group>
 
+          {/* Tributo */}
           {selectedCliente && (
             <Form.Group controlId="tributo" className="mb-3">
               <Form.Label>Seleccionar Tributo</Form.Label>
@@ -319,6 +309,7 @@ const RecibosHistorial = () => {
             </Form.Group>
           )}
 
+          {/* Servicio */}
           {selectedTributo && (
             <Form.Group controlId="servicio" className="mb-3">
               <Form.Label>Seleccionar Servicio</Form.Label>
@@ -339,6 +330,7 @@ const RecibosHistorial = () => {
         </Card.Body>
       </Card>
 
+      {/* Tabla de recibos */}
       {selectedServicio && (
         loadingRecibos ? (
           <div className="text-center py-5">
@@ -354,7 +346,6 @@ const RecibosHistorial = () => {
                 Limpiar Filtros
               </CustomButton>
             </div>
-
             <CommonTable
               columns={columns}
               data={currentPageData}

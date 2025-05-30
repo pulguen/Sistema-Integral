@@ -56,9 +56,25 @@ export default function FacturacionRoutes() {
             </BombeoAguaProvider>
           }
         />
+        
+        <Route
+          path="periodos"
+          element={
+            <ClientProvider>
+              <PeriodosHistorial />
+            </ClientProvider>
+          }
+        />
 
-        <Route path="periodos" element={<PeriodosHistorial />} />
-        <Route path="recibos" element={<RecibosHistorial />} />
+        <Route
+          path="recibos"
+          element={
+            <ClientProvider>
+              <RecibosHistorial />
+            </ClientProvider>
+          }
+        />
+
       </Route>
     </Routes>
   );

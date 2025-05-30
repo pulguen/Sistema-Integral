@@ -1,50 +1,58 @@
-// clienteUtils.js
+// src/utils/clienteUtils.js
 
-/**
- * Transforma un cliente según su tipo (Persona o Empresa)
- */
 export function transformarCliente(cliente) {
-    if (cliente.clientable && typeof cliente.clientable === "object") {
-      if (cliente.clientable_type === "App\\Models\\Persona") {
-        return {
-          ...cliente,
-          persona: {
-            nombre: cliente.clientable.nombre || "",
-            apellido: cliente.clientable.apellido || "",
-            dni: cliente.clientable.dni ? cliente.clientable.dni.toString() : "",
-            email: cliente.clientable.email || "",
-            telefono: cliente.clientable.telefono || ""
-          }
-        };
-      } else if (cliente.clientable_type === "App\\Models\\Empresa") {
-        return {
-          ...cliente,
-          persona: {
-            nombre: cliente.clientable.nombre || "",
-            apellido: "",
-            dni: cliente.clientable.cuit || "",
-            email: "",
-            telefono: ""
-          }
-        };
-      }
+  // Normalizar el campo 'servicios' si falta (podría venir undefined)
+  const servicios = Array.isArray(cliente.servicios) ? cliente.servicios : [];
+
+  if (cliente.clientable && typeof cliente.clientable === "object") {
+    if (cliente.clientable_type === "App\\Models\\Persona") {
+      return {
+        ...cliente,
+        servicios,
+        persona: {
+          nombre: cliente.clientable.nombre || "",
+          apellido: cliente.clientable.apellido || "",
+          dni: cliente.clientable.dni ? cliente.clientable.dni.toString() : "",
+          email: cliente.clientable.email || "",
+          telefono: cliente.clientable.telefono || ""
+        }
+      };
+    } else if (cliente.clientable_type === "App\\Models\\Empresa") {
+      return {
+        ...cliente,
+        servicios,
+        persona: {
+          nombre: cliente.clientable.nombre || "",
+          apellido: "",
+          dni: cliente.clientable.cuit || "",
+          email: "",
+          telefono: ""
+        }
+      };
     }
-    return cliente;
   }
-  
-  /**
-   * Si la respuesta viene empaquetada (por ejemplo, [array, status]), desempaqueta y devuelve el array.
-   */
-  export function unpackData(data) {
-    return Array.isArray(data) && data.length > 0 && Array.isArray(data[0])
-      ? data[0]
-      : data;
-  }
-  
-/**
- * Convierte una cadena a Title Case:
- * cada palabra con la primera letra en mayúscula y el resto en minúscula
- */
+  // Si no tiene clientable, igual devuelvo un shape homogéneo
+  return {
+    ...cliente,
+    servicios,
+    persona: {
+      nombre: "",
+      apellido: "",
+      dni: "",
+      email: "",
+      telefono: ""
+    }
+  };
+}
+
+// Si la respuesta viene empaquetada (por ejemplo, [array, status]), desempaqueta y devuelve el array.
+export function unpackData(data) {
+  return Array.isArray(data) && data.length > 0 && Array.isArray(data[0])
+    ? data[0]
+    : data;
+}
+
+// Convierte una cadena a Title Case
 export function titleCase(str = '') {
   return str
     .split(' ')
