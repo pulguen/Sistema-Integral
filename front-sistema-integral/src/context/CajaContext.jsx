@@ -32,6 +32,7 @@ export const CajaProvider = ({ children }) => {
   const pagarRecibo = useCallback(async (n_recibo) => {
     setLoading(true);
     try {
+      console.log("Pagar recibo con número:", n_recibo);
       const payload = { recibo: Number(n_recibo) };
       const response = await customFetch("/recibos/pagar", "POST", payload);
       console.log("Respuesta de pagarRecibo:", response);

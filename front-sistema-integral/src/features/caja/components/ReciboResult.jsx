@@ -92,7 +92,7 @@ const ReciboResult = ({
                   checkPermission('recibos.pagar') && (
                     <CustomButton
                       variant="primary"
-                      onClick={() => handleCobrarRecibo(original)}
+                      onClick={() => handleCobrarRecibo(original.n_recibo)}
                     >
                       <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                       Cobrar

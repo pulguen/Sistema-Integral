@@ -5,7 +5,7 @@ import { CajaContext } from '../../../context/CajaContext.jsx';
 import { AuthContext } from '../../../context/AuthContext';
 import SearchRecibo from './SearchRecibo';
 import ReciboResult from './ReciboResult';
-import RecibosPagadosHoy from './RecibosPagadosHoy';
+import RecibosProcesadosHoy from './RecibosProcesadosHoy';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch';
 
@@ -186,7 +186,7 @@ const handleQuitarRecibo = useCallback((reciboId) => {
       />
 
 
-      <RecibosPagadosHoy
+      <RecibosProcesadosHoy
         recibosHoy={recibosHoy}
         loadingRecibosHoy={loadingRecibosHoy}
         fetchRecibosHoy={fetchRecibosHoy}

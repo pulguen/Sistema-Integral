@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCashRegister, faSyncAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 // Reutilizado del sistema de caja
-import RecibosPagadosHoy from "./RecibosPagadosHoy";
+import RecibosProcesadosHoy from "./RecibosProcesadosHoy";
 
 const ArqueoCaja = () => {
   const { user } = useContext(AuthContext);
@@ -188,7 +188,7 @@ const ArqueoCaja = () => {
       <p>Genera el cierre de caja correspondiente a la fecha actual.</p>
 
       {/* Mostramos resumen de recibos pagados hoy */}
-      <RecibosPagadosHoy
+      <RecibosProcesadosHoy
         recibosHoy={recibosHoy}
         loadingRecibosHoy={loadingRecibosHoy}
         fetchRecibosHoy={fetchRecibosHoy}
