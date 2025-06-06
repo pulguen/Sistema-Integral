@@ -87,6 +87,7 @@ const fetchClientes = useCallback(async () => {
     }
   }, []);
 
+
   const fetchPeriodosByClienteYServicio = useCallback(
     async (clienteId, servicioId, tributoId) => {
       try {
@@ -142,28 +143,32 @@ const fetchClientes = useCallback(async () => {
     }
   }, []);
 
-  const fetchRecibosByCliente = useCallback(async (clienteId) => {
-    try {
-      const response = await customFetch(
-        `/recibos/cliente/${clienteId}?page=1&per_page=100`
-      );
-      console.log(`Recibos para cliente ${clienteId}:`, response);
-      let dataArray = [];
-      if (Array.isArray(response)) {
-        if (response.length === 2 && Array.isArray(response[0])) {
-          dataArray = response[0];
-        }
-      } else if (response.data && Array.isArray(response.data)) {
-        dataArray = response.data;
+const fetchRecibosByCliente = useCallback(async (clienteId, showAlert = true) => {
+  try {
+    const response = await customFetch(
+      `/recibos/cliente/${clienteId}?page=1&per_page=100`,
+      "GET",
+      null,
+      showAlert // <--- Pasamos el flag
+    );
+    console.log(`Recibos para cliente ${clienteId}:`, response);
+    let dataArray = [];
+    if (Array.isArray(response)) {
+      if (response.length === 2 && Array.isArray(response[0])) {
+        dataArray = response[0];
       }
-      console.log("Todos los recibos del cliente:", dataArray);
-      return dataArray;
-    } catch (error) {
-      console.error("Error al obtener los recibos del cliente:", error);
-      setError("Error al obtener los recibos del cliente.");
-      throw error;
+    } else if (response.data && Array.isArray(response.data)) {
+      dataArray = response.data;
     }
-  }, []);
+    console.log("Todos los recibos del cliente:", dataArray);
+    return dataArray;
+  } catch (error) {
+    console.error("Error al obtener los recibos del cliente:", error);
+    setError("Error al obtener los recibos del cliente.");
+    throw error;
+  }
+}, []);
+
 
   const fetchCondicionesPago = useCallback(async () => {
     try {

@@ -27,6 +27,20 @@ import { ClientContext } from "../../../../context/ClientContext";
 
 const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
+// --- Helper para extraer el mensaje de error JSON del backend ---
+function parseErrorMessage(error) {
+  try {
+    const regex = /\{.*\}/g;
+    const matches =
+      typeof error.message === "string" ? error.message.match(regex) : null;
+    if (matches) {
+      const errorJson = JSON.parse(matches[0]);
+      return (errorJson.error || "").toLowerCase();
+    }
+  } catch {}
+  return "";
+}
+
 const RecibosHistorial = () => {
   const {
     fetchClienteById,
@@ -121,18 +135,24 @@ const RecibosHistorial = () => {
     const id = parseInt(e.target.value, 10);
     const serv = servicios.find((s) => s.id === id);
     setSelectedServicio(serv);
+
     if (!selectedCliente || !selectedTributo) return;
     setLoadingRecibos(true);
+
     try {
-      const all = await fetchRecibosByCliente(selectedCliente.id);
-      // Si querés filtrar local por tributo y servicio (ajusta según tu API)
+      // Llamada al fetch SIN Swal automático
+      const all = await fetchRecibosByCliente(selectedCliente.id, false);
+
       const recibosFiltrados = Array.isArray(all)
-        ? all.filter(r =>
-            (!r.servicio_id || r.servicio_id === id) &&
-            (!r.tributo_id || r.tributo_id === selectedTributo)
+        ? all.filter(
+            r =>
+              (!r.servicio_id || r.servicio_id === id) &&
+              (!r.tributo_id || r.tributo_id === selectedTributo)
           )
         : [];
+
       setRecibos(recibosFiltrados);
+
       if (recibosFiltrados.length === 0) {
         Swal.fire({
           icon: "info",
@@ -142,8 +162,30 @@ const RecibosHistorial = () => {
           showConfirmButton: false,
         });
       }
-    } catch {
-      Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
+    } catch (error) {
+      const mensajeError = parseErrorMessage(error);
+
+      if (mensajeError.includes("no se encontró el cliente")) {
+        setRecibos([]);
+        Swal.fire({
+          icon: "info",
+          title: "Cliente no encontrado",
+          text: "El cliente seleccionado no existe.",
+          timer: 2200,
+          showConfirmButton: false,
+        });
+      } else if (mensajeError.includes("no tiene recibos")) {
+        setRecibos([]);
+        Swal.fire({
+          icon: "info",
+          title: "Sin recibos",
+          text: "Este cliente no tiene recibos generados.",
+          timer: 2200,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
+      }
     } finally {
       setLoadingRecibos(false);
     }

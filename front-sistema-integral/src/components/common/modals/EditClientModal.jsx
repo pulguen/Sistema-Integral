@@ -1,4 +1,3 @@
-// EditClientModal.jsx
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import Swal from 'sweetalert2';
@@ -19,7 +18,6 @@ export default function EditClientModal({
     tributos,
   } = useContext(FacturacionContext);
 
-  // Local copy of calles so we can append new ones
   const [calles, setCalles] = useState(ctxCalles);
   useEffect(() => setCalles(ctxCalles), [ctxCalles]);
 
@@ -29,7 +27,6 @@ export default function EditClientModal({
   const [step, setStep] = useState(1);
   const [clientType, setClientType] = useState('');
 
-  // Persona vs Empresa data
   const [personaData, setPersonaData] = useState({
     nombre: '',
     apellido: '',
@@ -43,7 +40,6 @@ export default function EditClientModal({
     cuit: '',
   });
 
-  // Dirección
   const [domicilio, setDomicilio] = useState({
     provincia_id: '',
     municipio_id: '',
@@ -58,10 +54,8 @@ export default function EditClientModal({
     referencia: '',
   });
 
-  // Servicios pre-seleccionados
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState([]);
 
-  // Agrupar servicios por tributo
   const groupedServices = useMemo(() => {
     return serviciosDisponibles.reduce((acc, svc) => {
       const tid = svc.tributo_id;
@@ -72,7 +66,6 @@ export default function EditClientModal({
     }, {});
   }, [serviciosDisponibles, tributos]);
 
-  // Filtrar municipios según provincia seleccionada
   const filteredMunicipios = useMemo(() => {
     if (!domicilio.provincia_id) return [];
     return municipiosOrdenados.filter(
@@ -80,11 +73,9 @@ export default function EditClientModal({
     );
   }, [municipiosOrdenados, domicilio.provincia_id]);
 
-  // Pre-cargar datos desde clientData.clientable
   useEffect(() => {
     if (!clientData) return;
-    const modelo = clientData.clientable || {};  // aquí vienen los datos de persona o empresa
-
+    const modelo = clientData.clientable || {};
     if (String(clientData.clientable_type).includes('Persona')) {
       setClientType('Persona');
       setPersonaData({
@@ -93,7 +84,6 @@ export default function EditClientModal({
         dni: modelo.dni ? String(modelo.dni) : '',
         email: modelo.email || '',
         telefono: modelo.telefono || '',
-        // Aseguramos formato YYYY-MM-DD
         f_nacimiento: modelo.f_nacimiento
           ? modelo.f_nacimiento.split('T')[0]
           : '',
@@ -105,7 +95,6 @@ export default function EditClientModal({
         cuit: modelo.cuit ? String(modelo.cuit) : '',
       });
     }
-
     // Dirección
     if (clientData.direccion) {
       const d = clientData.direccion;
@@ -114,23 +103,20 @@ export default function EditClientModal({
         municipio_id: d.municipio?.id ? String(d.municipio.id) : '',
         calle_id: d.calle?.id ? String(d.calle.id) : '',
         altura: d.altura ? String(d.altura) : '',
-        codigo_postal: d.codigo_postal || '',
-        n_casa: d.n_casa ? String(d.n_casa) : '',
-        n_piso: d.n_piso || '',
+        codigo_postal: d.codigo_postal !== null && d.codigo_postal !== undefined ? String(d.codigo_postal) : '',
+        n_casa: d.n_casa || '',
+        n_piso: d.n_piso !== null && d.n_piso !== undefined ? String(d.n_piso) : '',
         n_departamento: d.n_departamento || '',
         es_esquina: !!d.es_esquina,
         calle_esquina_id: d.calle_esquina?.id ? String(d.calle_esquina.id) : '',
         referencia: d.referencia || '',
       });
     }
-
-    // Servicios
     if (Array.isArray(clientData.servicios)) {
       setServiciosSeleccionados(clientData.servicios.map((s) => s.id));
     }
   }, [clientData]);
 
-  // Handlers de formulario
   const handleClientTypeChange = (e) => {
     setClientType(e.target.value);
   };
@@ -154,7 +140,6 @@ export default function EditClientModal({
     );
   };
 
-  // Agregar nueva calle igual que en NewClientModal
   const handleAddNewCalle = async () => {
     const { value: nombre } = await Swal.fire({
       title: 'Agregar nueva calle',
@@ -180,7 +165,6 @@ export default function EditClientModal({
     }
   };
 
-  // Funciones de navegación entre pasos y validación
   const goNext = () => {
     if (step === 1) {
       if (!clientType) {
@@ -236,22 +220,24 @@ export default function EditClientModal({
   // Envío final
   const onSubmit = async (e) => {
     e.preventDefault();
-    // Construir payload igual que antes...
+
+    // SIEMPRE enviar todos los campos, aunque sean null o string vacío.
     let payload = {
-      provincia_id: Number(domicilio.provincia_id),
-      municipio_id: Number(domicilio.municipio_id),
-      calle_id: Number(domicilio.calle_id),
-      altura: Number(domicilio.altura),
-      // solo incluir si el usuario puso un CP
-      ...(domicilio.codigo_postal && { codigo_postal: Number(domicilio.codigo_postal) }),
-      // n_casa debe ser string
-      ...(domicilio.n_casa && { n_casa: domicilio.n_casa }),
-      ...(domicilio.n_piso && { n_piso: domicilio.n_piso }),
-      ...(domicilio.n_departamento && { n_departamento: domicilio.n_departamento }),
-      es_esquina: domicilio.es_esquina,
-      ...(domicilio.es_esquina && { calle_esquina_id: Number(domicilio.calle_esquina_id) }),
-      ...(domicilio.referencia && { referencia: domicilio.referencia }),
+      provincia_id: domicilio.provincia_id ? Number(domicilio.provincia_id) : null,
+      municipio_id: domicilio.municipio_id ? Number(domicilio.municipio_id) : null,
+      calle_id: domicilio.calle_id ? Number(domicilio.calle_id) : null,
+      altura: domicilio.altura !== '' ? Number(domicilio.altura) : null,
+      // Solo si no es vacío y es numérico
+      ...(domicilio.codigo_postal !== '' ? { codigo_postal: Number(domicilio.codigo_postal) } : {}),
+      n_casa: domicilio.n_casa !== undefined && domicilio.n_casa !== null ? String(domicilio.n_casa) : "",
+      n_piso: domicilio.n_piso !== '' ? Number(domicilio.n_piso) : null,
+      n_departamento: domicilio.n_departamento || null,
+      es_esquina: !!domicilio.es_esquina,
+      ...(domicilio.es_esquina && domicilio.calle_esquina_id !== '' 
+          ? { calle_esquina_id: Number(domicilio.calle_esquina_id) } : {}),
+      referencia: domicilio.referencia || null,
     };
+
     if (clientType === 'Persona') {
       payload = {
         ...payload,
@@ -261,14 +247,23 @@ export default function EditClientModal({
         email: personaData.email,
         telefono: personaData.telefono,
         f_nacimiento: personaData.f_nacimiento,
+        cuit: undefined
       };
     } else {
       payload = {
         ...payload,
         nombre: empresaData.nombre,
         cuit: Number(empresaData.cuit),
+        apellido: undefined,
+        dni: undefined,
+        email: undefined,
+        telefono: undefined,
+        f_nacimiento: undefined,
       };
     }
+
+    // Elimina las propiedades undefined (importante para la API)
+    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
     const confirm = await Swal.fire({
       title: 'Confirmar cambios',

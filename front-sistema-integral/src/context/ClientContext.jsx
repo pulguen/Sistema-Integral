@@ -12,7 +12,6 @@ export const ClientProvider = ({ children }) => {
   const [pageCount, setPageCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-
   const [currentClient, setCurrentClient] = useState(null);
   const [loadingClient, setLoadingClient] = useState(false);
 
@@ -143,3 +142,8 @@ const searchClients = useCallback(
     </ClientContext.Provider>
   );
 };
+
+
+
+
+

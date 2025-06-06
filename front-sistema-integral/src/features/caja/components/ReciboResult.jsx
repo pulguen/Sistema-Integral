@@ -72,7 +72,7 @@ const ReciboResult = ({
         return (
           <div className="d-flex gap-2">
             {isAnulado ? (
-              <CustomButton variant="secondary" disabled>
+              <CustomButton variant="danger" disabled>
                 <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                 Anulado
               </CustomButton>
@@ -84,7 +84,7 @@ const ReciboResult = ({
                     Pagado
                   </CustomButton>
                 ) : isOverdue ? (
-                  <CustomButton variant="secondary" disabled>
+                  <CustomButton variant="alternative" disabled>
                     <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                     Vencido
                   </CustomButton>
@@ -125,7 +125,7 @@ const ReciboResult = ({
     resultado && resultado.length > 0 && (
       <Card className="mb-4 mt-4 shadow-sm">
         <Card.Body>
-          <h4>Recibo encontrado</h4>
+          <h4>Recibos encontrados</h4>
           {loading ? (
             <div className="text-center">
               <Spinner animation="border" role="status">

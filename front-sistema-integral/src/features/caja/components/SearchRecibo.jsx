@@ -1,8 +1,7 @@
-// SearchRecibo.jsx
 import React from 'react';
-import { Form } from 'react-bootstrap';
+import { Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
-import { FaSearch, FaEraser } from 'react-icons/fa';
+import { FaSearch, FaEraser, FaKeyboard, FaBarcode } from 'react-icons/fa';
 
 const SearchRecibo = ({
   busqueda,
@@ -15,48 +14,107 @@ const SearchRecibo = ({
   canSearch,
   inputRef
 }) => {
+  const modoBusqueda = busquedaManual
+    ? {
+        label: 'BÚSQUEDA MANUAL',
+        icon: <FaKeyboard className="me-2" />,
+        bg: 'bg-warning-subtle border border-warning text-warning-emphasis',
+        description: 'Ingrese el número de recibo manualmente.'
+      }
+    : {
+        label: 'LECTOR DE CÓDIGO DE BARRAS',
+        icon: <FaBarcode className="me-2" />,
+        bg: 'bg-info-subtle border border-info text-info-emphasis',
+        description: 'Escanee el código de barras completo con el lector.'
+      };
+
+  const toggleBusquedaManual = () => setBusquedaManual(v => !v);
+
   return (
     <>
+      <h6><strong>Tipo de búsqueda</strong></h6>
+      <div
+        className={`d-flex align-items-center mb-3 p-2 rounded justify-content-between w-100 ${modoBusqueda.bg}`}
+        style={{
+          transition: 'background 0.3s, color 0.3s',
+          cursor: 'pointer',
+          minHeight: 48,
+          minWidth: 340,
+          maxWidth: 450
+        }}
+        onClick={toggleBusquedaManual}
+      >
+        <div className="d-flex align-items-center fw-bold fs-6 position-relative" style={{ width: 300 }}>
+          {/* El span invisible fuerza el ancho máximo */}
+          <span style={{
+            visibility: 'hidden',
+            position: 'absolute',
+            pointerEvents: 'none'
+          }}>
+            <FaBarcode className="me-2" />
+            LECTOR DE CÓDIGO DE BARRAS
+          </span>
+          {/* El label real */}
+          {modoBusqueda.icon}
+          {modoBusqueda.label}
+        </div>
+        <OverlayTrigger
+          overlay={
+            <Tooltip>
+              Alternar entre búsqueda manual y con lector de código de barras
+            </Tooltip>
+          }
+        >
+          <Form.Switch
+            id="busqueda-manual-switch"
+            label=""
+            checked={busquedaManual}
+            onChange={e => {
+              e.stopPropagation();
+              setBusquedaManual(e.target.checked);
+            }}
+            style={{ pointerEvents: 'auto' }}
+          />
+        </OverlayTrigger>
+      </div>
+
       <Form.Group controlId="busqueda" className="mb-3">
-        <Form.Label>Buscar recibo</Form.Label>
+        <Form.Label><strong>Buscar recibo</strong></Form.Label>
         <Form.Control
           type="text"
-          placeholder="Escanee el código de barras con el lector o ingrese número de recibo"
+          placeholder="Escanee el código de barras o ingrese número de recibo"
           value={busqueda}
           ref={inputRef}
-          onChange={(e) => setBusqueda(e.target.value)}
-          onKeyDown={(e) => {
+          onChange={e => setBusqueda(e.target.value)}
+          onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();
               handleBuscarRecibo();
             }
           }}
           aria-label="Búsqueda de recibo"
+          className={`fw-bold ${busquedaManual ? 'border-warning' : 'border-info'}`}
         />
-        <Form.Text muted>
-          {busquedaManual
-            ? "Ingrese el número de recibo manualmente."
-            : "Escanee el código de barras completo con el lector."}
+        <Form.Text muted className="fw-semibold">
+          {modoBusqueda.description}
         </Form.Text>
-        <Form.Switch
-          id="busqueda-manual-switch"
-          label="Búsqueda manual"
-          className="mt-2"
-          checked={busquedaManual}
-          onChange={(e) => setBusquedaManual(e.target.checked)}
-        />
       </Form.Group>
+
       <div className="d-flex align-items-center gap-2">
         <CustomButton
           variant="primary"
           onClick={handleBuscarRecibo}
           disabled={loading || !canSearch}
         >
-          <FaSearch style={{ marginRight: '5px' }} />
+          <FaSearch className="me-2" />
           {loading ? 'Buscando...' : 'Buscar Recibo'}
         </CustomButton>
-        <CustomButton variant="danger" onClick={handleLimpiar} disabled={loading}>
-          <FaEraser style={{ marginRight: '5px' }} />
+        <CustomButton
+          variant="danger"
+          onClick={handleLimpiar}
+          disabled={loading}
+        >
+          <FaEraser className="me-2" />
           Limpiar
         </CustomButton>
       </div>

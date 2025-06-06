@@ -227,6 +227,7 @@ export default function PeriodosBombeoForm() {
     { Header: "Año",         accessor: "año" },
     { Header: "Cuota",       accessor: "cuota" },
     { Header: "Volumen (m³)",accessor: "cantidad" },
+    { Header: "Servicio",    accessor: "servicio.nombre" },
     { Header: "Importe",     accessor: "i_debito",              Cell: ({value}) => Number(value).toFixed(2) },
     { Header: "Descuento",   accessor: "i_descuento",           Cell: ({value}) => Number(value).toFixed(2) },
     { Header: "Recargo",     accessor: "i_recargo_actualizado", Cell: ({value}) => Number(value).toFixed(2) },

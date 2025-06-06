@@ -37,3 +37,19 @@
   background-color: var(--primary-color); /* Hover en color primario */
   color: var(--ligth-color); /* Texto claro */
 }
+.custom-button.secondary {
+  background-color: var(--ligth-color); /* Color claro */
+  color: var(--secundary-color); /* Texto primario */
+}
+.custom-button.secondary:hover {
+  background-color: var(--primary-color); /* Hover en color primario */
+  color: var(--ligth-color); /* Texto claro */
+}
+.custom-button.alternative {
+  background-color: var(--alternative-color); /* Color alternativo */
+  color: var(--danger-color); /* Texto oscuro */
+}
+.custom-button.alternative:hover {
+  background-color: var(--primary-color); /* Hover en color primario */
+  color: var(--ligth-color); /* Texto claro */
+}

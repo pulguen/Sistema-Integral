@@ -8,6 +8,7 @@ import ReciboResult from './ReciboResult';
 import RecibosProcesadosHoy from './RecibosProcesadosHoy';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch';
+import CalculadoraRecibos from './CalculadoraRecibos';
 
 const CajaHome = () => {
   const { buscarRecibo, pagarRecibo, loading, error } = useContext(CajaContext);
@@ -25,23 +26,42 @@ const CajaHome = () => {
   const [loadingRecibosHoy, setLoadingRecibosHoy] = useState(false);
   const inputRef = useRef(null);
 
-  // Callback para buscar un recibo
-const extractReciboNumber = useCallback((codigo) => {
-  return codigo.length >= 15 ? codigo.slice(12, 24) : codigo;
-}, []);
+  // Acumulador de recibos para la calculadora
+  const [recibosAProcesar, setRecibosAProcesar] = useState([]);
 
-const buscarReciboConChecksum = useCallback(async (codigoCompleto) => {
-  try {
-    const endpoint = `/recibos/${codigoCompleto}/verificar-checksum`;
-    const data = await customFetch(endpoint);
-    console.log("Checksum verificado:", data);
-    return data;
-  } catch (err) {
-    console.error("Error en verificación de checksum:", err);
-    throw err;
-  }
-}, []);
+  // Agregar recibo a la calculadora (evitar duplicados)
+  const handleAgregarAProcesar = useCallback((nuevoRecibo) => {
+    setRecibosAProcesar(prev =>
+      prev.some(r => r.n_recibo === nuevoRecibo.n_recibo)
+        ? prev
+        : [...prev, nuevoRecibo]
+    );
+  }, []);
 
+  // Volver a cero la calculadora
+  const handleResetCalculadora = useCallback(() => {
+    setRecibosAProcesar([]);
+  }, []);
+
+  // Extraer número de recibo (según código)
+  const extractReciboNumber = useCallback((codigo) => {
+    return codigo.length >= 15 ? codigo.slice(12, 24) : codigo;
+  }, []);
+
+  // Verificación con checksum
+  const buscarReciboConChecksum = useCallback(async (codigoCompleto) => {
+    try {
+      const endpoint = `/recibos/${codigoCompleto}/verificar-checksum`;
+      const data = await customFetch(endpoint);
+      console.log("Checksum verificado:", data);
+      return data;
+    } catch (err) {
+      console.error("Error en verificación de checksum:", err);
+      throw err;
+    }
+  }, []);
+
+  // Buscar un recibo y agregar a la calculadora si corresponde
 const handleBuscarRecibo = useCallback(async () => {
   if (!busqueda.trim()) {
     Swal.fire('Advertencia', 'Debe ingresar un valor para buscar.', 'warning');
@@ -52,24 +72,52 @@ const handleBuscarRecibo = useCallback(async () => {
     let data;
 
     if (busquedaManual) {
-      data = await buscarRecibo(busqueda);
+      data = await buscarRecibo(busqueda); // SIEMPRE array
     } else {
       await buscarReciboConChecksum(busqueda);
       const numeroRecibo = extractReciboNumber(busqueda);
       setBusqueda(numeroRecibo);
-      data = await buscarRecibo(numeroRecibo);
+      data = await buscarRecibo(numeroRecibo); // SIEMPRE array
     }
 
-    setResultado(Array.isArray(data) ? data : [data]);
+    setResultado(prev => {
+      const nuevos = data.filter(n => !prev.some(r => r.id === n.id));
+      return [...prev, ...nuevos];
+    });
+
+
+    // Sumar recibos válidos a la calculadora (no pagados ni anulados ni vendidos)
+data.forEach(recibo => {
+  const estado = recibo.condicion_pago?.nombre?.toLowerCase();
+  const vencimiento = new Date(recibo.f_vencimiento);
+  const hoy = new Date();
+  const esAnulado = estado === "anulado";
+  const estaPagado = !!recibo.f_pago;
+  const estaVencido = vencimiento < hoy;
+
+  // SOLO SE AGREGAN LOS QUE SE PUEDEN COBRAR
+  if (!esAnulado && !estaPagado && !estaVencido) {
+    handleAgregarAProcesar(recibo);
+  }
+});
+
+
   } catch (err) {
     console.error("Error al buscar recibo:", err);
     Swal.fire('Error', 'No se pudo validar o encontrar el recibo.', 'error');
     setResultado([]);
   }
-}, [busqueda, busquedaManual, buscarRecibo, buscarReciboConChecksum, extractReciboNumber]);
+}, [
+  busqueda,
+  busquedaManual,
+  buscarRecibo,
+  buscarReciboConChecksum,
+  extractReciboNumber,
+  handleAgregarAProcesar
+]);
 
 
-  // Callback para limpiar búsqueda y resultados
+  // Limpiar campo de búsqueda y resultado
   const handleLimpiar = useCallback(() => {
     setBusqueda('');
     setResultado([]);
@@ -77,7 +125,7 @@ const handleBuscarRecibo = useCallback(async () => {
     if (inputRef.current) inputRef.current.focus();
   }, []);
 
-  // Callback para refrescar los recibos pagados hoy
+  // Refrescar los recibos pagados hoy
   const fetchRecibosHoy = useCallback(async () => {
     setLoadingRecibosHoy(true);
     try {
@@ -102,7 +150,7 @@ const handleBuscarRecibo = useCallback(async () => {
     fetchRecibosHoy();
   }, [fetchRecibosHoy]);
 
-  // Callback para cobrar un recibo
+  // Cobrar un recibo
   const handleCobrarRecibo = useCallback(async (n_recibo) => {
     try {
       await pagarRecibo(n_recibo);
@@ -114,40 +162,48 @@ const handleBuscarRecibo = useCallback(async () => {
     }
   }, [pagarRecibo, error]);
 
+  // Anular recibo
   const handleAnular = useCallback(async (recibo) => {
-  const result = await Swal.fire({
-    title: "Anular Recibo",
-    text: "Ingrese el motivo de la anulación:",
-    input: "text",
-    inputPlaceholder: "Motivo de anulación",
-    showCancelButton: true,
-    confirmButtonText: "Anular",
-    cancelButtonText: "Cancelar",
-    preConfirm: (motivo) => {
-      if (!motivo) Swal.showValidationMessage("El motivo es obligatorio");
-      return motivo;
-    },
-  });
+    const result = await Swal.fire({
+      title: "Anular Recibo",
+      text: "Ingrese el motivo de la anulación:",
+      input: "text",
+      inputPlaceholder: "Motivo de anulación",
+      showCancelButton: true,
+      confirmButtonText: "Anular",
+      cancelButtonText: "Cancelar",
+      preConfirm: (motivo) => {
+        if (!motivo) Swal.showValidationMessage("El motivo es obligatorio");
+        return motivo;
+      },
+    });
 
-  if (result.isConfirmed) {
-    try {
-      await customFetch("/recibos/anular", "POST", {
-        recibo: recibo.n_recibo,
-        comentario: result.value,
-      });
-      setResultado(prev => prev.filter(r => r.id !== recibo.id));
-      setRecibosHoy(prev => prev.filter(r => r.id !== recibo.id));
-      Swal.fire("Recibo Anulado", "El recibo fue anulado correctamente.", "success");
-    } catch (err) {
-      console.error("Error al anular recibo:", err);
-      Swal.fire("Error", "No se pudo anular el recibo.", "error");
+    if (result.isConfirmed) {
+      try {
+        await customFetch("/recibos/anular", "POST", {
+          recibo: recibo.n_recibo,
+          comentario: result.value,
+        });
+        setResultado(prev => prev.filter(r => r.id !== recibo.id));
+        setRecibosHoy(prev => prev.filter(r => r.id !== recibo.id));
+        Swal.fire("Recibo Anulado", "El recibo fue anulado correctamente.", "success");
+      } catch (err) {
+        console.error("Error al anular recibo:", err);
+        Swal.fire("Error", "No se pudo anular el recibo.", "error");
+      }
     }
-  }
+  }, []);
+
+  // Quitar un recibo del resultado (no de la calculadora)
+  const handleQuitarRecibo = useCallback((reciboId) => {
+    setResultado(prev => prev.filter(r => r.id !== reciboId));
+  }, []);
+
+  const handleRemoveReciboDeCalculadora = useCallback((id) => {
+  setRecibosAProcesar(prev => prev.filter(r => r.id !== id));
 }, []);
 
-const handleQuitarRecibo = useCallback((reciboId) => {
-  setResultado(prev => prev.filter(r => r.id !== reciboId));
-}, []);
+
 
 
   return (
@@ -163,18 +219,30 @@ const handleQuitarRecibo = useCallback((reciboId) => {
       <p className="mb-4">
         Busca un recibo leyendo el código de barra o activa la busqueda manual e ingresa el número de recibo.
       </p>
-      
-      <SearchRecibo
-        busqueda={busqueda}
-        setBusqueda={setBusqueda}
-        busquedaManual={busquedaManual}
-        setBusquedaManual={setBusquedaManual}
-        handleBuscarRecibo={handleBuscarRecibo}
-        handleLimpiar={handleLimpiar}
-        loading={loading}
-        canSearch={hasPermission('recibos.show')}
-        inputRef={inputRef}
-      />
+
+      {/* Buscador y calculadora lado a lado */}
+      <div className="d-flex flex-column flex-md-row gap-4 mb-4 w-100">
+        <div className="flex-fill" style={{ minWidth: 320 }}>
+          <SearchRecibo
+            busqueda={busqueda}
+            setBusqueda={setBusqueda}
+            busquedaManual={busquedaManual}
+            setBusquedaManual={setBusquedaManual}
+            handleBuscarRecibo={handleBuscarRecibo}
+            handleLimpiar={handleLimpiar}
+            loading={loading}
+            canSearch={hasPermission('recibos.show')}
+            inputRef={inputRef}
+          />
+        </div>
+        <div className="flex-fill mx-auto" style={{ minWidth: 320, maxWidth: 740 }}>
+          <CalculadoraRecibos
+            recibos={recibosAProcesar}
+            onReset={handleResetCalculadora}
+            onRemoveRecibo={handleRemoveReciboDeCalculadora}
+          />
+        </div>
+      </div>
 
       <ReciboResult 
         resultado={resultado} 
@@ -184,7 +252,6 @@ const handleQuitarRecibo = useCallback((reciboId) => {
         handleQuitarRecibo={handleQuitarRecibo}
         hasPermission={hasPermission}
       />
-
 
       <RecibosProcesadosHoy
         recibosHoy={recibosHoy}

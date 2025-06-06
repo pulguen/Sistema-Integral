@@ -17,6 +17,8 @@ import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
 import { formatDateToDMY } from "../../../../utils/dateUtils";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
 import TotalAPagarInfo from "../../../../components/common/TotalAPagarInfo/TotalAPagarInfo.jsx";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {faFileInvoiceDollar} from '@fortawesome/free-solid-svg-icons';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
@@ -263,6 +265,7 @@ export default function RecibosBombeoForm() {
    return (
     <Card className="shadow-sm p-5 mt-4 recibos-bombeo-form">
       <h2 className="text-center mb-5 text-primary fw-bold">
+        <FontAwesomeIcon icon={faFileInvoiceDollar} className="me-2" />
         Generar Recibo de Bombeo de Agua
       </h2>
       <Form onSubmit={handleSubmit} className="px-4">

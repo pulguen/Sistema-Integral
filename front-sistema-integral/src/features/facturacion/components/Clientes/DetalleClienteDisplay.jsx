@@ -1,7 +1,7 @@
-// src/pages/facturacion/DetalleClienteDisplay.jsx
 import React from 'react';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import { formatDateToDMY } from '../../../../utils/dateUtils.js';
 
 export default function DetalleClienteDisplay({
   cliente,
@@ -13,42 +13,56 @@ export default function DetalleClienteDisplay({
     ? cliente.clientable_type.split("\\").pop()
     : 'Desconocido';
 
-  const fechaNacimiento = cliente.persona?.f_nacimiento
-    ? new Date(cliente.persona.f_nacimiento).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
+  const isPersona = tipo.toLowerCase() === 'persona';
+  const isEmpresa = tipo.toLowerCase() === 'empresa' || tipo.toLowerCase() === 'jurídico';
+  const fechaNacimientoRaw =
+    cliente.persona?.f_nacimiento ||
+    cliente.clientable?.f_nacimiento ||
+    '';
+  const fechaNacimiento = fechaNacimientoRaw
+    ? formatDateToDMY(fechaNacimientoRaw)
     : 'No disponible';
 
+
+
+  const dir = cliente.direccion || {};
+      console.log('Cliente:', cliente);
   return (
     <>
       <p><strong>Tipo de Cliente:</strong> {tipo}</p>
-      <p><strong>Nombre:</strong> {cliente.persona?.nombre || '—'}</p>
-      {tipo.toLowerCase() !== 'jurídico' && (
-        <p><strong>Apellido:</strong> {cliente.persona?.apellido || '—'}</p>
+      {isPersona && (
+        <>
+          <p><strong>Nombre:</strong> {cliente.persona?.nombre || '—'}</p>
+          <p><strong>Apellido:</strong> {cliente.persona?.apellido || '—'}</p>
+          <p><strong>DNI:</strong> {cliente.persona?.dni || '—'}</p>
+        </>
       )}
-      <p><strong>DNI/CUIT:</strong> {cliente.persona?.dni || '—'}</p>
+      {isEmpresa && (
+        <>
+          <p><strong>Razón Social:</strong> {cliente.persona?.nombre || '—'}</p>
+          <p><strong>CUIT:</strong> {cliente.persona?.dni || '—'}</p>
+        </>
+      )}
       <p><strong>Email:</strong> {cliente.persona?.email || '—'}</p>
       <p><strong>Teléfono:</strong> {cliente.persona?.telefono || '—'}</p>
-      <p><strong>Fecha de Nacimiento:</strong> {fechaNacimiento}</p>
-      <p>
-        <strong>Provincia:</strong>{" "}
-        {cliente.direccion?.provincia?.nombre || 'Sin provincia'}
-      </p>
-      <p>
-        <strong>Municipio:</strong>{" "}
-        {cliente.direccion?.municipio?.nombre || 'Sin municipio'}
-      </p>
-      <p>
-        <strong>Calle:</strong>{" "}
-        {cliente.direccion?.calle?.nombre || 'Sin calle'}
-      </p>
-      <p>
-        <strong>Altura:</strong>{" "}
-        {cliente.direccion?.altura ?? 'Sin altura'}
-      </p>
-
+      {isPersona && (
+        <p><strong>Fecha de Nacimiento:</strong> {fechaNacimiento}</p>
+      )}
+      <hr />
+      <h4 className="text-primary">Direccion</h4>
+      <p><strong>Provincia:</strong> {dir.provincia?.nombre || 'Sin provincia'}</p>
+      <p><strong>Municipio:</strong> {dir.municipio?.nombre || 'Sin municipio'}</p>
+      <p><strong>Calle:</strong> {dir.calle?.nombre || 'Sin calle'}</p>
+      <p><strong>Altura:</strong> {dir.altura ?? 'Sin altura'}</p>
+      <p><strong>Código Postal:</strong> {dir.codigo_postal || '—'}</p>
+      <p><strong>N° Casa:</strong> {dir.n_casa || '—'}</p>
+      <p><strong>Piso:</strong> {dir.n_piso || '—'}</p>
+      <p><strong>Depto:</strong> {dir.n_departamento || '—'}</p>
+      <p><strong>¿Es esquina?:</strong> {dir.es_esquina ? 'Sí' : 'No'}</p>
+      {dir.es_esquina && (
+        <p><strong>Calle Esquina:</strong> {dir.calle_esquina?.nombre || '—'}</p>
+      )}
+      <p><strong>Referencia:</strong> {dir.referencia || '—'}</p>
       <div className="d-flex mt-3">
         <CustomButton
           variant="warning"
