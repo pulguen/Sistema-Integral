@@ -38,6 +38,14 @@ const CajaHome = () => {
     );
   }, []);
 
+
+
+
+
+
+
+  
+
   // Volver a cero la calculadora
   const handleResetCalculadora = useCallback(() => {
     setRecibosAProcesar([]);
