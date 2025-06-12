@@ -185,7 +185,7 @@ const ArqueoCaja = () => {
       </Breadcrumb>
 
       <h2 className="text-center mb-4 text-primary">Cierre de Caja</h2>
-      <p>Genera el cierre de caja correspondiente a la fecha actual.</p>
+      <h5 className="text-center mb-4 text-primary">Genera el cierre de caja correspondiente a la fecha actual.</h5>
 
       {/* Mostramos resumen de recibos pagados hoy */}
       <RecibosProcesadosHoy

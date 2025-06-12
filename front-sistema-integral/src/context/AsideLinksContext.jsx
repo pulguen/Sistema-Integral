@@ -155,7 +155,7 @@ export const AsideLinksProvider = ({ children }) => {
               size="1x"
               className="me-2"
             />
-            Arqueo
+            Arqueo diario
           </>
         )
       },

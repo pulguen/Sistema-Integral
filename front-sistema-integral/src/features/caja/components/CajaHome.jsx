@@ -152,15 +152,32 @@ data.forEach(recibo => {
 
   // Cobrar un recibo
   const handleCobrarRecibo = useCallback(async (n_recibo) => {
-    try {
-      await pagarRecibo(n_recibo);
-      Swal.fire('Cobrado!', `Recibo ${n_recibo} cobrado con éxito.`, 'success');
-      // Opcional: actualizar el estado o refrescar la lista
-    } catch (err) {
-      console.error("Error al cobrar recibo:", err);
-      Swal.fire('Error', error || 'Error al cobrar el recibo.', 'error');
+    const result = await Swal.fire({
+      title: "Confirmar cobro",
+      text: `¿Seguro que deseas cobrar el recibo N° ${n_recibo}? Esta acción es irreversible.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cobrar",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        confirmButton: 'btn btn-success mx-2',
+        cancelButton: 'btn btn-secondary mx-2'
+      },
+      buttonsStyling: false,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await pagarRecibo(n_recibo);
+        Swal.fire('Cobrado!', `Recibo ${n_recibo} cobrado con éxito.`, 'success');
+        setResultado(prev => prev.filter(r => r.n_recibo !== n_recibo));
+        fetchRecibosHoy(); // <---- REFRESCA automátic.
+      } catch (err) {
+        console.error("Error al cobrar recibo:", err);
+        Swal.fire('Error', error || 'Error al cobrar el recibo.', 'error');
+      }
     }
-  }, [pagarRecibo, error]);
+  }, [pagarRecibo, error, fetchRecibosHoy]);
 
   // Anular recibo
   const handleAnular = useCallback(async (recibo) => {
@@ -186,13 +203,14 @@ data.forEach(recibo => {
         });
         setResultado(prev => prev.filter(r => r.id !== recibo.id));
         setRecibosHoy(prev => prev.filter(r => r.id !== recibo.id));
+        fetchRecibosHoy(); // <---- REFRESCA automátic.
         Swal.fire("Recibo Anulado", "El recibo fue anulado correctamente.", "success");
       } catch (err) {
         console.error("Error al anular recibo:", err);
         Swal.fire("Error", "No se pudo anular el recibo.", "error");
       }
     }
-  }, []);
+  }, [fetchRecibosHoy]);
 
   // Quitar un recibo del resultado (no de la calculadora)
   const handleQuitarRecibo = useCallback((reciboId) => {
