@@ -12,7 +12,6 @@ import {
   OverlayTrigger,
   Tooltip,
   Spinner,
-  Badge,
 } from "react-bootstrap";
 import Swal from "sweetalert2";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
@@ -283,18 +282,6 @@ useEffect(() => {
         Filter: DefaultColumnFilter,
         Cell: ({ value }) =>
           value ? new Date(value).toLocaleDateString() : "N/A",
-      },
-      {
-        Header: "Estado",
-        id: "estado",
-        disableSortBy: true,
-        disableFilters: true,
-        Cell: ({ row }) =>
-          row.original.f_pago ? (
-            <Badge bg="success">Pagado</Badge>
-          ) : (
-            <Badge bg="danger">Impago</Badge>
-          ),
       },
       {
         Header: "Acciones",

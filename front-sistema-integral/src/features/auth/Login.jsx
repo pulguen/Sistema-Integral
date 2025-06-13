@@ -105,7 +105,7 @@ export default function LoginForm() {
                   </Alert>
                 )}
 
-                <Form onSubmit={handleSubmit}>
+                <Form onSubmit={handleSubmit} autoComplete='off'>
                   <Form.Group className="mb-3" controlId="formEmail">
                     <Form.Label>Correo Electrónico</Form.Label>
                     <InputGroup>
@@ -116,6 +116,8 @@ export default function LoginForm() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        autoComplete="off"
+                        name="usuario_acceso"
                       />
                     </InputGroup>
                   </Form.Group>

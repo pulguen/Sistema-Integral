@@ -3,6 +3,7 @@ import { Card, Spinner } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import { FaSyncAlt } from 'react-icons/fa';
 import CommonTable from '../../../components/common/table/table.jsx';
+import ResumenTotalesRecibosHoy from './ResumenTotalesRecibosHoy';
 
 const RecibosProcesadosHoy = ({
   recibosHoy,
@@ -62,6 +63,8 @@ const RecibosProcesadosHoy = ({
             </CustomButton>
           )}
         </div>
+
+        <ResumenTotalesRecibosHoy recibosHoy={recibosHoy} />
         {loadingRecibosHoy ? (
           <div className="text-center">
             <Spinner animation="border" role="status">

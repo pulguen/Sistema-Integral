@@ -12,7 +12,6 @@ import {
   Form,
   OverlayTrigger,
   Tooltip,
-  Badge,
 } from "react-bootstrap";
 import Swal from "sweetalert2";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
@@ -269,16 +268,7 @@ const RecibosHistorial = () => {
         Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A"
       },
       { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
-      {
-        Header: "Estado",
-        id: "estado",
-        Cell: ({ row }) =>
-          row.original.f_pago ? (
-            <Badge bg="success">Pagado</Badge>
-          ) : (
-            <Badge bg="danger">Impago</Badge>
-          ),
-      },
+
       {
         Header: "Acciones",
         id: "acciones",

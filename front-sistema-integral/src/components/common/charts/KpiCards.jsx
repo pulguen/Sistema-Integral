@@ -1,24 +1,25 @@
 // src/components/common/charts/KpiCards.jsx
 import React from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
+import formatNumber from '../../../utils/formatNumber';
 
 const KpiCards = React.memo(({ totalPeriodos, totalIngresos, promedioMensual }) => {
   const kpis = [
     {
       title: 'Total de Periodos',
-      value: totalPeriodos,
+      value: formatNumber(totalPeriodos, { decimals: 0 }),
       bg: 'primary',
       icon: '📈',
     },
     {
       title: 'Total Importes Generados (AR$)',
-      value: parseFloat(totalIngresos).toFixed(2),
+      value: formatNumber(totalIngresos), // formato argentino con decimales
       bg: 'success',
       icon: '💰',
     },
     {
       title: 'Promedio Mensual',
-      value: parseFloat(promedioMensual).toFixed(2),
+      value: formatNumber(promedioMensual), // formato argentino con decimales
       bg: 'warning',
       icon: '📊',
     },

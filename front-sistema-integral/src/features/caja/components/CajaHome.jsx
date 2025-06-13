@@ -36,15 +36,7 @@ const CajaHome = () => {
         ? prev
         : [...prev, nuevoRecibo]
     );
-  }, []);
-
-
-
-
-
-
-
-  
+  }, []);  
 
   // Volver a cero la calculadora
   const handleResetCalculadora = useCallback(() => {
