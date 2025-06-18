@@ -1,5 +1,4 @@
-// HistorialCaja.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Breadcrumb, Form, Row, Col, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -29,51 +28,33 @@ const HistorialCaja = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
 
-const fetchHistorialRecibos = useCallback(async () => {
-  setLoading(true);
-  try {
-    let allData = [];
-    let page = 1;
-
-    while (true) {
-      const response = await customFetch(`/recibos?page=${page}`);
-      console.log("respuesta",response);
-      const pageData = response?.data?.data || [];
-
-      console.log(`→ Página ${page} cargada, registros:`, pageData.length);
-
-      if (pageData.length === 0) break;
-
-      allData = [...allData, ...pageData];
-      page++;
-    }
-
-    console.log('TOTAL antes de filtrar:', allData.length);
-
-    const historial = allData
-      .filter(r => r.f_pago !== null && r.condicion_pago !== null)
-      .sort((a, b) => new Date(b.f_pago) - new Date(a.f_pago));
-
-    console.log('TOTAL después del filtro:', historial.length);
-    setRecibos(historial);
-  } catch (error) {
-    console.error("Error al obtener el historial de recibos:", error);
-    Swal.fire('Error', 'Error al obtener el historial de recibos.', 'error');
-  } finally {
-    setLoading(false);
-  }
-}, []);
-
-
   useEffect(() => {
+    const fetchHistorialRecibos = async () => {
+      setLoading(true);
+      try {
+        const response = await customFetch(`/recibos`);
+        // La respuesta es { data: Array }
+        const allData = response?.data || [];
+        // Filtra solo pagados
+        const historial = allData
+          .filter(r => r.condicion_pago_id === 1)
+          .sort((a, b) => new Date(b.f_pago || b.f_vencimiento) - new Date(a.f_pago || a.f_vencimiento));
+        setRecibos(historial);
+      } catch (error) {
+        console.error("Error al obtener el historial de recibos:", error);
+        Swal.fire('Error', 'Error al obtener el historial de recibos.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchHistorialRecibos();
-  }, [fetchHistorialRecibos]);
+  }, [filtroCliente, filtroCajero, filtroFechaDesde, filtroFechaHasta]);
 
   const filteredRecibos = useMemo(() => recibos.filter((r) => {
     let pass = true;
-    if (filtroRecibo) pass = pass && r.n_recibo.toString().includes(filtroRecibo);
-    if (filtroFechaDesde) pass = pass && new Date(r.f_pago) >= new Date(filtroFechaDesde);
-    if (filtroFechaHasta) pass = pass && new Date(r.f_pago) <= new Date(filtroFechaHasta);
+    if (filtroRecibo) pass = pass && r.n_recibo?.toString().includes(filtroRecibo);
+    if (filtroFechaDesde) pass = pass && r.f_pago && new Date(r.f_pago) >= new Date(filtroFechaDesde);
+    if (filtroFechaHasta) pass = pass && r.f_pago && new Date(r.f_pago) <= new Date(filtroFechaHasta);
     if (filtroImporteMin) pass = pass && r.i_total >= parseFloat(filtroImporteMin);
     if (filtroImporteMax) pass = pass && r.i_total <= parseFloat(filtroImporteMax);
     if (filtroCliente) pass = pass && r.cliente_id?.toString().includes(filtroCliente);
@@ -81,17 +62,10 @@ const fetchHistorialRecibos = useCallback(async () => {
     return pass;
   }), [recibos, filtroRecibo, filtroFechaDesde, filtroFechaHasta, filtroImporteMin, filtroImporteMax, filtroCliente, filtroCajero]);
 
-  const totalPages = Math.ceil(filteredRecibos.length / pageSize);
-
   const currentPageData = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredRecibos.slice(start, start + pageSize);
   }, [filteredRecibos, pageIndex, pageSize]);
-
-  const fetchPage = useCallback(({ page, per_page }) => {
-    setPageIndex(page - 1);
-    setPageSize(per_page);
-  }, []);
 
   const resetFilters = () => {
     setFiltroRecibo('');
@@ -101,6 +75,7 @@ const fetchHistorialRecibos = useCallback(async () => {
     setFiltroImporteMax('');
     setFiltroCliente('');
     setFiltroCajero('');
+    setPageIndex(0);
   };
 
   const handleVerDetalle = (recibo) => {
@@ -207,11 +182,11 @@ const fetchHistorialRecibos = useCallback(async () => {
           <CommonTable
             columns={columns}
             data={currentPageData}
-            fetchData={fetchPage}
-            controlledPageCount={totalPages}
             initialPageIndex={pageIndex}
             initialPageSize={pageSize}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageChange={setPageIndex}
+            onPageSizeChange={setPageSize}
           />
         )}
       </Card.Body>
