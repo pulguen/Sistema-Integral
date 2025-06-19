@@ -7,6 +7,7 @@ import CommonTable from "../../../components/common/table/table.jsx";
 import CustomButton from "../../../components/common/botons/CustomButton.jsx";
 import { AuthContext } from "../../../context/AuthContext";
 import { formatDateToDMY } from "../../../utils/dateUtils.js";
+import DetalleCierreModal from "../../../components/common/modals/DetalleCierreModal";
 
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -25,6 +26,14 @@ const ArqueoCaja = () => {
   const [loadingList, setLoadingList] = useState(false);
   const [recibosHoy, setRecibosHoy] = useState([]);
   const [loadingRecibosHoy, setLoadingRecibosHoy] = useState(false);
+
+  // Estados para el modal de detalle
+  const [showDetalleModal, setShowDetalleModal] = useState(false);
+  const [detalleCierre, setDetalleCierre] = useState(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [detalleError, setDetalleError] = useState("");
+
+  // --- FUNCIONES DE ARQUEO ---
 
   const handleCierreCaja = async () => {
     setLoading(true);
@@ -127,6 +136,31 @@ const ArqueoCaja = () => {
     fetchRecibosHoy();
   }, [fetchCierresList, fetchRecibosHoy]);
 
+  // --- FUNCIONES DE DETALLE DE CIERRE ---
+
+  const fetchDetalleCierre = async (id) => {
+    setLoadingDetalle(true);
+    setDetalleCierre(null);
+    setDetalleError("");
+    try {
+      const response = await customFetch(`/cierres/${id}`, "GET");
+      setDetalleCierre(response?.data || response);
+      setShowDetalleModal(true);
+    } catch (error) {
+      setDetalleError("No se pudo obtener el detalle del cierre.");
+      setShowDetalleModal(true);
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
+  const handleCloseDetalle = () => {
+    setShowDetalleModal(false);
+    setDetalleCierre(null);
+    setDetalleError("");
+  };
+
+  // --- COLUMNAS PARA CommonTable ---
   const columns = useMemo(() => [
     { Header: "ID", accessor: "id" },
     {
@@ -170,8 +204,23 @@ const ArqueoCaja = () => {
       accessor: "i_total",
       Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
     },
+    // --- COLUMNA DE ACCIÓN ---
+    {
+      Header: "Acción",
+      id: "detalle",
+      Cell: ({ row }) => (
+        <CustomButton
+          variant="outline-primary"
+          size="sm"
+          onClick={() => fetchDetalleCierre(row.original.id)}
+        >
+          Ver Detalle
+        </CustomButton>
+      )
+    }
   ], []);
 
+  // --- RENDER ---
   return (
     <Card className="p-4 mt-4">
       <Breadcrumb>
@@ -262,6 +311,15 @@ const ArqueoCaja = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Detalle de Cierre */}
+      <DetalleCierreModal
+        show={showDetalleModal}
+        onHide={handleCloseDetalle}
+        loading={loadingDetalle}
+        detalle={detalleCierre}
+        error={detalleError}
+      />
     </Card>
   );
 };

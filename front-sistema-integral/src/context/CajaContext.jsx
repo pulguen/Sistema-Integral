@@ -6,6 +6,7 @@ export const CajaContext = createContext();
 export const CajaProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [detalleCierre, setDetalleCierre] = useState(null);
 
   const buscarRecibo = useCallback(async (busqueda) => {
     setLoading(true);
@@ -47,11 +48,28 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
+  const fetchDetalleCierre = useCallback(async (id) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const response = await customFetch(`/cierres/${id}`, "GET");
+    setDetalleCierre(response?.data || response);
+    return response?.data || response;
+  } catch (err) {
+    setError("Error al obtener el detalle del cierre.");
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
   return (
     <CajaContext.Provider
       value={{
         buscarRecibo,
         pagarRecibo,
+        fetchDetalleCierre,
+        detalleCierre,
         loading,
         error
       }}

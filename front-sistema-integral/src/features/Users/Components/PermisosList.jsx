@@ -169,7 +169,7 @@ export default function PermisosList() {
                       label={
                         <>
                           <strong>{permiso.description}</strong>
-                          <small className="text-muted ms-2">
+                          <small className="ms-2">
                             {permiso.name || 'Sin descripción'}
                           </small>
                         </>
