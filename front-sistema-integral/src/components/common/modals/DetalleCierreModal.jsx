@@ -1,11 +1,19 @@
 import React, { useRef } from "react";
 import { Modal, Button, Spinner, Table, Alert } from "react-bootstrap";
 import { formatDateToDMY } from "../../../utils/dateUtils";
+import formatNumber from "../../../utils/formatNumber";
 
-const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
+const DetalleCierreModal = ({
+  show,
+  onHide,
+  loading,
+  detalle,
+  error,
+  loadingDetalle, // RECIBE EL ESTADO DE LOADING DEL PADRE
+}) => {
   const printRef = useRef();
 
-  // Normaliza la respuesta: primer elemento es el cierre, el segundo el status
+  // Normaliza la respuesta
   const cierre =
     Array.isArray(detalle) && detalle.length > 0 && typeof detalle[0] === "object"
       ? detalle[0]
@@ -25,6 +33,12 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
               @page { size: A4 landscape; margin: 10mm; }
               body { font-family: Arial, sans-serif; font-size: 9pt; }
               h2, h5 { margin: 0 0 6px; font-size: 12pt; }
+              .print-logo {
+                display: block;
+                margin: 0 0 8px 0;
+                width: 90px;
+                float: left;
+              }
               .print-resumen-table td { border: none !important; padding: 2px 4px; }
               .print-table {
                 border: none !important;
@@ -49,9 +63,9 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
               .text-success { color: #2ca44a; font-weight: bold; }
               .text-primary { color: #004085; }
             }
-            /* Para la vista normal, usa Bootstrap */
             @media screen {
               .print-table { font-size: 1rem; }
+              .print-logo { width: 90px; }
             }
           </style>
         </head>
@@ -60,14 +74,28 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
         </body>
       </html>
     `);
+
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+
+    const img = printWindow.document.querySelector('img');
+    if (img) {
+      img.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      };
+      if (img.complete) {
+        img.onload();
+      }
+    } else {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton>
         <Modal.Title>Detalle del Cierre</Modal.Title>
       </Modal.Header>
@@ -81,12 +109,20 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
             <Alert variant="danger">{error}</Alert>
           ) : cierre ? (
             <>
-              <div className="mb-2">
-                <h2 className="text-center text-primary">Municipalidad de Zapala</h2>
-                <h5 className="text-center">Cierre de Caja N° {cierre.id}</h5>
-                <p className="text-center print-muted" style={{marginBottom: 0}}>
-                  Fecha: {formatDateToDMY(cierre.f_cierre)}
-                </p>
+              <div className="mb-2 d-flex align-items-center">
+                <img
+                  src="/EscudoZapala.png"
+                  alt="Escudo Municipalidad de Zapala"
+                  className="print-logo"
+                  style={{ width: 90, marginBottom: 10 }}
+                />
+                <div className="flex-grow-1 text-center">
+                  <h2 className="text-primary">Municipalidad de Zapala</h2>
+                  <h5>Cierre de Caja N° {cierre.id}</h5>
+                  <p className="print-muted" style={{ marginBottom: 0 }}>
+                    Fecha: {formatDateToDMY(cierre.f_cierre)}
+                  </p>
+                </div>
               </div>
 
               <h5 className="mb-2 mt-2 text-primary">Resumen</h5>
@@ -96,20 +132,20 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
                     <td className="label">Total Recibos</td>
                     <td>{cierre.t_recibos}</td>
                     <td className="label">Débito</td>
-                    <td>$ {parseFloat(cierre.i_debito).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                    <td>$ {formatNumber(cierre.i_debito)}</td>
                   </tr>
                   <tr>
                     <td className="label">Crédito</td>
-                    <td>$ {parseFloat(cierre.i_credito).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                    <td>$ {formatNumber(cierre.i_credito)}</td>
                     <td className="label">Recargo</td>
-                    <td>$ {parseFloat(cierre.i_recargo).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                    <td>$ {formatNumber(cierre.i_recargo)}</td>
                   </tr>
                   <tr>
                     <td className="label">Descuento</td>
-                    <td>$ {parseFloat(cierre.i_descuento).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                    <td>$ {formatNumber(cierre.i_descuento)}</td>
                     <td className="label">Total</td>
                     <td className="text-success">
-                      $ {parseFloat(cierre.i_total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                      $ {formatNumber(cierre.i_total)}
                     </td>
                   </tr>
                   <tr>
@@ -123,15 +159,20 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
 
               <h5 className="mb-2 mt-4 text-primary">Recibos Procesados</h5>
               {detalles.length > 0 ? (
-                <table className="print-table" style={{width:'100%'}}>
+                <table className="print-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
                       <th>N° Recibo</th>
                       <th>Cuenta</th>
-                      <th>Importe</th>
+                      <th>Imp. Original</th>
+                      <th>Descuento</th>
+                      <th>Recargo</th>
+                      <th>Cred</th>
+                      <th>Total</th>
                       <th>Cliente</th>
                       <th>Servicio</th>
                       <th>Cajero</th>
+                      <th>Emisor</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -139,16 +180,23 @@ const DetalleCierreModal = ({ show, onHide, loading, detalle, error }) => {
                       <tr key={d.id}>
                         <td>{d.n_recibo}</td>
                         <td>{d.n_cuenta}</td>
-                        <td>$ {parseFloat(d.importe).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                        <td>$ {formatNumber(d.recibo.i_debito)}</td>
+                        <td>$ {formatNumber(d.recibo.i_descuento)}</td>
+                        <td>$ {formatNumber(d.recibo.i_recargo)}</td>
+                        <td>$ {formatNumber(d.recibo.i_credito)}</td>
+                        <td>$ {formatNumber(d.importe)}</td>
                         <td>
                           {d.recibo?.cliente?.clientable?.nombre || ""}{" "}
                           {d.recibo?.cliente?.clientable?.apellido || ""}
                         </td>
                         <td>
-                          {d.recibo?.detalles?.[0]?.cuenta?.servicio?.nombre || "-"}
+                          {d.recibo?.detalles?.[0]?.cuenta?.tributo?.nombre || "-"}
                         </td>
                         <td>
                           {d.recibo?.cajero?.name || "-"}
+                        </td>
+                        <td>
+                          {d.recibo?.emisor?.name || "-"}
                         </td>
                       </tr>
                     ))}

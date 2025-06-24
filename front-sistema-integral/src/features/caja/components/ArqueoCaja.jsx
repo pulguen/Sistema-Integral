@@ -8,6 +8,7 @@ import CustomButton from "../../../components/common/botons/CustomButton.jsx";
 import { AuthContext } from "../../../context/AuthContext";
 import { formatDateToDMY } from "../../../utils/dateUtils.js";
 import DetalleCierreModal from "../../../components/common/modals/DetalleCierreModal";
+import formatNumber from "../../../utils/formatNumber.js";
 
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -144,6 +145,7 @@ const ArqueoCaja = () => {
     setDetalleError("");
     try {
       const response = await customFetch(`/cierres/${id}`, "GET");
+      console.log("DETALLE CIERRE RAW:", response);
       setDetalleCierre(response?.data || response);
       setShowDetalleModal(true);
     } catch (error) {
@@ -178,31 +180,31 @@ const ArqueoCaja = () => {
       accessor: "updated_at",
       Cell: ({ value }) => formatDateToDMY(value),
     },
-    { Header: "Total de Recibos", accessor: "t_recibos" },
+    { Header: "N° Recibos", accessor: "t_recibos" },
     {
       Header: "Débito",
       accessor: "i_debito",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
     {
       Header: "Crédito",
       accessor: "i_credito",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
     {
       Header: "Recargo",
       accessor: "i_recargo",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
     {
       Header: "Descuento",
       accessor: "i_descuento",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
     {
       Header: "Total",
       accessor: "i_total",
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`,
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
     // --- COLUMNA DE ACCIÓN ---
     {
