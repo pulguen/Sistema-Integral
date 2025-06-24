@@ -33,12 +33,33 @@ const HistorialCaja = () => {
       setLoading(true);
       try {
         const response = await customFetch(`/recibos`);
-        // La respuesta es { data: Array }
         const allData = response?.data || [];
-        // Filtra solo pagados
+        // Log para chequear los datos crudos
+        console.log('📦 Datos crudos de recibos:', allData);
+
+        // Solo los pagados
         const historial = allData
           .filter(r => r.condicion_pago_id === 1)
-          .sort((a, b) => new Date(b.f_pago || b.f_vencimiento) - new Date(a.f_pago || a.f_vencimiento));
+          .sort((a, b) => new Date(b.f_pago || b.f_vencimiento) - new Date(a.f_pago || a.f_vencimiento))
+          .map(r => {
+            // Nombre cliente
+            let clienteNombre = '';
+            if (r.cliente && r.cliente.clientable) {
+              const { nombre, apellido } = r.cliente.clientable;
+              clienteNombre = [nombre, apellido].filter(Boolean).join(' ').trim();
+            }
+            // Nombre cajero
+            let cajeroNombre = '';
+            if (r.cajero && r.cajero.name) {
+              cajeroNombre = r.cajero.name;
+            }
+            return {
+              ...r,
+              cliente_nombre: clienteNombre,
+              cajero_nombre: cajeroNombre,
+            };
+          });
+
         setRecibos(historial);
       } catch (error) {
         console.error("Error al obtener el historial de recibos:", error);
@@ -48,7 +69,7 @@ const HistorialCaja = () => {
       }
     };
     fetchHistorialRecibos();
-  }, [filtroCliente, filtroCajero, filtroFechaDesde, filtroFechaHasta]);
+  }, []);
 
   const filteredRecibos = useMemo(() => recibos.filter((r) => {
     let pass = true;
@@ -57,8 +78,8 @@ const HistorialCaja = () => {
     if (filtroFechaHasta) pass = pass && r.f_pago && new Date(r.f_pago) <= new Date(filtroFechaHasta);
     if (filtroImporteMin) pass = pass && r.i_total >= parseFloat(filtroImporteMin);
     if (filtroImporteMax) pass = pass && r.i_total <= parseFloat(filtroImporteMax);
-    if (filtroCliente) pass = pass && r.cliente_id?.toString().includes(filtroCliente);
-    if (filtroCajero) pass = pass && r.cajero_id?.toString().includes(filtroCajero);
+    if (filtroCliente) pass = pass && r.cliente_nombre?.toLowerCase().includes(filtroCliente.toLowerCase());
+    if (filtroCajero) pass = pass && r.cajero_nombre?.toLowerCase().includes(filtroCajero.toLowerCase());
     return pass;
   }), [recibos, filtroRecibo, filtroFechaDesde, filtroFechaHasta, filtroImporteMin, filtroImporteMax, filtroCliente, filtroCajero]);
 
@@ -96,6 +117,14 @@ const HistorialCaja = () => {
       Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
     },
     {
+      Header: 'Cliente',
+      accessor: 'cliente_nombre'
+    },
+    {
+      Header: 'Cajero',
+      accessor: 'cajero_nombre'
+    },
+    {
       Header: 'Acciones',
       accessor: 'acciones',
       disableSortBy: true,
@@ -122,47 +151,47 @@ const HistorialCaja = () => {
       <Card.Body>
         <Form className="mb-4">
           <Row>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="filtroRecibo">
                 <Form.Label>N° Recibo</Form.Label>
                 <Form.Control type="text" value={filtroRecibo} onChange={(e) => setFiltroRecibo(e.target.value)} />
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="filtroFechaDesde">
                 <Form.Label>Fecha Desde</Form.Label>
                 <Form.Control type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} />
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="filtroFechaHasta">
                 <Form.Label>Fecha Hasta</Form.Label>
                 <Form.Control type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} />
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="filtroImporteMin">
                 <Form.Label>Importe Mínimo</Form.Label>
                 <Form.Control type="number" value={filtroImporteMin} onChange={(e) => setFiltroImporteMin(e.target.value)} />
               </Form.Group>
             </Col>
-          </Row>
-          <Row className="mt-3">
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group controlId="filtroImporteMax">
                 <Form.Label>Importe Máximo</Form.Label>
                 <Form.Control type="number" value={filtroImporteMax} onChange={(e) => setFiltroImporteMax(e.target.value)} />
               </Form.Group>
             </Col>
+          </Row>
+          <Row className="mt-3">
             <Col md={3}>
               <Form.Group controlId="filtroCliente">
-                <Form.Label>Cliente (ID)</Form.Label>
+                <Form.Label>Cliente (Nombre o Razón Social)</Form.Label>
                 <Form.Control type="text" value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)} />
               </Form.Group>
             </Col>
             <Col md={3}>
               <Form.Group controlId="filtroCajero">
-                <Form.Label>Cajero (ID)</Form.Label>
+                <Form.Label>Cajero (Nombre)</Form.Label>
                 <Form.Control type="text" value={filtroCajero} onChange={(e) => setFiltroCajero(e.target.value)} />
               </Form.Group>
             </Col>
