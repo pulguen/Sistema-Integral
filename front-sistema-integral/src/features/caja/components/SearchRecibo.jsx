@@ -34,6 +34,11 @@ const SearchRecibo = ({
 
   const toggleBusquedaManual = () => setBusquedaManual(v => !v);
 
+  const cobrarDisabled = !puedenCobrarSeleccionados || cajaCerrada;
+  let cobrarTooltip = '';
+  if (cajaCerrada) cobrarTooltip = 'La caja ya fue cerrada por hoy.';
+  else if (!puedenCobrarSeleccionados) cobrarTooltip = 'No hay recibos seleccionados disponibles para cobrar.';
+
   return (
     <>
       <h6><strong>Tipo de búsqueda</strong></h6>
@@ -111,16 +116,24 @@ const SearchRecibo = ({
           <FaSearch className="me-2" />
           {loading ? 'Buscando...' : 'Buscar Recibo'}
         </CustomButton>
-        <CustomButton
-          variant="success"
-          onClick={onCobrarSeleccionados}
-          disabled={!puedenCobrarSeleccionados || cajaCerrada}
+        <OverlayTrigger
+          placement="top"
+          overlay={cobrarDisabled ? <Tooltip>{cobrarTooltip}</Tooltip> : <></>}
         >
-          <FaMoneyCheckAlt className="me-2" />
-          {cantidadRecibos > 1
-            ? `Cobrar ${cantidadRecibos} recibos`
-            : "Cobrar recibo"}
-        </CustomButton>
+          <span>
+            <CustomButton
+              variant="success"
+              onClick={onCobrarSeleccionados}
+              disabled={cobrarDisabled}
+              tabIndex={cobrarDisabled ? -1 : 0}
+            >
+              <FaMoneyCheckAlt className="me-2" />
+              {cantidadRecibos > 1
+                ? `Cobrar ${cantidadRecibos} recibos`
+                : "Cobrar recibo"}
+            </CustomButton>
+          </span>
+        </OverlayTrigger>
         <CustomButton
           variant="danger"
           onClick={handleLimpiar}

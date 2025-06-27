@@ -27,29 +27,22 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-  const pagarRecibo = useCallback(async (n_recibo) => {
+  // Pagar uno o muchos recibos SIEMPRE por /recibos/pagar
+  const pagarRecibo = useCallback(async (recibos) => {
     setLoading(true);
     try {
-      const payload = { recibo: Number(n_recibo) };
+      // Si recibos no es array, lo hago array
+      let payload;
+      if (Array.isArray(recibos)) {
+        payload = { recibos };
+      } else {
+        payload = { recibos: [Number(recibos)] };
+      }
       const response = await customFetch("/recibos/pagar", "POST", payload);
       setError(null);
       return response;
     } catch (err) {
-      setError("Error al pagar el recibo.");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const pagarMuchosRecibos = useCallback(async (recibos) => {
-    setLoading(true);
-    try {
-      const response = await customFetch("/recibos/pagar-muchos", "POST", { recibos });
-      setError(null);
-      return response;
-    } catch (err) {
-      setError("Error al cobrar los recibos.");
+      setError("Error al cobrar el/los recibos.");
       throw err;
     } finally {
       setLoading(false);
@@ -71,7 +64,7 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-  // NUEVO: chequea si hay cierre de hoy
+  // Chequea si hay cierre de hoy
   const fetchEstadoCajaCerrada = useCallback(async () => {
     try {
       const response = await customFetch("/cierres", "GET");
@@ -83,7 +76,6 @@ export const CajaProvider = ({ children }) => {
       }
       const hoy = new Date().toISOString().split('T')[0];
       const cerradoHoy = lista.some(cierre => {
-        // Adaptá el campo si no es f_cierre
         const fCierre = cierre.f_cierre ? cierre.f_cierre.slice(0, 10) : null;
         return fCierre === hoy;
       });
@@ -99,8 +91,7 @@ export const CajaProvider = ({ children }) => {
     <CajaContext.Provider
       value={{
         buscarRecibo,
-        pagarRecibo,
-        pagarMuchosRecibos,
+        pagarRecibo,      // <- el ÚNICO método de cobro
         fetchDetalleCierre,
         detalleCierre,
         cajaCerrada,

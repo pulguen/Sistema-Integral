@@ -12,7 +12,7 @@ import formatNumber from "../../../utils/formatNumber.js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCashRegister, faSyncAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import RecibosProcesadosHoy from "./RecibosProcesadosHoy";
-import {formatDateOnlyDMY} from "../../../utils/dateUtils.js";
+import { formatDateOnlyDMY } from "../../../utils/dateUtils.js";
 
 const ArqueoCaja = () => {
   const { user } = useContext(AuthContext);
@@ -29,6 +29,14 @@ const ArqueoCaja = () => {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
   const [cajaCerradaHoy, setCajaCerradaHoy] = useState(false);
+  const [detalleCargandoId, setDetalleCargandoId] = useState(null);
+
+
+  // Set de fechas que ya tienen cierre (YYYY-MM-DD)
+  const fechasCerradasSet = useMemo(() =>
+    new Set(cierresList.map(c => (c.f_cierre || '').slice(0, 10))),
+    [cierresList]
+  );
 
   // Función para saber si existe cierre de hoy
   const verificarCajaCerradaHoy = useCallback((cierres) => {
@@ -36,57 +44,97 @@ const ArqueoCaja = () => {
     return cierres.some(cierre => (cierre.f_cierre || '').slice(0, 10) === hoy);
   }, []);
 
-  const handleCierreCaja = async () => {
-    setLoading(true);
-    try {
-      const response = await customFetch("/cierres", "POST");
-      setCierre(response);
+const handleCierreCaja = async (fecha) => {
+  setLoading(true);
+  try {
+    const response = await customFetch("/cierres", "POST", { fecha: fecha });
+    setCierre(response);
+    Swal.fire({
+      icon: "success",
+      title: "Cierre generado correctamente",
+      text: `Cierre creado para el día ${formatDateToDMY(response.f_cierre)}`,
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true,
+    });
+    fetchCierresList();
+    fetchRecibosHoy();
+  } catch (error) {
+    let errorString = "";
+    if (typeof error === "string") errorString = error;
+    else if (error.error) errorString = error.error;
+    else if (error.body) errorString = error.body;
+    else if (error.message) errorString = error.message;
+
+    // Si el error es por falta de recibos en esa fecha
+    if (
+      errorString &&
+      errorString.includes("No existen recibos con fecha de pago")
+    ) {
       Swal.fire({
-        icon: "success",
-        title: "Cierre generado correctamente",
-        text: `Cierre creado para el día ${formatDateToDMY(response.f_cierre)}`,
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true,
+        icon: "error",
+        title: "No se puede generar el cierre",
+        text:
+          "No existen recibos con fecha de pago para la fecha seleccionada. No es posible generar el cierre de caja para ese día.",
       });
-      fetchCierresList();
-      fetchRecibosHoy();
-    } catch (error) {
-      let errorString = "";
-      if (typeof error === "string") errorString = error;
-      else if (error.error) errorString = error.error;
-      else if (error.body) errorString = error.body;
-      else if (error.message) errorString = error.message;
-
-      if (errorString.includes("Duplicate entry")) {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Ya se ha generado el cierre de caja para el día de hoy.",
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "No se pudo generar el cierre de caja.",
-        });
-      }
-    } finally {
-      setLoading(false);
+      // IMPORTANTE: return aquí para que no caiga en más alertas
+      return;
     }
-  };
 
+    // Si el error es por cierre duplicado (esto ya lo tenías)
+    if (errorString.includes("Duplicate entry")) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Ya se ha generado el cierre de caja para el día seleccionado.",
+      });
+      return;
+    }
+
+    // Para cualquier otro error
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo generar el cierre de caja.",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // Modal de confirmación con selector de fecha y validación de cierres previos
   const handleConfirmCierre = () => {
+    const hoyISO = new Date().toISOString().slice(0, 10);
+
     Swal.fire({
       title: "¿Confirmás el cierre de caja?",
-      text: "Esta acción no puede deshacerse. Se generará un cierre para el día actual.",
-      icon: "warning",
+      html: `
+        <label for="fechaCierreInput" style="display:block; margin-bottom:4px;">Fecha de cierre</label>
+        <input id="fechaCierreInput" type="date" class="swal2-input" value="${hoyISO}" max="${hoyISO}" style="width:auto; margin:0 auto 10px auto;" />
+        <div style="font-size:0.93em;color:#555;margin-top:8px;">
+          Esta acción no puede deshacerse.<br>
+          Se generará el cierre para la fecha seleccionada.
+        </div>
+      `,
       showCancelButton: true,
       confirmButtonText: "Sí, generar cierre",
       cancelButtonText: "Cancelar",
+      preConfirm: () => {
+        const fechaElegida = document.getElementById("fechaCierreInput").value;
+        if (!fechaElegida) {
+          Swal.showValidationMessage("Debés seleccionar una fecha de cierre.");
+          return false;
+        }
+        if (fechasCerradasSet.has(fechaElegida)) {
+          Swal.showValidationMessage("Ya existe un cierre para esa fecha. Elegí otra.");
+          return false;
+        }
+        return fechaElegida;
+      }
     }).then((result) => {
-      if (result.isConfirmed) {
-        handleCierreCaja();
+      if (result.isConfirmed && result.value) {
+        handleCierreCaja(result.value);
       }
     });
   };
@@ -101,8 +149,9 @@ const ArqueoCaja = () => {
       } else if (Array.isArray(response)) {
         lista = response;
       }
+      // ORDENAR por fecha DESCENDENTE (más reciente primero)
+      lista.sort((a, b) => new Date(b.f_cierre) - new Date(a.f_cierre));
       setCierresList(lista);
-      // Chequea si hay cierre de hoy
       setCajaCerradaHoy(verificarCajaCerradaHoy(lista));
     } catch (error) {
       Swal.fire("Error", "Error al obtener cierres.", "error");
@@ -138,21 +187,24 @@ const ArqueoCaja = () => {
 
   // --- FUNCIONES DE DETALLE DE CIERRE ---
 
-  const fetchDetalleCierre = async (id) => {
-    setLoadingDetalle(true);
-    setDetalleCierre(null);
-    setDetalleError("");
-    try {
-      const response = await customFetch(`/cierres/${id}`, "GET");
-      setDetalleCierre(response?.data || response);
-      setShowDetalleModal(true);
-    } catch (error) {
-      setDetalleError("No se pudo obtener el detalle del cierre.");
-      setShowDetalleModal(true);
-    } finally {
-      setLoadingDetalle(false);
-    }
-  };
+const fetchDetalleCierre = async (id) => {
+  setDetalleCargandoId(id);
+  setLoadingDetalle(true);
+  setDetalleCierre(null);
+  setDetalleError("");
+  try {
+    const response = await customFetch(`/cierres/${id}`, "GET");
+    setDetalleCierre(response?.data || response);
+    setShowDetalleModal(true);
+  } catch (error) {
+    setDetalleError("No se pudo obtener el detalle del cierre.");
+    setShowDetalleModal(true);
+  } finally {
+    setLoadingDetalle(false);
+    setDetalleCargandoId(null);
+  }
+};
+
 
   const handleCloseDetalle = () => {
     setShowDetalleModal(false);
@@ -205,18 +257,26 @@ const ArqueoCaja = () => {
     },
     {
       Header: "Acción",
-      id: "detalle",
-      Cell: ({ row }) => (
-        <CustomButton
-          variant="outline-primary"
-          size="sm"
-          onClick={() => fetchDetalleCierre(row.original.id)}
-        >
-          Ver Detalle
-        </CustomButton>
+        id: "detalle",
+        Cell: ({ row }) => (
+          <CustomButton
+            variant="outline-primary"
+            size="sm"
+            onClick={() => fetchDetalleCierre(row.original.id)}
+            disabled={detalleCargandoId !== null} // solo uno a la vez
+          >
+            {detalleCargandoId === row.original.id ? (
+              <>
+                <FontAwesomeIcon icon={faSpinner} spin className="me-2" />
+                
+              </>
+            ) : (
+              "Ver Detalle"
+            )}
+          </CustomButton>
       )
     }
-  ], []);
+  ], [detalleCargandoId]);
 
   return (
     <Card className="p-4 mt-4">
@@ -232,7 +292,7 @@ const ArqueoCaja = () => {
 
       <h2 className="text-center mb-4 text-primary">Cierre de Caja</h2>
       <h5 className="text-center mb-4 text-primary">
-        Genera el cierre de caja correspondiente a la fecha actual.
+        Genera el cierre de caja correspondiente a la fecha seleccionada.
       </h5>
 
       {/* ALERTA si la caja de hoy ya está cerrada */}
@@ -256,16 +316,17 @@ const ArqueoCaja = () => {
             <div className="mb-3">
               <FontAwesomeIcon icon={faCashRegister} size="3x" className="text-danger" />
             </div>
-            <h4 className="text-danger">¿Listo para cerrar la caja de hoy?</h4>
+            <h4 className="text-danger">¿Listo para cerrar la caja?</h4>
             <p className="text-muted">
-              Esta acción registrará todos los movimientos realizados hoy. Verificá que no falte ningún cobro.
+              Esta acción registrará todos los movimientos de la fecha que selecciones.
+              Verificá que no falte ningún cobro.
             </p>
             <CustomButton
               variant="danger"
               size="lg"
               className="px-4 py-2 fs-5 fw-bold"
               onClick={handleConfirmCierre}
-              disabled={loading || cajaCerradaHoy}
+              disabled={loading}
             >
               {loading ? (
                 <>

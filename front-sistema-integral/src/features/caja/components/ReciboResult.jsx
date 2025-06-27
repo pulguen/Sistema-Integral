@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, Spinner } from 'react-bootstrap';
+import { Card, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
 import { FaMoneyCheckAlt, FaBan, FaTrashAlt } from 'react-icons/fa';
 import CommonTable from '../../../components/common/table/table.jsx';
@@ -69,6 +69,11 @@ const ReciboResult = ({
         const isAnulado = original.condicion_pago?.nombre.toLowerCase() === 'anulado';
         const isPagado = Boolean(original.f_pago);
 
+        // Tooltip contextual
+        let cobrarTooltip = '';
+        if (cajaCerrada) cobrarTooltip = 'La caja ya fue cerrada por hoy.';
+        else if (loading) cobrarTooltip = 'Espere a que termine el proceso de cobro.';
+
         return (
           <div className="d-flex gap-2">
             {isAnulado ? (
@@ -90,21 +95,44 @@ const ReciboResult = ({
                   </CustomButton>
                 ) : (
                   checkPermission('recibos.pagar') && (
-                    <CustomButton
-                      variant="primary"
-                      onClick={() => handleCobrarRecibo(original.n_recibo)}
-                      disabled={cajaCerrada}
+                    <OverlayTrigger
+                      overlay={
+                        (cajaCerrada || loading)
+                          ? <Tooltip>{cobrarTooltip}</Tooltip>
+                          : <></>
+                      }
                     >
-                      <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
-                      Cobrar
-                    </CustomButton>
+                      <span>
+                        <CustomButton
+                          variant="primary"
+                          onClick={() => handleCobrarRecibo(original.n_recibo)}
+                          disabled={cajaCerrada || loading}
+                          tabIndex={cajaCerrada || loading ? -1 : 0}
+                        >
+                          {loading
+                            ? (
+                                <>
+                                  <Spinner as="span" animation="border" size="sm" className="me-2" />
+                                  Procesando...
+                                </>
+                              )
+                            : (
+                                <>
+                                  <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
+                                  Cobrar
+                                </>
+                              )
+                          }
+                        </CustomButton>
+                      </span>
+                    </OverlayTrigger>
                   )
                 )}
                 {checkPermission('recibos.anular') && (
                   <CustomButton
                     variant="warning"
                     onClick={() => handleAnular(original)}
-                    disabled={isPagado || cajaCerrada}
+                    disabled={isPagado || cajaCerrada || loading}
                   >
                     <FaBan style={{ marginRight: '5px' }} />
                     Anular
@@ -120,7 +148,7 @@ const ReciboResult = ({
         );
       }
     }
-  ], [handleCobrarRecibo, handleAnular, handleQuitarRecibo, checkPermission, cajaCerrada]);
+  ], [handleCobrarRecibo, handleAnular, handleQuitarRecibo, checkPermission, cajaCerrada, loading]);
 
   return (
     resultado && resultado.length > 0 && (

@@ -31,20 +31,26 @@ export const AuthProvider = ({ children }) => {
   // Flag para distinguir arranque (startup) de la aplicación
   const [initialLoad, setInitialLoad] = useState(true);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    localStorage.clear();
+const logout = useCallback(async () => {
+  try {
+    await customFetch('/logout', 'GET', null, false);
+  } catch (error) {
+    console.error('Error en logout:', error);
+  }
+  setToken(null);
+  localStorage.clear();
 
-    setIsAuthenticated(false);
-    setUser({
-      id: null,
-      name: null,
-      roles: [],
-      permissions: [],
-      services: [],
-    });
-    navigate('/login');
-  }, [navigate]);
+  setIsAuthenticated(false);
+  setUser({
+    id: null,
+    name: null,
+    roles: [],
+    permissions: [],
+    services: [],
+  });
+  navigate('/login');
+}, [navigate]);
+
 
   /**
    * Función para obtener los roles, permisos y servicios actualizados del usuario.

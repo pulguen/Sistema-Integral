@@ -40,6 +40,14 @@ const RecibosProcesadosHoy = ({
           ? `${original.cliente.clientable.nombre || ''} ${original.cliente.clientable.apellido || ''}`.trim()
           : "N/A"
     },
+    {
+      Header: "Cajero",
+      accessor: "cajero",
+      Cell: ({ row: { original } }) =>
+        original.cajero
+          ? `${original.cajero.name || original.cajero.nombre || ''} ${original.cajero.apellido || ''}`.trim()
+          : "N/A"
+    },
     { 
       Header: "Fecha de Pago", 
       accessor: "f_pago",

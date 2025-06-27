@@ -11,7 +11,7 @@ import customFetch from '../../../context/CustomFetch';
 import CalculadoraRecibos from './CalculadoraRecibos';
 
 const CajaHome = () => {
-  const { buscarRecibo, pagarRecibo, pagarMuchosRecibos, cajaCerrada, fetchEstadoCajaCerrada, loading, error } = useContext(CajaContext);
+  const { buscarRecibo, pagarRecibo, cajaCerrada, fetchEstadoCajaCerrada, loading, error } = useContext(CajaContext);
   const { user } = useContext(AuthContext);
 
   const hasPermission = useCallback(
@@ -133,6 +133,7 @@ const CajaHome = () => {
     fetchRecibosHoy();
   }, [fetchRecibosHoy]);
 
+  // Cobro individual usando SIEMPRE pagarRecibo
   const handleCobrarRecibo = useCallback(async (n_recibo) => {
     const result = await Swal.fire({
       title: "Confirmar cobro",
@@ -166,6 +167,7 @@ const CajaHome = () => {
     return !r.f_pago && estado !== "anulado" && !vencido;
   });
 
+  // Cobro múltiple usando SIEMPRE pagarRecibo
   const handleCobrarSeleccionados = useCallback(async () => {
     if (recibosAProcesar.length === 0) return;
     const n_recibos = recibosAProcesar.map(r => r.n_recibo);
@@ -188,7 +190,7 @@ const CajaHome = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await pagarMuchosRecibos(n_recibos);
+      await pagarRecibo(n_recibos);
       Swal.fire("¡Cobro realizado!", "Se cobraron los recibos seleccionados.", "success");
       handleResetCalculadora();
       fetchRecibosHoy();
@@ -196,7 +198,7 @@ const CajaHome = () => {
     } catch (err) {
       Swal.fire("Error", error || "No se pudieron cobrar los recibos seleccionados.", "error");
     }
-  }, [recibosAProcesar, pagarMuchosRecibos, handleResetCalculadora, fetchRecibosHoy, setResultado, error]);
+  }, [recibosAProcesar, pagarRecibo, handleResetCalculadora, fetchRecibosHoy, setResultado, error]);
 
   const handleAnular = useCallback(async (recibo) => {
     const result = await Swal.fire({
