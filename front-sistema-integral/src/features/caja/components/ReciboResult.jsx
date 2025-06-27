@@ -1,4 +1,3 @@
-// ReciboResult.jsx
 import React, { useMemo } from 'react';
 import { Card, Spinner } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
@@ -11,7 +10,8 @@ const ReciboResult = ({
   handleCobrarRecibo,
   handleAnular,
   handleQuitarRecibo,
-  hasPermission
+  hasPermission,
+  cajaCerrada
 }) => {
   const checkPermission = useMemo(() => {
     return typeof hasPermission === 'function' ? hasPermission : () => false;
@@ -30,7 +30,7 @@ const ReciboResult = ({
       }
     },
     {
-      Header: "F. Vencimiento",
+      Header: "Vencimiento",
       accessor: "f_vencimiento",
       Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "-"
     },
@@ -49,7 +49,7 @@ const ReciboResult = ({
       Cell: ({ value }) => value?.name || "N/A"
     },
     {
-      Header: "Condición de Pago",
+      Header: "Cond. de Pago",
       accessor: "condicion_pago",
       Cell: ({ value }) => value ? value.nombre : "N/A"
     },
@@ -93,6 +93,7 @@ const ReciboResult = ({
                     <CustomButton
                       variant="primary"
                       onClick={() => handleCobrarRecibo(original.n_recibo)}
+                      disabled={cajaCerrada}
                     >
                       <FaMoneyCheckAlt style={{ marginRight: '5px' }} />
                       Cobrar
@@ -103,7 +104,7 @@ const ReciboResult = ({
                   <CustomButton
                     variant="warning"
                     onClick={() => handleAnular(original)}
-                    disabled={isPagado}
+                    disabled={isPagado || cajaCerrada}
                   >
                     <FaBan style={{ marginRight: '5px' }} />
                     Anular
@@ -119,7 +120,7 @@ const ReciboResult = ({
         );
       }
     }
-  ], [handleCobrarRecibo, handleAnular, handleQuitarRecibo, checkPermission]);
+  ], [handleCobrarRecibo, handleAnular, handleQuitarRecibo, checkPermission, cajaCerrada]);
 
   return (
     resultado && resultado.length > 0 && (

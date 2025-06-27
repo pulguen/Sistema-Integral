@@ -2,32 +2,41 @@ import React, { useState } from 'react';
 import {
   Card,
   Button,
-  Form,
-  FormCheck,
   ListGroup,
   OverlayTrigger,
   Tooltip,
+  Form,
 } from 'react-bootstrap';
 import { FaTrashRestore, FaTrashAlt } from 'react-icons/fa';
+import Select from 'react-select';
 
 const mediosDisponibles = [
-  { id: 'efectivo', label: 'Efectivo', icon: '💵' },
-  { id: 'debito', label: 'Débito', icon: '💳' },
-  { id: 'transferencia', label: 'Transferencia', icon: '🏦' },
-  { id: 'credito', label: 'Crédito', icon: '💳' },
-  { id: 'qr', label: 'QR / MercadoPago', icon: '📱' },
-  { id: 'web', label: 'Pago Online', icon: '💻' },
-  { id: 'cta_cte', label: 'Cuenta Corriente', icon: '💸' },
   { id: 'canje', label: 'Canje / Compensación', icon: '🔁' },
   { id: 'cheque', label: 'Cheque', icon: '📝' },
+  { id: 'credito', label: 'Crédito', icon: '💳' },
+  { id: 'cta_cte', label: 'Cuenta Corriente', icon: '💸' },
+  { id: 'debito', label: 'Débito', icon: '💳' },
+  { id: 'efectivo', label: 'Efectivo', icon: '💵' },
+  { id: 'transferencia', label: 'Transferencia', icon: '🏦' },
+  { id: 'qr', label: 'QR / MercadoPago', icon: '📱' },
+  { id: 'web', label: 'Pago Online', icon: '💻' },
 ];
+
+const mediosOptions = mediosDisponibles.map(m => ({
+  value: m.id,
+  label: `${m.icon} ${m.label}`,
+}));
 
 const mediosIniciales = mediosDisponibles.reduce((acc, medio) => {
   acc[medio.id] = 0;
   return acc;
 }, {});
 
-const CalculadoraRecibosConPagos = ({ recibos = [], onReset, onRemoveRecibo }) => {
+const CalculadoraRecibosConPagos = ({
+  recibos = [],
+  onReset,
+  onRemoveRecibo,
+}) => {
   const [mediosPago, setMediosPago] = useState(mediosIniciales);
   const [mediosSeleccionados, setMediosSeleccionados] = useState([]);
 
@@ -37,10 +46,18 @@ const CalculadoraRecibosConPagos = ({ recibos = [], onReset, onRemoveRecibo }) =
     .reduce((sum, [, val]) => sum + parseFloat(val || 0), 0);
   const diferencia = abonado - total;
 
-  const toggleMedio = (medio) => {
-    setMediosSeleccionados((prev) =>
-      prev.includes(medio) ? prev.filter((m) => m !== medio) : [...prev, medio]
-    );
+  // FIX: Resetear valor cuando se quita un medio
+  const handleSelectChange = (selected) => {
+    const nuevosSeleccionados = selected ? selected.map(s => s.value) : [];
+    const eliminados = mediosSeleccionados.filter(med => !nuevosSeleccionados.includes(med));
+    if (eliminados.length > 0) {
+      setMediosPago(prev => {
+        const actualizados = { ...prev };
+        eliminados.forEach(m => { actualizados[m] = 0; });
+        return actualizados;
+      });
+    }
+    setMediosSeleccionados(nuevosSeleccionados);
   };
 
   const handleChange = (medio, value) => {
@@ -49,24 +66,6 @@ const CalculadoraRecibosConPagos = ({ recibos = [], onReset, onRemoveRecibo }) =
       [medio]: parseFloat(value) || 0,
     }));
   };
-
-  const renderTooltip = (msg) => (props) => (
-    <Tooltip id="tooltip" {...props}>{msg}</Tooltip>
-  );
-
-  const renderInputMedio = (medio, label, icon) => (
-    <div key={medio} className="mb-2">
-      <Form.Label className="mb-1">{icon} {label}</Form.Label>
-      <Form.Control
-        type="number"
-        min="0"
-        step="0.01"
-        value={mediosPago[medio]}
-        onChange={(e) => handleChange(medio, e.target.value)}
-        placeholder="0.00"
-      />
-    </div>
-  );
 
   const handleReset = () => {
     setMediosPago(mediosIniciales);
@@ -81,8 +80,8 @@ const CalculadoraRecibosConPagos = ({ recibos = [], onReset, onRemoveRecibo }) =
     <Card className="shadow h-100 border-0 mx-auto" style={{ maxWidth: 480, width: '100%' }}>
       <Card.Body className="d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="text-secondary mb-0">💰 Calculadora de pago</h5>
-          <OverlayTrigger placement="left" overlay={renderTooltip('Reiniciar recibos y pagos')}>
+          <h5 className="text-secondary mb-0">💰 Calculadora de cobro</h5>
+          <OverlayTrigger placement="left" overlay={<Tooltip>Reiniciar recibos y pagos</Tooltip>}>
             <Button variant="outline-danger" size="sm" onClick={handleReset}>
               <FaTrashRestore className="me-1" />
               Limpiar
@@ -132,28 +131,40 @@ const CalculadoraRecibosConPagos = ({ recibos = [], onReset, onRemoveRecibo }) =
           <strong>Total a pagar:</strong> ${formatMoney(total)}
         </div>
 
-        {/* Selección de medios */}
-        <div className="mb-3">
+        {/* Selección de medios con react-select */}
+        <Form.Group className="mb-3">
           <Form.Label className="fw-semibold mb-2">
             Seleccionar medios de pago:
           </Form.Label>
-          <div className="d-flex flex-wrap gap-3 mb-3">
-            {mediosDisponibles.map(({ id, label, icon }) => (
-              <FormCheck
-                key={id}
-                type="checkbox"
-                id={`check-${id}`}
-                label={`${icon} ${label}`}
-                checked={mediosSeleccionados.includes(id)}
-                onChange={() => toggleMedio(id)}
-              />
-            ))}
-          </div>
+          <Select
+            isMulti
+            options={mediosOptions}
+            value={mediosOptions.filter(o => mediosSeleccionados.includes(o.value))}
+            onChange={handleSelectChange}
+            classNamePrefix="react-select"
+            placeholder="Elegí uno o más medios..."
+            closeMenuOnSelect={true}
+            noOptionsMessage={() => "Sin opciones"}
+          />
+        </Form.Group>
 
-          {/* Inputs según selección */}
+        {/* Inputs solo para los seleccionados */}
+        <div className="mb-2">
           {mediosSeleccionados.map((medio) => {
             const { label, icon } = mediosDisponibles.find((m) => m.id === medio);
-            return renderInputMedio(medio, label, icon);
+            return (
+              <div key={medio} className="mb-2">
+                <Form.Label className="mb-1">{icon} {label}</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={mediosPago[medio]}
+                  onChange={(e) => handleChange(medio, e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            );
           })}
         </div>
 

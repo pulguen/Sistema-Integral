@@ -24,3 +24,15 @@ export function formatDateToDMY(isoDate) {
   }
   return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 }
+
+// Solo la fecha (no importa si el string viene con hora)
+export function formatDateOnlyDMY(isoDate) {
+  if (!isoDate) return "";
+  let date = isoDate;
+  if (isoDate.includes("T") || isoDate.includes(" ")) {
+    [date] = isoDate.replace("T", " ").split(" ");
+  }
+  const [year, month, day] = date.split("-");
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+}
+

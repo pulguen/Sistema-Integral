@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
-import { Card, Spinner, Breadcrumb } from "react-bootstrap";
+import { Card, Spinner, Breadcrumb, Alert } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import customFetch from "../../../context/CustomFetch.js";
 import Swal from "sweetalert2";
@@ -9,13 +9,10 @@ import { AuthContext } from "../../../context/AuthContext";
 import { formatDateToDMY } from "../../../utils/dateUtils.js";
 import DetalleCierreModal from "../../../components/common/modals/DetalleCierreModal";
 import formatNumber from "../../../utils/formatNumber.js";
-
-// FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCashRegister, faSyncAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
-
-// Reutilizado del sistema de caja
 import RecibosProcesadosHoy from "./RecibosProcesadosHoy";
+import {formatDateOnlyDMY} from "../../../utils/dateUtils.js";
 
 const ArqueoCaja = () => {
   const { user } = useContext(AuthContext);
@@ -27,21 +24,23 @@ const ArqueoCaja = () => {
   const [loadingList, setLoadingList] = useState(false);
   const [recibosHoy, setRecibosHoy] = useState([]);
   const [loadingRecibosHoy, setLoadingRecibosHoy] = useState(false);
-
-  // Estados para el modal de detalle
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [detalleCierre, setDetalleCierre] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
+  const [cajaCerradaHoy, setCajaCerradaHoy] = useState(false);
 
-  // --- FUNCIONES DE ARQUEO ---
+  // Función para saber si existe cierre de hoy
+  const verificarCajaCerradaHoy = useCallback((cierres) => {
+    const hoy = new Date().toISOString().split("T")[0];
+    return cierres.some(cierre => (cierre.f_cierre || '').slice(0, 10) === hoy);
+  }, []);
 
   const handleCierreCaja = async () => {
     setLoading(true);
     try {
       const response = await customFetch("/cierres", "POST");
       setCierre(response);
-
       Swal.fire({
         icon: "success",
         title: "Cierre generado correctamente",
@@ -50,11 +49,9 @@ const ArqueoCaja = () => {
         timer: 2000,
         timerProgressBar: true,
       });
-
       fetchCierresList();
-      fetchRecibosHoy(); // refrescar también el resumen
+      fetchRecibosHoy();
     } catch (error) {
-      console.error("Error generando cierre de caja:", error);
       let errorString = "";
       if (typeof error === "string") errorString = error;
       else if (error.error) errorString = error.error;
@@ -98,20 +95,23 @@ const ArqueoCaja = () => {
     setLoadingList(true);
     try {
       const response = await customFetch("/cierres", "GET");
+      let lista = [];
       if (response && Array.isArray(response.data)) {
-        setCierresList(response.data);
+        lista = response.data;
       } else if (Array.isArray(response)) {
-        setCierresList(response);
-      } else {
-        setCierresList([]);
+        lista = response;
       }
+      setCierresList(lista);
+      // Chequea si hay cierre de hoy
+      setCajaCerradaHoy(verificarCajaCerradaHoy(lista));
     } catch (error) {
       Swal.fire("Error", "Error al obtener cierres.", "error");
-      console.error("Error al obtener cierres:", error);
+      setCierresList([]);
+      setCajaCerradaHoy(false);
     } finally {
       setLoadingList(false);
     }
-  }, []);
+  }, [verificarCajaCerradaHoy]);
 
   const fetchRecibosHoy = useCallback(async () => {
     setLoadingRecibosHoy(true);
@@ -126,7 +126,6 @@ const ArqueoCaja = () => {
       }
       setRecibosHoy(dataArray);
     } catch (err) {
-      console.error("Error al obtener los recibos de hoy:", err);
     } finally {
       setLoadingRecibosHoy(false);
     }
@@ -145,7 +144,6 @@ const ArqueoCaja = () => {
     setDetalleError("");
     try {
       const response = await customFetch(`/cierres/${id}`, "GET");
-      console.log("DETALLE CIERRE RAW:", response);
       setDetalleCierre(response?.data || response);
       setShowDetalleModal(true);
     } catch (error) {
@@ -162,23 +160,22 @@ const ArqueoCaja = () => {
     setDetalleError("");
   };
 
-  // --- COLUMNAS PARA CommonTable ---
   const columns = useMemo(() => [
     { Header: "ID", accessor: "id" },
     {
       Header: "Fecha Cierre",
       accessor: "f_cierre",
-      Cell: ({ value }) => formatDateToDMY(value),
+      Cell: ({ value }) => formatDateOnlyDMY(value),
     },
     {
       Header: "Fecha Creación",
       accessor: "created_at",
-      Cell: ({ value }) => formatDateToDMY(value),
+      Cell: ({ value }) => formatDateOnlyDMY(value),
     },
     {
       Header: "Fecha Actualización",
       accessor: "updated_at",
-      Cell: ({ value }) => formatDateToDMY(value),
+      Cell: ({ value }) => formatDateOnlyDMY(value),
     },
     { Header: "N° Recibos", accessor: "t_recibos" },
     {
@@ -206,7 +203,6 @@ const ArqueoCaja = () => {
       accessor: "i_total",
       Cell: ({ value }) => `$ ${formatNumber(value)}`,
     },
-    // --- COLUMNA DE ACCIÓN ---
     {
       Header: "Acción",
       id: "detalle",
@@ -222,7 +218,6 @@ const ArqueoCaja = () => {
     }
   ], []);
 
-  // --- RENDER ---
   return (
     <Card className="p-4 mt-4">
       <Breadcrumb>
@@ -236,9 +231,17 @@ const ArqueoCaja = () => {
       </Breadcrumb>
 
       <h2 className="text-center mb-4 text-primary">Cierre de Caja</h2>
-      <h5 className="text-center mb-4 text-primary">Genera el cierre de caja correspondiente a la fecha actual.</h5>
+      <h5 className="text-center mb-4 text-primary">
+        Genera el cierre de caja correspondiente a la fecha actual.
+      </h5>
 
-      {/* Mostramos resumen de recibos pagados hoy */}
+      {/* ALERTA si la caja de hoy ya está cerrada */}
+      {cajaCerradaHoy && (
+        <Alert variant="info" className="text-center">
+          <b>La caja de hoy ya fue cerrada. No se puede volver a generar el cierre.</b>
+        </Alert>
+      )}
+
       <RecibosProcesadosHoy
         recibosHoy={recibosHoy}
         loadingRecibosHoy={loadingRecibosHoy}
@@ -262,7 +265,7 @@ const ArqueoCaja = () => {
               size="lg"
               className="px-4 py-2 fs-5 fw-bold"
               onClick={handleConfirmCierre}
-              disabled={loading}
+              disabled={loading || cajaCerradaHoy}
             >
               {loading ? (
                 <>
@@ -280,7 +283,6 @@ const ArqueoCaja = () => {
         </Card>
       )}
 
-      {/* Detalle del cierre generado */}
       {cierre && (
         <div className="mt-3">
           <h4>Detalle del Cierre Generado:</h4>
@@ -288,7 +290,6 @@ const ArqueoCaja = () => {
         </div>
       )}
 
-      {/* Historial de cierres */}
       <div className="mt-4">
         <h4>Historial de Cierres de Caja</h4>
         <CustomButton onClick={fetchCierresList} disabled={loadingList}>
@@ -314,7 +315,6 @@ const ArqueoCaja = () => {
         )}
       </div>
 
-      {/* Modal de Detalle de Cierre */}
       <DetalleCierreModal
         show={showDetalleModal}
         onHide={handleCloseDetalle}

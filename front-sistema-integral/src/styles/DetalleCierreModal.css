@@ -1,0 +1,150 @@
+/* TABLA Y GENERAL */
+.print-table {
+  border: none !important;
+  font-size: 12px;
+  border-collapse: collapse !important;
+  border-spacing: 0;
+  table-layout: auto;
+  width: max-content;
+  min-width: 950px;
+  max-width: none;
+}
+.print-table th,
+.print-table td {
+  border: none !important;
+  border-bottom: 1px solid #d9d9d9 !important;
+  padding: 6px 10px;
+  vertical-align: top;
+  text-align: left;
+  white-space: nowrap;
+}
+.print-table th {
+  background: #f2f2f2;
+  font-size: 11px;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.print-table td:first-child, .print-table th:first-child {
+  min-width: 32px;
+  text-align: center;
+}
+.table-responsive-print {
+  width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+
+@media screen and (max-width: 1200px) {
+  .print-table {
+    min-width: 800px;
+  }
+}
+
+/* --- CABECERA Y LOGO --- */
+.encabezado-cierre-table {
+  margin-bottom: 10px;
+}
+
+/* LOGO: fuerza tamaño para pantalla y impresión */
+img.print-logo,
+.encabezado-cierre-table img.print-logo,
+td img.print-logo {
+  width: 2cm !important;
+  max-width: 2cm !important;
+  min-width: 2cm !important;
+  height: auto !important;
+  display: block !important;
+  object-fit: contain !important;
+  margin-right: 12px !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* AJUSTE IMPRESIÓN */
+@media print {
+  html, body {
+    width: 100% !important;
+    overflow-x: visible !important;
+  }
+  .table-responsive-print {
+    overflow-x: visible !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .print-table {
+    width: 100% !important;
+    min-width: 950px !important;
+    max-width: none !important;
+    font-size: 10px !important;
+    table-layout: auto;
+    display: table !important;
+    overflow-x: visible !important;
+  }
+  .modal-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .encabezado-cierre-table {
+    width: auto !important;
+    margin-bottom: 8px !important;
+  }
+  .encabezado-cierre-table td {
+    vertical-align: top !important;
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-right: 10px !important;
+  }
+  /* LOGO en impresión */
+  img.print-logo,
+  .encabezado-cierre-table img.print-logo,
+  td img.print-logo {
+    width: 2.1cm !important;
+    max-width: 2.1cm !important;
+    min-width: 2.1cm !important;
+    height: auto !important;
+    margin-right: 12px !important;
+    margin-bottom: 0 !important;
+  }
+  .titulo-muni, .subtitulo-muni, .fecha-muni {
+    color: #000 !important;
+    margin-bottom: 2px !important;
+  }
+  .print-table th {
+    text-align: left !important;
+  }
+  .print-table th:first-child {
+    text-align: center !important; /* solo el # al centro */
+  }
+}
+.titulo-muni {
+  font-weight: 700;
+  font-size: 20px;
+  color: #222;
+  margin-bottom: 3px;
+}
+.subtitulo-muni {
+  font-weight: 600;
+  font-size: 15px;
+  color: #222;
+}
+.fecha-muni {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.print-resumen-table td {
+  padding: 6px 12px !important;
+  font-size: 12px;
+}
+
+.print-table tbody tr:nth-child(even) {
+  /*background-color: rgba(193, 209, 1, 0.05) !important;*/
+  /* O usando la variable, si tu navegador lo soporta: */
+  background-color: color-mix(in srgb, var(--primary-color) 15%, transparent) !important;
+}

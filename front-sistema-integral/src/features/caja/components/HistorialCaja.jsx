@@ -147,7 +147,8 @@ const HistorialCaja = () => {
         </Breadcrumb.Item>
         <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
       </Breadcrumb>
-      <h2 className="text-center mb-4 text-primary">Historial de Recibos</h2>
+      <h2 className="text-center mb-4 text-primary">Historial de Cobros</h2>
+      <h4 className="text-center mb-4 text-primary">Busqueda de recibos cobrados</h4>
       <Card.Body>
         <Form className="mb-4">
           <Row>

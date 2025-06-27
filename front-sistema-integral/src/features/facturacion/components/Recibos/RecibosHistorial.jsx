@@ -26,20 +26,6 @@ import { ClientContext } from "../../../../context/ClientContext";
 
 const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
-// --- Helper para extraer el mensaje de error JSON del backend ---
-function parseErrorMessage(error) {
-  try {
-    const regex = /\{.*\}/g;
-    const matches =
-      typeof error.message === "string" ? error.message.match(regex) : null;
-    if (matches) {
-      const errorJson = JSON.parse(matches[0]);
-      return (errorJson.error || "").toLowerCase();
-    }
-  } catch {}
-  return "";
-}
-
 const RecibosHistorial = () => {
   const {
     fetchClienteById,
@@ -50,7 +36,7 @@ const RecibosHistorial = () => {
   const { searchClients } = useContext(ClientContext);
 
   const canShowClients = user?.permissions.includes("recibos.show.cliente");
-  const canDeleteRecibo = user?.permissions.includes("recibos.destroy");
+  const canDeleteRecibo = user?.permissions.includes("recibos.anular");
   const canShowTributo = user?.permissions.includes("tributos.show.cliente");
   const canShowServicio = user?.permissions.includes("servicios.show.cliente");
 
@@ -139,14 +125,19 @@ const RecibosHistorial = () => {
     setLoadingRecibos(true);
 
     try {
-      // Llamada al fetch SIN Swal automático
       const all = await fetchRecibosByCliente(selectedCliente.id, false);
+
+      // Helpers por si los IDs pueden venir a primer nivel o dentro de detalles
+      const getServicioId = (r) =>
+        r.servicio_id ?? r.detalles?.[0]?.cuenta?.servicio_id ?? null;
+      const getTributoId = (r) =>
+        r.tributo_id ?? r.detalles?.[0]?.cuenta?.tributo_id ?? null;
 
       const recibosFiltrados = Array.isArray(all)
         ? all.filter(
             r =>
-              (!r.servicio_id || r.servicio_id === id) &&
-              (!r.tributo_id || r.tributo_id === selectedTributo)
+              getTributoId(r) === selectedTributo &&
+              getServicioId(r) === id
           )
         : [];
 
@@ -161,30 +152,8 @@ const RecibosHistorial = () => {
           showConfirmButton: false,
         });
       }
-    } catch (error) {
-      const mensajeError = parseErrorMessage(error);
-
-      if (mensajeError.includes("no se encontró el cliente")) {
-        setRecibos([]);
-        Swal.fire({
-          icon: "info",
-          title: "Cliente no encontrado",
-          text: "El cliente seleccionado no existe.",
-          timer: 2200,
-          showConfirmButton: false,
-        });
-      } else if (mensajeError.includes("no tiene recibos")) {
-        setRecibos([]);
-        Swal.fire({
-          icon: "info",
-          title: "Sin recibos",
-          text: "Este cliente no tiene recibos generados.",
-          timer: 2200,
-          showConfirmButton: false,
-        });
-      } else {
-        Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
-      }
+    } catch {
+      Swal.fire("Error", "No se pudieron cargar los recibos.", "error");
     } finally {
       setLoadingRecibos(false);
     }
@@ -229,6 +198,17 @@ const RecibosHistorial = () => {
     });
   }, []);
 
+  // Solo se puede anular si no está pagado, vencido o anulado
+  const puedeAnularRecibo = (recibo) => {
+    if (recibo.f_pago) return false;
+    const hoy = new Date();
+    if (recibo.f_vencimiento && new Date(recibo.f_vencimiento) < hoy && !recibo.f_pago) {
+      return false;
+    }
+    if (recibo.anulado || recibo.estado === "anulado" || recibo.cancelado) return false;
+    return true;
+  };
+
   // Columnas de la tabla
   const columns = useMemo(
     () => [
@@ -268,25 +248,34 @@ const RecibosHistorial = () => {
         Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A"
       },
       { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
-
       {
         Header: "Acciones",
         id: "acciones",
-        Cell: ({ row }) => (
-          <OverlayTrigger
-            placement="top"
-            overlay={<Tooltip>Anular recibo</Tooltip>}
-          >
-            <CustomButton
-              variant="danger"
-              size="sm"
-              onClick={() => handleAnular(row.original)}
-              disabled={!canDeleteRecibo}
+        Cell: ({ row }) => {
+          const recibo = row.original;
+          return (
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                !puedeAnularRecibo(recibo)
+                  ? <Tooltip>No se puede anular este recibo</Tooltip>
+                  : <Tooltip>Anular recibo</Tooltip>
+              }
             >
-              <FaTrash />
-            </CustomButton>
-          </OverlayTrigger>
-        )
+              <span className="d-inline-block">
+                <CustomButton
+                  variant="danger"
+                  size="sm"
+                  onClick={() => handleAnular(recibo)}
+                  disabled={!canDeleteRecibo || !puedeAnularRecibo(recibo)}
+                  style={!canDeleteRecibo || !puedeAnularRecibo(recibo) ? { pointerEvents: "none" } : {}}
+                >
+                  <FaTrash />
+                </CustomButton>
+              </span>
+            </OverlayTrigger>
+          );
+        }
       }
     ],
     [condicionesPago, canDeleteRecibo, handleAnular]

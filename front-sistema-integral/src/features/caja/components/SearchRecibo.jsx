@@ -1,7 +1,7 @@
 import React from 'react';
 import { Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import CustomButton from '../../../components/common/botons/CustomButton.jsx';
-import { FaSearch, FaEraser, FaKeyboard, FaBarcode } from 'react-icons/fa';
+import { FaSearch, FaEraser, FaKeyboard, FaBarcode, FaMoneyCheckAlt } from 'react-icons/fa';
 
 const SearchRecibo = ({
   busqueda,
@@ -12,7 +12,11 @@ const SearchRecibo = ({
   handleLimpiar,
   loading,
   canSearch,
-  inputRef
+  inputRef,
+  onCobrarSeleccionados,
+  puedenCobrarSeleccionados,
+  cantidadRecibos,
+  cajaCerrada
 }) => {
   const modoBusqueda = busquedaManual
     ? {
@@ -45,7 +49,6 @@ const SearchRecibo = ({
         onClick={toggleBusquedaManual}
       >
         <div className="d-flex align-items-center fw-bold fs-6 position-relative" style={{ width: 300 }}>
-          {/* El span invisible fuerza el ancho máximo */}
           <span style={{
             visibility: 'hidden',
             position: 'absolute',
@@ -54,7 +57,6 @@ const SearchRecibo = ({
             <FaBarcode className="me-2" />
             LECTOR DE CÓDIGO DE BARRAS
           </span>
-          {/* El label real */}
           {modoBusqueda.icon}
           {modoBusqueda.label}
         </div>
@@ -108,6 +110,16 @@ const SearchRecibo = ({
         >
           <FaSearch className="me-2" />
           {loading ? 'Buscando...' : 'Buscar Recibo'}
+        </CustomButton>
+        <CustomButton
+          variant="success"
+          onClick={onCobrarSeleccionados}
+          disabled={!puedenCobrarSeleccionados || cajaCerrada}
+        >
+          <FaMoneyCheckAlt className="me-2" />
+          {cantidadRecibos > 1
+            ? `Cobrar ${cantidadRecibos} recibos`
+            : "Cobrar recibo"}
         </CustomButton>
         <CustomButton
           variant="danger"

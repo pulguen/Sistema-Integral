@@ -1,0 +1,13 @@
+:root {
+  --primary-color: #C1D101;
+}
+
+/* ¡Proba SOLO esto primero! */
+table.primary-striped > tbody > tr:nth-child(even) {
+  background-color: rgba(193, 209, 1, 0.13) !important;
+}
+
+/* Si querés hover también */
+table.primary-striped > tbody > tr:hover {
+  background-color: rgba(193, 209, 1, 0.23) !important;
+}

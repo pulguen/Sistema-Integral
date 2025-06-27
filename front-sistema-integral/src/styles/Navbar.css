@@ -77,8 +77,8 @@
 
 .navbar-systems .nav-link:hover,
 .navbar-systems .nav-link.active {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: rgba(193, 209, 1, 0.25) !important; /* fallback para browsers viejos */
+  background-color: color-mix(in srgb, var(--primary-color) 25%, transparent) !important;
 }
 
 /* Íconos en los botones de sistemas */
