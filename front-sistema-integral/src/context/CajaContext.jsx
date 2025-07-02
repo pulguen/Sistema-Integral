@@ -87,12 +87,34 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
+const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const [pagados, anulados] = await Promise.all([
+      customFetch(`/recibos?fecha_pago_minima=${fechaCierre}&fecha_pago_maxima=${fechaCierre}&condicion_pago_id=1`),
+      customFetch(`/recibos?fecha_pago_minima=${fechaCierre}&fecha_pago_maxima=${fechaCierre}&condicion_pago_id=2`)
+    ]);
+    return {
+      pagados: pagados?.data || [],
+      anulados: anulados?.data || []
+    };
+  } catch (err) {
+    setError("Error al obtener recibos del cierre.");
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+
   return (
     <CajaContext.Provider
       value={{
         buscarRecibo,
         pagarRecibo,      // <- el ÚNICO método de cobro
         fetchDetalleCierre,
+        fetchRecibosPorFechaYCierre,
         detalleCierre,
         cajaCerrada,
         fetchEstadoCajaCerrada,

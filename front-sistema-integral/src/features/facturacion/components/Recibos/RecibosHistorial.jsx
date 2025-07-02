@@ -207,7 +207,7 @@ const RecibosHistorial = () => {
     }
     if (recibo.anulado || recibo.estado === "anulado" || recibo.cancelado) return false;
     return true;
-  };
+  };  
 
   // Columnas de la tabla
   const columns = useMemo(
@@ -215,7 +215,7 @@ const RecibosHistorial = () => {
       { Header: "N° Recibo", accessor: "n_recibo" },
       { Header: "Emisor", accessor: "emisor", Cell: ({ value }) => value?.name || "N/A" },
       {
-        Header: "Débito",
+        Header: "Importe",
         accessor: "i_debito",
         Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
       },
