@@ -4,85 +4,90 @@ import { useNavigate } from 'react-router-dom';
 import CommonCard from '../../components/common/Cards/Cards';
 import { AuthContext } from '../../context/AuthContext';
 
+const systems = [
+  {
+    key: 'facturacion',
+    title: 'Sistema de Facturación',
+    description: 'Administra tus facturas y genera nuevas transacciones.',
+    buttonText: 'Ir a Facturación',
+    route: '/facturacion',
+    variant: 'primary',
+  },
+  {
+    key: 'inventario',
+    title: 'Sistema de Inventario',
+    description: 'Gestiona el stock y tus productos disponibles.',
+    buttonText: 'Ir a Inventario',
+    route: '/inventario',
+    variant: 'success',
+  },
+  {
+    key: 'recursos-humanos',
+    title: 'Sistema de Recursos Humanos',
+    description: 'Controla la información de tus empleados y nómina.',
+    buttonText: 'Ir a RRHH',
+    route: '/recursos-humanos',
+    variant: 'warning',
+  },
+  {
+    key: 'usuarios',
+    title: 'Sistema de Usuarios',
+    description: 'Controla la información de tus Usuarios, Roles y Permisos.',
+    buttonText: 'Ir a Usuarios',
+    route: '/usuarios',
+    variant: 'info',
+  },
+  {
+    key: 'caja',
+    title: 'Sistema de Caja',
+    description: 'Registra los movimientos de caja y administra todos los medios de pago disponibles.',
+    buttonText: 'Ir a Caja',
+    route: '/caja',
+    variant: 'dark',
+  },
+];
+
 const Home = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [loadingCard, setLoadingCard] = useState(null);
 
-  const [loadingCard, setLoadingCard] = useState(null); // card en carga
+  // Validar permisos según el sistema
+  const hasAccess = (systemKey) =>
+    user?.permissions?.includes(`${systemKey}.access`);
 
-  const hasAccess = (system) => user.permissions.includes(`${system}.access`);
-
+  // Lógica para el click de las cards
   const handleCardClick = (route, systemKey) => {
     if (!hasAccess(systemKey)) return;
 
     setLoadingCard(systemKey);
 
-    // Simulación de carga antes de redirigir
     setTimeout(() => {
       navigate(route);
       setLoadingCard(null);
-    }, 1500);
+    }, 1200); // feedback visual breve antes de navegar
   };
 
   return (
     <Container className="mt-5">
-      <h2 className="text-center mb-4">Bienvenido al Sistema Integral de la Municipalidad de Zapala</h2>
-
-      <Row className="justify-content-center">
-        <CommonCard
-          title="Sistema de Facturación"
-          description="Administra tus facturas y genera nuevas transacciones."
-          buttonText="Ir a Facturación"
-          route="/facturacion"
-          variant="primary"
-          disabled={!hasAccess('facturacion')}
-          isLoading={loadingCard === 'facturacion'}
-          onClick={() => handleCardClick('/facturacion', 'facturacion')}
-        />
-
-        <CommonCard
-          title="Sistema de Inventario"
-          description="Gestiona el stock y tus productos disponibles."
-          buttonText="Ir a Inventario"
-          route="/inventario"
-          variant="success"
-          disabled={!hasAccess('inventario')}
-          isLoading={loadingCard === 'inventario'}
-          onClick={() => handleCardClick('/inventario', 'inventario')}
-        />
-
-        <CommonCard
-          title="Sistema de Recursos Humanos"
-          description="Controla la información de tus empleados y nómina."
-          buttonText="Ir a Recursos Humanos"
-          route="/recursos-humanos"
-          variant="warning"
-          disabled={!hasAccess('recursos-humanos')}
-          isLoading={loadingCard === 'recursos-humanos'}
-          onClick={() => handleCardClick('/recursos-humanos', 'recursos-humanos')}
-        />
-
-        <CommonCard
-          title="Sistema de Usuarios"
-          description="Controla la información de tus Usuarios, Roles y Permisos."
-          buttonText="Ir a Usuarios"
-          route="/usuarios"
-          variant="info"
-          disabled={!hasAccess('usuarios')}
-          isLoading={loadingCard === 'usuarios'}
-          onClick={() => handleCardClick('/usuarios', 'usuarios')}
-        />
-
-        <CommonCard
-          title="Sistema de Caja"
-          description="Registra los movimientos de caja y administra todos los medios de pago disponibles."
-          buttonText="Ir a Caja"
-          route="/caja"
-          variant="dark"
-          disabled={!hasAccess('caja')}
-          isLoading={loadingCard === 'caja'}
-          onClick={() => handleCardClick('/caja', 'caja')}
-        />
+      <h2 className="text-center mb-4 fw-bold">
+        Bienvenido al Sistema Integral de la Municipalidad de Zapala
+      </h2>
+      <Row className="justify-content-center" xs={1} sm={2} md={3} lg={3}>
+        {systems.map((system) => (
+          <CommonCard
+            key={system.key}
+            title={system.title}
+            description={system.description}
+            buttonText={system.buttonText}
+            route={system.route}
+            variant={system.variant}
+            disabled={!hasAccess(system.key)}
+            isLoading={loadingCard === system.key}
+            onClick={() => handleCardClick(system.route, system.key)}
+            colSize={4}
+          />
+        ))}
       </Row>
     </Container>
   );

@@ -1,0 +1,59 @@
+/* CustomCard.css */
+
+/* Cards habilitadas */
+.card {
+  background: #fff !important;
+  box-shadow: 0 4px 24px rgba(30, 47, 88, 0.10), 0 2px 8px rgba(30, 47, 88, 0.04);
+  border-radius: 12px !important;
+  border: 1.5px solid #e7e8ea !important;
+  transition: 
+    box-shadow 0.2s,
+    transform 0.2s,
+    background 0.2s,
+    border-color 0.2s;
+}
+
+/* Efecto hover solo en habilitadas */
+.card:not(.card-disabled):hover {
+  box-shadow: 0 8px 32px rgba(193, 209, 1, 0.14), 0 4px 24px rgba(30, 47, 88, 0.13);
+  transform: translateY(-3px) scale(1.013);
+  background: #f8faff !important;
+  border-color: var(--primary-color, #C1D101) !important;
+}
+
+/* Cards deshabilitadas */
+.card-disabled {
+  background: #fff !important;
+  opacity: 0.62;
+  filter: grayscale(0.5) brightness(1.06);
+  box-shadow: 0 2px 6px rgba(30, 47, 88, 0.07);
+  border: none !important;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.25s, filter 0.25s;
+}
+
+/* Botón deshabilitado dentro de card deshabilitada */
+.card-disabled .custom-button {
+  background: #e2e3e5 !important;
+  color: #868e96 !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: grayscale(1);
+  cursor: not-allowed !important;
+}
+
+.card-disabled .custom-button:hover {
+  background: #e2e3e5 !important;
+  color: #868e96 !important;
+}
+
+/* Fade in para todas las cards */
+.animated-fade-in {
+  animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; transform: scale(0.97);}
+  100% { opacity: 1; transform: scale(1);}
+}
