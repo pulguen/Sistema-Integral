@@ -1,44 +1,31 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef } from "react";
 import { Modal, Button, Spinner, Table, Alert } from "react-bootstrap";
 import { formatDateOnlyDMY } from "../../../utils/dateUtils";
 import formatNumber from "../../../utils/formatNumber";
-import customFetch from "../../../context/CustomFetch";
 import "../../../styles/DetalleCierreModal.css";
+
+// Muestra el nombre del tributo si viene, si no muestra el id
+function renderTributo(detalle) {
+  if (!detalle?.cuenta) return "-";
+  if (detalle.cuenta.tributo && detalle.cuenta.tributo.nombre)
+    return detalle.cuenta.tributo.nombre;
+  if (detalle.cuenta.tributo_id)
+    return detalle.cuenta.tributo_id;
+  return "-";
+}
 
 const DetalleCierreModal = ({
   show,
   onHide,
   loading,
   detalle,
-  error,
+  error
 }) => {
   const printRef = useRef();
-  const [pagados, setPagados] = useState([]);
-  const [anulados, setAnulados] = useState([]);
-  const [loadingRecibos, setLoadingRecibos] = useState(false);
 
-  useEffect(() => {
-    const fetchRecibos = async () => {
-      if (!show || !detalle?.f_cierre) return;
-      setLoadingRecibos(true);
-      try {
-        const fecha = detalle.f_cierre.slice(0, 10);
-        const [pagadosRes, anuladosRes] = await Promise.all([
-          customFetch(`/recibos?fecha_pago_minima=${fecha}&fecha_pago_maxima=${fecha}&condicion_pago_id=1`),
-          customFetch(`/recibos?fecha_pago_minima=${fecha}&fecha_pago_maxima=${fecha}&condicion_pago_id=2`)
-        ]);
-        setPagados(Array.isArray(pagadosRes?.data) ? pagadosRes.data : []);
-        setAnulados(Array.isArray(anuladosRes?.data) ? anuladosRes.data : []);
-      } catch (err) {
-        setPagados([]);
-        setAnulados([]);
-      } finally {
-        setLoadingRecibos(false);
-      }
-    };
-
-    fetchRecibos();
-  }, [show, detalle]);
+  const pagados = detalle?.recibosPagados || [];
+  const anulados = detalle?.recibosAnulados || [];
+  const cierre = detalle || null;
 
   const handlePrint = () => {
     if (!printRef.current) return;
@@ -217,7 +204,109 @@ const DetalleCierreModal = ({
     }
   };
 
-  const cierre = detalle || null;
+  // Función para mostrar nombre/razón social + apellido (si tiene)
+  function getNombreCliente(clientable) {
+    if (!clientable) return "-";
+    if (clientable.razon_social) return clientable.razon_social;
+    return `${clientable.nombre || ""} ${clientable.apellido || ""}`.trim() || "-";
+  }
+
+    function getUniqueTributos(detalles) {
+      return Array.from(
+        new Set(
+          (detalles || [])
+            .map((detalle) => renderTributo(detalle))
+            .filter(Boolean)
+        )
+      ).join(', ');
+    }
+
+  // Render para tabla de recibos (pagados/anulados)
+  function renderRecibosTable(list) {
+    return (
+      <div className="table-responsive-print">
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>N° Recibo</th>
+              <th>Imp. Original</th>
+              <th>Descuento</th>
+              <th>Recargo</th>
+              <th>Cred</th>
+              <th>Total</th>
+              <th>Cliente</th>
+              <th>Tributo</th>
+              <th>Cajero</th>
+              <th>Emisor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.length > 0 ? (
+              list.map((d, idx) => (
+                <tr key={d.id}>
+                  <td style={{ textAlign: "center" }}>{idx + 1}</td>
+                  <td>{d.n_recibo}</td>
+                  <td>$ {formatNumber(d.i_debito)}</td>
+                  <td>$ {formatNumber(d.i_descuento)}</td>
+                  <td>$ {formatNumber(d.i_recargo)}</td>
+                  <td>$ {formatNumber(d.i_credito)}</td>
+                  <td>$ {formatNumber(d.i_total)}</td>
+                  <td>
+                    {getNombreCliente(d.cliente?.clientable)}
+                  </td>
+                <td>
+                  {getUniqueTributos(d.detalles)}
+                </td>
+
+                  <td>
+                    {d.cajero?.name || "-"}
+                  </td>
+                  <td>
+                    {d.emisor?.name || "-"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={12} className="text-center">No hay datos.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+
+
+  // Render para la tabla de cuentas (detalle de depósitos)
+function renderCuentasTable(detalles) {
+  if (!detalles || !Array.isArray(detalles) || detalles.length === 0) return null;
+  return (
+    <>
+      <h5 className="mb-2 mt-4 text-primary">Detalle en Cuentas</h5>
+      <div className="table-responsive-print">
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th style={{ minWidth: 100 }}>N° de Cuenta</th>
+              <th style={{ minWidth: 130 }}>Importe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detalles.map((cuenta, idx) => (
+              <tr key={cuenta.n_cuenta || idx}>
+                <td>{cuenta.n_cuenta}</td>
+                <td>$ {formatNumber(cuenta.importe)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
 
   return (
     <Modal show={show} onHide={onHide} size="xl" centered>
@@ -226,7 +315,7 @@ const DetalleCierreModal = ({
       </Modal.Header>
       <Modal.Body>
         <div ref={printRef}>
-          {loading || loadingRecibos ? (
+          {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" />
             </div>
@@ -234,7 +323,7 @@ const DetalleCierreModal = ({
             <Alert variant="danger">{error}</Alert>
           ) : cierre ? (
             <>
-              {/* Cabecera tipo tabla para impresión y pantalla */}
+              {/* Cabecera para impresión y pantalla */}
               <table className="encabezado-cierre-table">
                 <tbody>
                   <tr>
@@ -285,117 +374,16 @@ const DetalleCierreModal = ({
                 </tbody>
               </Table>
 
+              {/* Recibos Pagados */}
               <h5 className="mb-2 mt-4 text-success">Recibos Pagados</h5>
-              <div className="table-responsive-print">
-                <table className="print-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>N° Recibo</th>
-                      <th>Cuenta</th>
-                      <th>Imp. Original</th>
-                      <th>Descuento</th>
-                      <th>Recargo</th>
-                      <th>Cred</th>
-                      <th>Total</th>
-                      <th>Cliente</th>
-                      <th>Tributo</th>
-                      <th>Cajero</th>
-                      <th>Emisor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagados.length > 0 ? (
-                      pagados.map((d, idx) => (
-                        <tr key={d.id}>
-                          <td style={{ textAlign: "center" }}>{idx + 1}</td>
-                          <td>{d.n_recibo}</td>
-                          <td>{d.n_cuenta}</td>
-                          <td>$ {formatNumber(d.recibo?.i_debito ?? d.i_debito)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_descuento ?? d.i_descuento)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_recargo ?? d.i_recargo)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_credito ?? d.i_credito)}</td>
-                          <td>$ {formatNumber(d.importe ?? d.i_total)}</td>
-                          <td>
-                            {d.recibo?.cliente?.clientable
-                              ? `${d.recibo.cliente.clientable.nombre || ""} ${d.recibo.cliente.clientable.apellido || ""}`
-                              : ""}
-                          </td>
-                          <td>
-                            {d.recibo?.detalles?.[0]?.cuenta?.tributo?.nombre || "-"}
-                          </td>
-                          <td>
-                            {d.recibo?.cajero?.name || "-"}
-                          </td>
-                          <td>
-                            {d.recibo?.emisor?.name || "-"}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={12} className="text-center">No hay recibos pagados.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {renderRecibosTable(pagados)}
 
+              {/* Recibos Anulados */}
               <h5 className="mb-2 mt-4 text-danger">Recibos Anulados</h5>
-              <div className="table-responsive-print">
-                <table className="print-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>N° Recibo</th>
-                      <th>Cuenta</th>
-                      <th>Imp. Original</th>
-                      <th>Descuento</th>
-                      <th>Recargo</th>
-                      <th>Cred</th>
-                      <th>Total</th>
-                      <th>Cliente</th>
-                      <th>Tributo</th>
-                      <th>Cajero</th>
-                      <th>Emisor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {anulados.length > 0 ? (
-                      anulados.map((d, idx) => (
-                        <tr key={d.id}>
-                          <td style={{ textAlign: "center" }}>{idx + 1}</td>
-                          <td>{d.n_recibo}</td>
-                          <td>{d.n_cuenta}</td>
-                          <td>$ {formatNumber(d.recibo?.i_debito ?? d.i_debito)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_descuento ?? d.i_descuento)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_recargo ?? d.i_recargo)}</td>
-                          <td>$ {formatNumber(d.recibo?.i_credito ?? d.i_credito)}</td>
-                          <td>$ {formatNumber(d.importe ?? d.i_total)}</td>
-                          <td>
-                            {d.recibo?.cliente?.clientable
-                              ? `${d.recibo.cliente.clientable.nombre || ""} ${d.recibo.cliente.clientable.apellido || ""}`
-                              : ""}
-                          </td>
-                          <td>
-                            {d.recibo?.detalles?.[0]?.cuenta?.tributo?.nombre || "-"}
-                          </td>
-                          <td>
-                            {d.recibo?.cajero?.name || "-"}
-                          </td>
-                          <td>
-                            {d.recibo?.emisor?.name || "-"}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={12} className="text-center">No hay recibos anulados.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {renderRecibosTable(anulados)}
+
+              {/* Depósitos en cuentas */}
+              {renderCuentasTable(cierre.detalles)}
             </>
           ) : (
             <div className="text-center print-muted py-3">

@@ -1,24 +1,27 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { Card, Spinner, Breadcrumb, Alert } from "react-bootstrap";
 import { Link } from "react-router-dom";
-import customFetch from "../../../context/CustomFetch.js";
 import Swal from "sweetalert2";
 import CommonTable from "../../../components/common/table/table.jsx";
 import CustomButton from "../../../components/common/botons/CustomButton.jsx";
 import { AuthContext } from "../../../context/AuthContext";
-import { formatDateToDMY } from "../../../utils/dateUtils.js";
+import { formatDateToDMY, formatDateOnlyDMY } from "../../../utils/dateUtils.js";
 import DetalleCierreModal from "../../../components/common/modals/DetalleCierreModal";
 import formatNumber from "../../../utils/formatNumber.js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCashRegister, faSyncAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import RecibosProcesadosHoy from "./RecibosProcesadosHoy";
-import { formatDateOnlyDMY } from "../../../utils/dateUtils.js";
 import { CajaContext } from "../../../context/CajaContext.jsx";
+import customFetch from "../../../context/CustomFetch.js";
 
 const ArqueoCaja = () => {
   const { user } = useContext(AuthContext);
   const hasPermission = (permission) => user.permissions.includes(permission);
 
+  // Contextos (ya extraigo el nuevo fetchRecibosPorFechaYCierre)
+  const { fetchDetalleCierre, fetchRecibos, fetchRecibosPorFechaYCierre } = useContext(CajaContext);
+
+  // Estados principales
   const [loading, setLoading] = useState(false);
   const [cierre, setCierre] = useState(null);
   const [cierresList, setCierresList] = useState([]);
@@ -32,16 +35,13 @@ const ArqueoCaja = () => {
   const [cajaCerradaHoy, setCajaCerradaHoy] = useState(false);
   const [detalleCargandoId, setDetalleCargandoId] = useState(null);
 
-  // ACCESO AL CONTEXTO DE CAJA
-  const { fetchDetalleCierre, fetchRecibosPorFechaYCierre } = useContext(CajaContext);
-
-  // Set de fechas que ya tienen cierre (YYYY-MM-DD)
+  // Memo para las fechas cerradas
   const fechasCerradasSet = useMemo(
     () => new Set(cierresList.map((c) => (c.f_cierre || "").slice(0, 10))),
     [cierresList]
   );
 
-  // Función para saber si existe cierre de hoy
+  // Verifica si la caja de hoy ya está cerrada
   const verificarCajaCerradaHoy = useCallback((cierres) => {
     const hoy = new Date().toISOString().split("T")[0];
     return cierres.some(
@@ -49,10 +49,96 @@ const ArqueoCaja = () => {
     );
   }, []);
 
+  // Fetch historial de cierres
+  const fetchCierresList = useCallback(async () => {
+    setLoadingList(true);
+    try {
+      const response = await customFetch("/cierres", "GET");
+      let lista = [];
+      if (response && Array.isArray(response.data)) {
+        lista = response.data;
+      } else if (Array.isArray(response)) {
+        lista = response;
+      }
+      lista.sort((a, b) => new Date(b.f_cierre) - new Date(a.f_cierre));
+      setCierresList(lista);
+      setCajaCerradaHoy(verificarCajaCerradaHoy(lista));
+    } catch (error) {
+      console.error("Error al obtener cierres:", error);
+      Swal.fire("Error", "Error al obtener cierres.", "error");
+      setCierresList([]);
+      setCajaCerradaHoy(false);
+    } finally {
+      setLoadingList(false);
+    }
+  }, [verificarCajaCerradaHoy]);
+
+  // Fetch recibos de hoy (por defecto solo pagados; podés poner [1,2] si querés ambos)
+const fetchRecibosHoy = useCallback(async () => {
+  setLoadingRecibosHoy(true);
+  try {
+    const fechaPago = new Date().toISOString().split("T")[0];
+    const recibos = await fetchRecibos({
+      f_pago_min: fechaPago,
+      f_pago_max: fechaPago,
+      condicion_pago_id: [1, 2]
+    });
+    setRecibosHoy(recibos);
+  } catch (err) {
+    setRecibosHoy([]);
+  } finally {
+    setLoadingRecibosHoy(false);
+  }
+}, [fetchRecibos]);
+
+
+  useEffect(() => {
+    fetchCierresList();
+    fetchRecibosHoy();
+  }, [fetchCierresList, fetchRecibosHoy]);
+
+  // Nuevo: Traer ambos tipos de recibos para el detalle de cierre en UN solo request
+  const traerRecibosPorFecha = useCallback(
+    async (fecha) => {
+      // usa el context optimizado!
+      return await fetchRecibosPorFechaYCierre(fecha);
+    },
+    [fetchRecibosPorFechaYCierre]
+  );
+
+  // Detalle extendido de cierre
+  const fetchDetalleCierreExtendido = useCallback(
+    async (id, f_cierre) => {
+      setDetalleCargandoId(id);
+      setLoadingDetalle(true);
+      setDetalleCierre(null);
+      setDetalleError("");
+      try {
+        const cierreResponse = await fetchDetalleCierre(id);
+        const fecha = f_cierre.slice(0, 10);
+        const recibos = await traerRecibosPorFecha(fecha); // Un solo fetch
+        setDetalleCierre({
+          ...cierreResponse,
+          recibosPagados: recibos.pagados,
+          recibosAnulados: recibos.anulados,
+        });
+        setShowDetalleModal(true);
+      } catch (error) {
+        setDetalleError("No se pudo obtener el detalle del cierre.");
+        setShowDetalleModal(true);
+      } finally {
+        setLoadingDetalle(false);
+        setDetalleCargandoId(null);
+      }
+    },
+    [fetchDetalleCierre, traerRecibosPorFecha]
+  );
+
+  // Cierre de caja
   const handleCierreCaja = async (fecha) => {
     setLoading(true);
     try {
-      const response = await customFetch("/cierres", "POST", { fecha: fecha });
+      const response = await customFetch("/cierres", "POST", { fecha });
       setCierre(response);
       Swal.fire({
         icon: "success",
@@ -67,9 +153,9 @@ const ArqueoCaja = () => {
     } catch (error) {
       let errorString = "";
       if (typeof error === "string") errorString = error;
-      else if (error.error) errorString = error.error;
-      else if (error.body) errorString = error.body;
-      else if (error.message) errorString = error.message;
+      else if (error?.error) errorString = error.error;
+      else if (error?.body) errorString = error.body;
+      else if (error?.message) errorString = error.message;
 
       if (
         errorString &&
@@ -83,8 +169,7 @@ const ArqueoCaja = () => {
         });
         return;
       }
-
-      if (errorString.includes("Duplicate entry")) {
+      if (errorString?.includes("Duplicate entry")) {
         Swal.fire({
           icon: "error",
           title: "Error",
@@ -92,7 +177,6 @@ const ArqueoCaja = () => {
         });
         return;
       }
-
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -103,12 +187,14 @@ const ArqueoCaja = () => {
     }
   };
 
+  // Utilidad para parsear fecha local
   function parseLocalDate(dateString) {
     if (!dateString) return null;
     const [year, month, day] = dateString.split("-").map(Number);
     return new Date(year, month - 1, day);
   }
 
+  // Confirmación de cierre
   const handleConfirmCierre = () => {
     const hoyISO = new Date().toISOString().slice(0, 10);
 
@@ -153,85 +239,14 @@ const ArqueoCaja = () => {
     });
   };
 
-  const fetchCierresList = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      const response = await customFetch("/cierres", "GET");
-      let lista = [];
-      if (response && Array.isArray(response.data)) {
-        lista = response.data;
-      } else if (Array.isArray(response)) {
-        lista = response;
-      }
-      lista.sort((a, b) => new Date(b.f_cierre) - new Date(a.f_cierre));
-      setCierresList(lista);
-      setCajaCerradaHoy(verificarCajaCerradaHoy(lista));
-    } catch (error) {
-      Swal.fire("Error", "Error al obtener cierres.", "error");
-      setCierresList([]);
-      setCajaCerradaHoy(false);
-    } finally {
-      setLoadingList(false);
-    }
-  }, [verificarCajaCerradaHoy]);
-
-  const fetchRecibosHoy = useCallback(async () => {
-    setLoadingRecibosHoy(true);
-    try {
-      const fechaPago = new Date().toISOString().split("T")[0];
-      const response = await customFetch(`/recibos/pagados/${fechaPago}`);
-      let dataArray = [];
-      if (response?.data && Array.isArray(response.data)) {
-        dataArray = response.data;
-      } else if (Array.isArray(response)) {
-        dataArray = response;
-      }
-      setRecibosHoy(dataArray);
-    } catch (err) {
-    } finally {
-      setLoadingRecibosHoy(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCierresList();
-    fetchRecibosHoy();
-  }, [fetchCierresList, fetchRecibosHoy]);
-
-  // --- FUNCIONES DE DETALLE DE CIERRE ---
-  const fetchDetalleCierreExtendido = useCallback(
-    async (id, f_cierre) => {
-      setDetalleCargandoId(id);
-      setLoadingDetalle(true);
-      setDetalleCierre(null);
-      setDetalleError("");
-      try {
-        const cierreResponse = await fetchDetalleCierre(id); // totales, resumen
-        const fecha = f_cierre.slice(0, 10); // YYYY-MM-DD
-        const recibos = await fetchRecibosPorFechaYCierre(fecha); // pagados y anulados
-        setDetalleCierre({
-          ...cierreResponse,
-          recibosPagados: recibos.pagados,
-          recibosAnulados: recibos.anulados,
-        });
-        setShowDetalleModal(true);
-      } catch (error) {
-        setDetalleError("No se pudo obtener el detalle del cierre.");
-        setShowDetalleModal(true);
-      } finally {
-        setLoadingDetalle(false);
-        setDetalleCargandoId(null);
-      }
-    },
-    [fetchDetalleCierre, fetchRecibosPorFechaYCierre]
-  );
-
+  // Handler para cerrar modal de detalle
   const handleCloseDetalle = () => {
     setShowDetalleModal(false);
     setDetalleCierre(null);
     setDetalleError("");
   };
 
+  // Columnas para la tabla
   const columns = useMemo(
     () => [
       { Header: "ID", accessor: "id" },
@@ -302,6 +317,7 @@ const ArqueoCaja = () => {
     [detalleCargandoId, fetchDetalleCierreExtendido]
   );
 
+  // Render principal
   return (
     <Card className="p-4 mt-4">
       <Breadcrumb>
@@ -323,8 +339,7 @@ const ArqueoCaja = () => {
       {cajaCerradaHoy && (
         <Alert variant="info" className="text-center">
           <b>
-            La caja de hoy ya fue cerrada. No se puede volver a generar el
-            cierre.
+            La caja de hoy ya fue cerrada. No se puede volver a generar el cierre.
           </b>
         </Alert>
       )}
@@ -349,8 +364,7 @@ const ArqueoCaja = () => {
             </div>
             <h4 className="text-danger">¿Listo para cerrar la caja?</h4>
             <p className="text-muted">
-              Esta acción registrará todos los movimientos de la fecha que
-              selecciones. Verificá que no falte ningún cobro.
+              Esta acción registrará todos los movimientos de la fecha que selecciones. Verificá que no falte ningún cobro.
             </p>
             <CustomButton
               variant="danger"
@@ -404,8 +418,7 @@ const ArqueoCaja = () => {
           )
         ) : (
           <div className="mt-3 text-center text-danger">
-            Tu usuario no cuenta con autorización para visualizar el historial de
-            cierres de caja.
+            Tu usuario no cuenta con autorización para visualizar el historial de cierres de caja.
           </div>
         )}
       </div>

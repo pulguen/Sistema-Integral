@@ -108,6 +108,7 @@ const FacturacionHome = () => {
               isLoading={loadingCard === mod.key}
               onClick={() => handleCardClick(mod.route, mod.key, !hasAccess(mod.permission))}
               colSize={4}
+              cardClassName="home-card"
             />
           ))}
         </Row>

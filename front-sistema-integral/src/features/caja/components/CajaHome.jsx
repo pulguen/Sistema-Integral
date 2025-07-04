@@ -11,7 +11,15 @@ import customFetch from '../../../context/CustomFetch';
 import CalculadoraRecibos from './CalculadoraRecibos';
 
 const CajaHome = () => {
-  const { buscarRecibo, pagarRecibo, cajaCerrada, fetchEstadoCajaCerrada, loading, error } = useContext(CajaContext);
+  const {
+    buscarRecibo,
+    pagarRecibo,
+    cajaCerrada,
+    fetchEstadoCajaCerrada,
+    loading,
+    error,
+    fetchRecibos, // <--- agregado: trae del contexto!
+  } = useContext(CajaContext);
   const { user } = useContext(AuthContext);
 
   const hasPermission = useCallback(
@@ -109,24 +117,24 @@ const CajaHome = () => {
     if (inputRef.current) inputRef.current.focus();
   }, [handleResetCalculadora]);
 
-  // Refrescar los recibos pagados hoy
+  // Nuevo: Usar fetchRecibos del contexto para traer los de hoy
   const fetchRecibosHoy = useCallback(async () => {
     setLoadingRecibosHoy(true);
     try {
       const fechaPago = new Date().toISOString().split("T")[0];
-      const response = await customFetch(`/recibos/pagados/${fechaPago}`);
-      let dataArray = [];
-      if (response && response.data && Array.isArray(response.data)) {
-        dataArray = response.data;
-      } else if (Array.isArray(response)) {
-        dataArray = response;
-      }
-      setRecibosHoy(dataArray);
+      // Pido pagados y anulados, los filtrás después si querés separar
+      const recibos = await fetchRecibos({
+        f_pago_min: fechaPago,
+        f_pago_max: fechaPago,
+        condicion_pago_id: [1, 2], // 1: pagado, 2: anulado
+      });
+      setRecibosHoy(Array.isArray(recibos) ? recibos : []);
     } catch (err) {
+      setRecibosHoy([]);
     } finally {
       setLoadingRecibosHoy(false);
     }
-  }, []);
+  }, [fetchRecibos]);
 
   useEffect(() => {
     if (inputRef.current) inputRef.current.focus();

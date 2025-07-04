@@ -1,5 +1,6 @@
 import React, { createContext, useState, useCallback } from 'react';
 import customFetch from './CustomFetch';
+import qs from 'qs';
 
 export const CajaContext = createContext();
 
@@ -87,20 +88,19 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
+  // Dentro del CajaProvider, agregá este método:
+const fetchRecibos = useCallback(async (params = {}) => {
   setLoading(true);
   setError(null);
+
+  // Usá qs para serializar arrays
+  const query = qs.stringify(params, { arrayFormat: "brackets" }); // foo[]=1&foo[]=2
+
   try {
-    const [pagados, anulados] = await Promise.all([
-      customFetch(`/recibos?fecha_pago_minima=${fechaCierre}&fecha_pago_maxima=${fechaCierre}&condicion_pago_id=1`),
-      customFetch(`/recibos?fecha_pago_minima=${fechaCierre}&fecha_pago_maxima=${fechaCierre}&condicion_pago_id=2`)
-    ]);
-    return {
-      pagados: pagados?.data || [],
-      anulados: anulados?.data || []
-    };
+    const response = await customFetch(`/recibos${query ? "?" + query : ""}`, "GET");
+    return response?.data ?? response ?? [];
   } catch (err) {
-    setError("Error al obtener recibos del cierre.");
+    setError("Error al obtener recibos.");
     throw err;
   } finally {
     setLoading(false);
@@ -108,11 +108,39 @@ const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
 }, []);
 
 
+const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const params = {
+      f_pago_min: fechaCierre,
+      f_pago_max: fechaCierre,
+      condicion_pago_id: [1, 2],
+    };
+    const response = await fetchRecibos(params);
+    // Agrupa por condición de pago
+    const pagados = [];
+    const anulados = [];
+    (response || []).forEach(r => {
+      if (Number(r.condicion_pago_id) === 1) pagados.push(r);
+      else if (Number(r.condicion_pago_id) === 2) anulados.push(r);
+    });
+    return { pagados, anulados };
+  } catch (err) {
+    setError("Error al obtener recibos del cierre.");
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, [fetchRecibos]);
+
+
   return (
     <CajaContext.Provider
       value={{
         buscarRecibo,
         pagarRecibo,      // <- el ÚNICO método de cobro
+        fetchRecibos,     // <- método para obtener recibos con filtros
         fetchDetalleCierre,
         fetchRecibosPorFechaYCierre,
         detalleCierre,

@@ -1,7 +1,7 @@
 /* CustomCard.css */
 
-/* Cards habilitadas */
-.card {
+/* Cards habilitadas solo para home */
+.home-card {
   background: #fff !important;
   box-shadow: 0 4px 24px rgba(30, 47, 88, 0.10), 0 2px 8px rgba(30, 47, 88, 0.04);
   border-radius: 12px !important;
@@ -14,7 +14,7 @@
 }
 
 /* Efecto hover solo en habilitadas */
-.card:not(.card-disabled):hover {
+.home-card:not(.card-disabled):hover {
   box-shadow: 0 8px 32px rgba(193, 209, 1, 0.14), 0 4px 24px rgba(30, 47, 88, 0.10);
   transform: translateY(-3px) scale(1.013);
   background: #f8faff !important;
@@ -22,7 +22,7 @@
 }
 
 /* Cards deshabilitadas */
-.card-disabled {
+.home-card.card-disabled {
   background: #fff !important;
   opacity: 0.62;
   filter: grayscale(0.5) brightness(1.06);
@@ -34,7 +34,7 @@
 }
 
 /* Botón deshabilitado dentro de card deshabilitada */
-.card-disabled .custom-button {
+.home-card.card-disabled .custom-button {
   background: #e2e3e5 !important;
   color: #868e96 !important;
   border: none !important;
@@ -43,7 +43,7 @@
   cursor: not-allowed !important;
 }
 
-.card-disabled .custom-button:hover {
+.home-card.card-disabled .custom-button:hover {
   background: #e2e3e5 !important;
   color: #868e96 !important;
 }

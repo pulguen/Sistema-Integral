@@ -14,6 +14,7 @@ const CommonCard = ({
   disabled = false,
   isLoading = false,
   onClick = null,
+  cardClassName = '',   // <-- Nueva prop con default vacío
 }) => {
   const handleClick = () => {
     if (!disabled && onClick) {
@@ -24,7 +25,7 @@ const CommonCard = ({
   return (
     <Col md={colSize} className="mb-4">
       <Card
-        className={`shadow-sm h-100 animated-fade-in position-relative border-0 ${disabled ? 'card-disabled' : ''}`}
+        className={`shadow-sm h-100 animated-fade-in position-relative ${disabled ? 'card-disabled' : ''} ${cardClassName}`}
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
       >
@@ -89,6 +90,7 @@ CommonCard.propTypes = {
   disabled: PropTypes.bool,
   isLoading: PropTypes.bool,
   onClick: PropTypes.func,
+  cardClassName: PropTypes.string, // <-- ¡IMPORTANTE!
 };
 
 export default CommonCard;

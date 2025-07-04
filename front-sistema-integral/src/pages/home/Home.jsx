@@ -86,6 +86,7 @@ const Home = () => {
             isLoading={loadingCard === system.key}
             onClick={() => handleCardClick(system.route, system.key)}
             colSize={4}
+            cardClassName="home-card"
           />
         ))}
       </Row>
