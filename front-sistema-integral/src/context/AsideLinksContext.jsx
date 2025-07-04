@@ -120,28 +120,20 @@ export const AsideLinksProvider = ({ children }) => {
     ],    
 
     caja: [
-      { 
+      hasPermission('caja.access') && {
         href: '/caja',
         label: (
           <>
-            <FontAwesomeIcon
-              icon={faCashRegister}
-              size="1x"
-              className="me-2"
-            />
+            <FontAwesomeIcon icon={faCashRegister} size="1x" className="me-2" />
             Home Caja
           </>
         )
       },
-      { 
+      hasPermission('caja.historial') && {
         href: '/caja/historial',
         label: (
           <>
-            <FontAwesomeIcon
-              icon={faListOl}
-              size="1x"
-              className="me-2"
-            />
+            <FontAwesomeIcon icon={faListOl} size="1x" className="me-2" />
             Historial de cobros
           </>
         )
@@ -150,16 +142,14 @@ export const AsideLinksProvider = ({ children }) => {
         href: '/caja/arqueo',
         label: (
           <>
-            <FontAwesomeIcon
-              icon={faFilterCircleDollar}
-              size="1x"
-              className="me-2"
-            />
+            <FontAwesomeIcon icon={faFilterCircleDollar} size="1x" className="me-2" />
             Arqueo diario
           </>
         )
       },
-    ].filter(Boolean), // Filtrar elementos falsy
+      // Ejemplo de otro permiso futuro:
+      // hasPermission('caja.reportes') && { ... }
+    ].filter(Boolean),
 
     usuarios: [
       hasPermission('users.index') && {
