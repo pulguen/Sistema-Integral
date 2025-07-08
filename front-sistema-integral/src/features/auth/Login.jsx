@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import {
   Form, Container, Row, Col, InputGroup, Button, Spinner, Card, Alert, OverlayTrigger, Tooltip,
 } from 'react-bootstrap';
-import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaWhatsapp } from 'react-icons/fa';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../../components/layout/Footer/Footer';
@@ -165,13 +165,26 @@ export default function LoginForm() {
                     >
                       ¿Olvidaste tu contraseña?
                     </Button>
-                    <Button
-                      variant="link"
-                      className="p-0"
-                      style={{ fontSize: '14px', color: 'var(--secundary-color)', textDecoration: 'none' }}
+                    <OverlayTrigger
+                      placement="top"
+                      overlay={<Tooltip>Contactar a Soporte de Sistemas vía WhatsApp</Tooltip>}
                     >
-                      ¿Necesitás ayuda?
-                    </Button>
+                      <Button
+                        variant="link"
+                        className="p-0 d-flex align-items-center gap-1"
+                        style={{
+                          fontSize: '14px',
+                          color: '#25D366', // color WhatsApp
+                          textDecoration: 'none'
+                        }}
+                        href="https://wa.me/5492942539980?text=Hola%2C%20necesito%20ayuda%20con%20mi%20acceso%20al%20Sistema%20Integral%20de%20Zapala"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <FaWhatsapp style={{ fontSize: '18px', marginRight: '4px' }} />
+                        ¿Necesitás ayuda?
+                      </Button>
+                    </OverlayTrigger>
                   </div>
                 </Form>
               </Card>

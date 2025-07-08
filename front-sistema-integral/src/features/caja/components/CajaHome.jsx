@@ -9,6 +9,7 @@ import RecibosProcesadosHoy from './RecibosProcesadosHoy';
 import Swal from 'sweetalert2';
 import customFetch from '../../../context/CustomFetch';
 import CalculadoraRecibos from './CalculadoraRecibos';
+import getBackendErrorMsg from '../../../utils/getBackendErrorMsg.js';
 
 const CajaHome = () => {
   const {
@@ -17,7 +18,6 @@ const CajaHome = () => {
     cajaCerrada,
     fetchEstadoCajaCerrada,
     loading,
-    error,
     fetchRecibos, // <--- agregado: trae del contexto!
   } = useContext(CajaContext);
   const { user } = useContext(AuthContext);
@@ -142,6 +142,7 @@ const CajaHome = () => {
   }, [fetchRecibosHoy]);
 
   // Cobro individual usando SIEMPRE pagarRecibo
+// Cobro individual
   const handleCobrarRecibo = useCallback(async (n_recibo) => {
     const result = await Swal.fire({
       title: "Confirmar cobro",
@@ -164,10 +165,12 @@ const CajaHome = () => {
         setResultado(prev => prev.filter(r => r.n_recibo !== n_recibo));
         fetchRecibosHoy();
       } catch (err) {
-        Swal.fire('Error', error || 'Error al cobrar el recibo.', 'error');
+        const msg = getBackendErrorMsg(err, 'Error al cobrar el recibo.');
+        Swal.fire('Error', msg, 'error');
       }
     }
-  }, [pagarRecibo, error, fetchRecibosHoy]);
+  }, [pagarRecibo, fetchRecibosHoy]);
+
 
   const puedenCobrarSeleccionados = recibosAProcesar.length > 0 && recibosAProcesar.every(r => {
     const estado = r.condicion_pago?.nombre?.toLowerCase();
@@ -176,38 +179,41 @@ const CajaHome = () => {
   });
 
   // Cobro múltiple usando SIEMPRE pagarRecibo
-  const handleCobrarSeleccionados = useCallback(async () => {
-    if (recibosAProcesar.length === 0) return;
-    const n_recibos = recibosAProcesar.map(r => r.n_recibo);
+// Cobro múltiple
+const handleCobrarSeleccionados = useCallback(async () => {
+  if (recibosAProcesar.length === 0) return;
+  const n_recibos = recibosAProcesar.map(r => r.n_recibo);
 
-    const result = await Swal.fire({
-      title: n_recibos.length > 1 ? "¿Cobrar todos los recibos?" : "¿Cobrar este recibo?",
-      text: n_recibos.length > 1
-        ? `Se cobrarán ${n_recibos.length} recibos. ¿Desea continuar?`
-        : `Se cobrará el recibo N° ${n_recibos[0]}. ¿Desea continuar?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Sí, cobrar",
-      cancelButtonText: "Cancelar",
-      customClass: {
-        confirmButton: 'btn btn-success mx-2',
-        cancelButton: 'btn btn-secondary mx-2'
-      },
-      buttonsStyling: false,
-    });
-    if (!result.isConfirmed) return;
+  const result = await Swal.fire({
+    title: n_recibos.length > 1 ? "¿Cobrar todos los recibos?" : "¿Cobrar este recibo?",
+    text: n_recibos.length > 1
+      ? `Se cobrarán ${n_recibos.length} recibos. ¿Desea continuar?`
+      : `Se cobrará el recibo N° ${n_recibos[0]}. ¿Desea continuar?`,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sí, cobrar",
+    cancelButtonText: "Cancelar",
+    customClass: {
+      confirmButton: 'btn btn-success mx-2',
+      cancelButton: 'btn btn-secondary mx-2'
+    },
+    buttonsStyling: false,
+  });
+  if (!result.isConfirmed) return;
 
-    try {
-      await pagarRecibo(n_recibos);
-      Swal.fire("¡Cobro realizado!", "Se cobraron los recibos seleccionados.", "success");
-      handleResetCalculadora();
-      fetchRecibosHoy();
-      setResultado([]);
-    } catch (err) {
-      Swal.fire("Error", error || "No se pudieron cobrar los recibos seleccionados.", "error");
-    }
-  }, [recibosAProcesar, pagarRecibo, handleResetCalculadora, fetchRecibosHoy, setResultado, error]);
+  try {
+    await pagarRecibo(n_recibos);
+    Swal.fire("¡Cobro realizado!", "Se cobraron los recibos seleccionados.", "success");
+    handleResetCalculadora();
+    fetchRecibosHoy();
+    setResultado([]);
+  } catch (err) {
+    const msg = getBackendErrorMsg(err, 'No se pudieron cobrar los recibos seleccionados.');
+    Swal.fire("Error", msg, "error");
+  }
+}, [recibosAProcesar, pagarRecibo, handleResetCalculadora, fetchRecibosHoy, setResultado]);
 
+// Anular recibo
   const handleAnular = useCallback(async (recibo) => {
     const result = await Swal.fire({
       title: "Anular Recibo",
@@ -234,10 +240,12 @@ const CajaHome = () => {
         fetchRecibosHoy();
         Swal.fire("Recibo Anulado", "El recibo fue anulado correctamente.", "success");
       } catch (err) {
-        Swal.fire("Error", "No se pudo anular el recibo.", "error");
+        const msg = getBackendErrorMsg(err, 'No se pudo anular el recibo.');
+        Swal.fire("Error", msg, "error");
       }
     }
   }, [fetchRecibosHoy]);
+
 
   const handleQuitarRecibo = useCallback((reciboId) => {
     setResultado(prev => prev.filter(r => r.id !== reciboId));
