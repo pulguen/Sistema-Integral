@@ -1,12 +1,12 @@
-// src/features/Users/Components/modals/NewUserModal.jsx
-
 import React, { useState, useContext } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
-import { UsersContext } from '../../../context/UsersContext'; // Importar el contexto
+import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
+import { UsersContext } from '../../../context/UsersContext';
 import Swal from 'sweetalert2';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { passwordConditions, getPasswordFails } from '../../../utils/passwordValidation';
 
 export default function NewUserModal({ show, handleClose }) {
-  const { addUsuario } = useContext(UsersContext); // Consumir la función del contexto
+  const { addUsuario } = useContext(UsersContext);
 
   const [newUser, setNewUser] = useState({
     nombre: '',
@@ -15,62 +15,42 @@ export default function NewUserModal({ show, handleClose }) {
     password: '',
     confirmPassword: '',
   });
+  const [errors, setErrors] = useState({});
+  const [touchedPassword, setTouchedPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Validar campos
-  const validateFields = () => {
-    if (!newUser.nombre || !newUser.apellido || !newUser.email || !newUser.password || !newUser.confirmPassword) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos vacíos',
-        text: 'Por favor, completa todos los campos.',
-      });
-      return false;
-    }
+  const validate = () => {
+    let err = {};
+    if (!newUser.nombre) err.nombre = 'El nombre es obligatorio.';
+    if (!newUser.apellido) err.apellido = 'El apellido es obligatorio.';
 
-    // Validar email
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(newUser.email)) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Correo inválido',
-        text: 'Por favor, ingresa un correo electrónico válido.',
-      });
-      return false;
-    }
+    if (!newUser.email) err.email = 'El email es obligatorio.';
+    else if (!emailPattern.test(newUser.email)) err.email = 'Formato de email inválido.';
 
-    // Validar contraseña
-    if (newUser.password.length < 8) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Contraseña inválida',
-        text: 'La contraseña debe tener al menos 8 caracteres.',
-      });
-      return false;
-    }
+    const fails = getPasswordFails(newUser.password);
+    if (!newUser.password) err.password = 'La contraseña es obligatoria.';
+    else if (fails.length > 0) err.password = 'No cumple los requisitos de seguridad.';
 
-    // Validar que las contraseñas coincidan
-    if (newUser.password !== newUser.confirmPassword) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Contraseñas no coinciden',
-        text: 'Por favor, asegúrate de que ambas contraseñas sean iguales.',
-      });
-      return false;
-    }
+    if (!newUser.confirmPassword) err.confirmPassword = 'Confirmá la contraseña.';
+    else if (newUser.password !== newUser.confirmPassword)
+      err.confirmPassword = 'Las contraseñas no coinciden.';
 
-    return true;
+    setErrors(err);
+    return Object.keys(err).length === 0;
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateFields()) return;
+    if (!validate()) return;
 
     try {
       const result = await Swal.fire({
         title: '¿Estás seguro?',
-        text: '¿Estás seguro de que quieres agregar este usuario?',
-        icon: 'warning',
+        text: '¿Deseas agregar este usuario?',
+        icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#3085d6',
         cancelButtonColor: '#d33',
@@ -79,15 +59,15 @@ export default function NewUserModal({ show, handleClose }) {
       });
 
       if (result.isConfirmed) {
-        // Concatenar nombre completo
-        const fullName = `${newUser.nombre} ${newUser.apellido}`;
+        setSaving(true);
+        const fullName = `${newUser.nombre} ${newUser.apellido}`.trim();
         const payload = {
           name: fullName,
           email: newUser.email,
           password: newUser.password,
         };
 
-        await addUsuario(payload); // Usar la función del contexto
+        await addUsuario(payload);
 
         Swal.fire({
           icon: 'success',
@@ -95,7 +75,6 @@ export default function NewUserModal({ show, handleClose }) {
           text: 'El usuario ha sido agregado exitosamente!',
         });
 
-        // Reiniciar el formulario y cerrar el modal
         setNewUser({
           nombre: '',
           apellido: '',
@@ -103,6 +82,10 @@ export default function NewUserModal({ show, handleClose }) {
           password: '',
           confirmPassword: '',
         });
+        setErrors({});
+        setTouchedPassword(false);
+        setShowPassword(false);
+        setShowConfirm(false);
         handleClose();
       }
     } catch (error) {
@@ -111,6 +94,8 @@ export default function NewUserModal({ show, handleClose }) {
         title: 'Error',
         text: 'No se pudo agregar el usuario. Intenta nuevamente.',
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -122,12 +107,16 @@ export default function NewUserModal({ show, handleClose }) {
       password: '',
       confirmPassword: '',
     });
+    setErrors({});
+    setTouchedPassword(false);
+    setShowPassword(false);
+    setShowConfirm(false);
     handleClose();
   };
 
   return (
-    <Modal show={show} onHide={handleModalClose} backdrop="static" keyboard={false}>
-      <Form onSubmit={onSubmit}>
+    <Modal show={show} onHide={handleModalClose} backdrop="static" keyboard={false} centered>
+      <Form onSubmit={onSubmit} autoComplete="off">
         <Modal.Header closeButton>
           <Modal.Title>Agregar Usuario</Modal.Title>
         </Modal.Header>
@@ -138,9 +127,12 @@ export default function NewUserModal({ show, handleClose }) {
               type="text"
               value={newUser.nombre}
               onChange={(e) => setNewUser({ ...newUser, nombre: e.target.value })}
+              isInvalid={!!errors.nombre}
               required
               aria-label="Nombre"
+              disabled={saving}
             />
+            <Form.Control.Feedback type="invalid">{errors.nombre}</Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group controlId="apellido" className="mt-3">
@@ -149,9 +141,12 @@ export default function NewUserModal({ show, handleClose }) {
               type="text"
               value={newUser.apellido}
               onChange={(e) => setNewUser({ ...newUser, apellido: e.target.value })}
+              isInvalid={!!errors.apellido}
               required
               aria-label="Apellido"
+              disabled={saving}
             />
+            <Form.Control.Feedback type="invalid">{errors.apellido}</Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group controlId="email" className="mt-3">
@@ -160,41 +155,105 @@ export default function NewUserModal({ show, handleClose }) {
               type="email"
               value={newUser.email}
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+              isInvalid={!!errors.email}
               required
               aria-label="Email"
+              disabled={saving}
             />
+            <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group controlId="password" className="mt-3">
             <Form.Label>Contraseña</Form.Label>
-            <Form.Control
-              type="password"
-              value={newUser.password}
-              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-              required
-              aria-label="Contraseña"
-              placeholder="Ingrese una contraseña de al menos 8 caracteres"
-            />
+            <InputGroup>
+              <Form.Control
+                type={showPassword ? "text" : "password"}
+                value={newUser.password}
+                onChange={(e) => {
+                  setNewUser({ ...newUser, password: e.target.value });
+                  setTouchedPassword(true);
+                }}
+                onBlur={() => setTouchedPassword(true)}
+                isInvalid={!!errors.password}
+                required
+                aria-label="Contraseña"
+                placeholder="Clave segura"
+                minLength={8}
+                autoComplete="new-password"
+                disabled={saving}
+              />
+              <Button
+                variant="outline-secondary"
+                onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                style={{ borderLeft: 0 }}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </Button>
+            </InputGroup>
+            {/* Checklist visual */}
+            {(touchedPassword || newUser.password) && (
+              <div className="mt-2">
+                <ul style={{ listStyle: 'none', paddingLeft: 0, fontSize: '0.97em' }}>
+                  {passwordConditions.map(cond => {
+                    const ok = cond.test(newUser.password);
+                    return (
+                      <li key={cond.key} style={{ color: ok ? 'green' : 'red' }}>
+                        {ok ? '✔️' : '❌'} {cond.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <Form.Control.Feedback type="invalid">{errors.password}</Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group controlId="confirmPassword" className="mt-3">
             <Form.Label>Confirmar Contraseña</Form.Label>
-            <Form.Control
-              type="password"
-              value={newUser.confirmPassword}
-              onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })}
-              required
-              aria-label="Confirmar Contraseña"
-              placeholder="Confirme la contraseña"
-            />
+            <InputGroup>
+              <Form.Control
+                type={showConfirm ? "text" : "password"}
+                value={newUser.confirmPassword}
+                onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })}
+                isInvalid={!!errors.confirmPassword}
+                required
+                aria-label="Confirmar Contraseña"
+                placeholder="Repetí la contraseña"
+                minLength={8}
+                autoComplete="new-password"
+                disabled={saving}
+              />
+              <Button
+                variant="outline-secondary"
+                onClick={() => setShowConfirm((v) => !v)}
+                tabIndex={-1}
+                aria-label={showConfirm ? "Ocultar contraseña" : "Mostrar contraseña"}
+                style={{ borderLeft: 0 }}
+              >
+                {showConfirm ? <FaEyeSlash /> : <FaEye />}
+              </Button>
+            </InputGroup>
+            <Form.Control.Feedback type="invalid">{errors.confirmPassword}</Form.Control.Feedback>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleModalClose} aria-label="Cancelar Agregar Usuario">
+          <Button
+            variant="secondary"
+            onClick={handleModalClose}
+            aria-label="Cancelar Agregar Usuario"
+            disabled={saving}
+          >
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" aria-label="Guardar Usuario">
-            Guardar Usuario
+          <Button
+            variant="primary"
+            type="submit"
+            aria-label="Guardar Usuario"
+            disabled={saving}
+          >
+            {saving ? "Guardando..." : "Guardar Usuario"}
           </Button>
         </Modal.Footer>
       </Form>

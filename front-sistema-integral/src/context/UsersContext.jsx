@@ -1,5 +1,3 @@
-// src/context/UsersContext.jsx
-
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import customFetch from './CustomFetch';
@@ -29,6 +27,7 @@ export const UsersProvider = ({ children }) => {
         setUsuarios([]);
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       Swal.fire('Error', 'Error al obtener usuarios.', 'error');
       console.error('Error al obtener usuarios:', error);
       setUsuarios([]);
@@ -49,49 +48,49 @@ export const UsersProvider = ({ children }) => {
         return null;
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return null;
       Swal.fire('Error', 'Error al obtener usuario.', 'error');
       console.error('Error al obtener usuario:', error);
       return null;
     }
   }, []);
 
-const fetchRoles = useCallback(async () => {
-  setCargandoRoles(true);
-  try {
-    const data = await customFetch('/roles', 'GET');
-    console.log('Datos de roles:', data);
-    // Debe retornar algo como [ [ {id: 1, name: 'Admin'}... ], 200 ]
-    if (
-      Array.isArray(data) &&
-      data.length === 2 &&
-      Array.isArray(data[0]) &&
-      typeof data[1] === 'number'
-    ) {
-      const [fetchedRoles, status] = data;
-      if (status === 200) {
-        setRoles(fetchedRoles); // guardamos en el estado
-        console.log('Roles actualizados en el contexto:', fetchedRoles);
-        return fetchedRoles;   // <-- retornamos también
+  const fetchRoles = useCallback(async () => {
+    setCargandoRoles(true);
+    try {
+      const data = await customFetch('/roles', 'GET');
+      console.log('Datos de roles:', data);
+      if (
+        Array.isArray(data) &&
+        data.length === 2 &&
+        Array.isArray(data[0]) &&
+        typeof data[1] === 'number'
+      ) {
+        const [fetchedRoles, status] = data;
+        if (status === 200) {
+          setRoles(fetchedRoles);
+          console.log('Roles actualizados en el contexto:', fetchedRoles);
+          return fetchedRoles;
+        } else {
+          console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
+          setRoles([]);
+          return [];
+        }
       } else {
-        console.error('Error: estado no es 200 en roles:', fetchedRoles, status);
+        console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
         setRoles([]);
         return [];
       }
-    } else {
-      console.error('Error: Respuesta de roles no es [rolesArray, status]:', data);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) return [];
+      Swal.fire('Error', 'Error al obtener roles.', 'error');
+      console.error('Error al obtener roles:', error);
       setRoles([]);
       return [];
+    } finally {
+      setCargandoRoles(false);
     }
-  } catch (error) {
-    Swal.fire('Error', 'Error al obtener roles.', 'error');
-    console.error('Error al obtener roles:', error);
-    setRoles([]);
-    return [];
-  } finally {
-    setCargandoRoles(false);
-  }
-}, []);
-
+  }, []);
 
   const fetchPermisos = useCallback(async () => {
     setCargandoPermisos(true);
@@ -111,6 +110,7 @@ const fetchRoles = useCallback(async () => {
         setPermisos([]);
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       Swal.fire('Error', 'Error al obtener permisos.', 'error');
       console.error('Error al obtener permisos:', error);
       setPermisos([]);
@@ -123,20 +123,19 @@ const fetchRoles = useCallback(async () => {
     try {
       const data = await customFetch('/users', 'POST', newUser);
       console.log('Respuesta al agregar usuario:', data);
-  
+
       if (typeof data === 'object' && data.id) {
-        // Agrega el usuario directamente al estado
         setUsuarios((prevUsuarios) => [...prevUsuarios, data]);
         Swal.fire('Éxito', 'Usuario agregado exitosamente.', 'success');
       } else {
         throw new Error('Error al agregar usuario');
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       console.error('Error al agregar usuario:', error);
       Swal.fire('Error', 'No se pudo agregar el usuario. Intenta nuevamente.', 'error');
     }
   }, []);
-  
 
   const editUsuario = useCallback(async (updatedUser) => {
     try {
@@ -158,6 +157,7 @@ const fetchRoles = useCallback(async () => {
         }
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       throw error;
     }
   }, [fetchUsuarios]);
@@ -175,6 +175,7 @@ const fetchRoles = useCallback(async () => {
         }
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       throw error;
     }
   }, [fetchUsuarios]);
@@ -199,6 +200,7 @@ const fetchRoles = useCallback(async () => {
         throw new Error('Formato de respuesta inesperado al agregar rol');
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       console.error('Error al agregar rol:', error);
       let errorMessage = 'No se pudo agregar el rol.';
       const match = error.message.match(/\{.*\}/);
@@ -229,6 +231,7 @@ const fetchRoles = useCallback(async () => {
         }
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       throw error;
     }
   }, [fetchRoles]);
@@ -245,6 +248,7 @@ const fetchRoles = useCallback(async () => {
         Swal.fire('Error', 'Formato de respuesta inesperado al eliminar rol.', 'error');
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       console.error('Error al eliminar rol:', error);
       let errorMessage = 'No se pudo eliminar el rol.';
       const match = error.message.match(/\{.*\}/);
@@ -278,6 +282,7 @@ const fetchRoles = useCallback(async () => {
         }
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       throw error;
     }
   }, [fetchUsuarios]);
@@ -297,11 +302,11 @@ const fetchRoles = useCallback(async () => {
         }
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       throw error;
     }
   }, [fetchUsuarios]);
 
-  // Nueva función para obtener usuarios por rol
   const fetchUsersByRole = useCallback(async (roleId) => {
     try {
       const data = await customFetch(`/roles/${roleId}/users`, 'GET');
@@ -314,25 +319,25 @@ const fetchRoles = useCallback(async () => {
         return [];
       }
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return [];
       Swal.fire('Error', 'Error al obtener usuarios por rol.', 'error');
       console.error('Error al obtener usuarios por rol:', error);
       return [];
     }
   }, []);
 
-    // Obtener servicios disponibles
-    const fetchServicios = useCallback(async () => {
-      try {
-        const data = await customFetch('/servicios', 'GET');
-        return data || [];
-      } catch (error) {
-        Swal.fire('Error', 'No se pudieron obtener los servicios.', 'error');
-        console.error('Error al obtener servicios:', error);
-        return [];
-      }
-    }, []);
+  const fetchServicios = useCallback(async () => {
+    try {
+      const data = await customFetch('/servicios', 'GET');
+      return data || [];
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) return [];
+      Swal.fire('Error', 'No se pudieron obtener los servicios.', 'error');
+      console.error('Error al obtener servicios:', error);
+      return [];
+    }
+  }, []);
 
-      // Sincronizar servicios con un usuario
   const syncServicios = useCallback(async (userId, serviciosIds) => {
     try {
       await customFetch(`/users/${userId}/servicios-sinc`, 'POST', {
@@ -340,6 +345,7 @@ const fetchRoles = useCallback(async () => {
       });
       console.log(`Servicios sincronizados para usuario ${userId}:`, serviciosIds);
     } catch (error) {
+      if (error.status === 401 || error.status === 403) return;
       Swal.fire('Error', 'No se pudieron sincronizar los servicios.', 'error');
       console.error('Error al sincronizar servicios:', error);
       throw error;

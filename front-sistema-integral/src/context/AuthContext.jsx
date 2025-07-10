@@ -31,26 +31,25 @@ export const AuthProvider = ({ children }) => {
   // Flag para distinguir arranque (startup) de la aplicación
   const [initialLoad, setInitialLoad] = useState(true);
 
-const logout = useCallback(async () => {
-  try {
-    await customFetch('/logout', 'GET', null, false);
-  } catch (error) {
-    console.error('Error en logout:', error);
-  }
-  setToken(null);
-  localStorage.clear();
+  const logout = useCallback(async () => {
+    try {
+      await customFetch('/logout', 'GET', null, false);
+    } catch (error) {
+      console.error('Error en logout:', error);
+    }
+    setToken(null);
+    localStorage.clear();
 
-  setIsAuthenticated(false);
-  setUser({
-    id: null,
-    name: null,
-    roles: [],
-    permissions: [],
-    services: [],
-  });
-  navigate('/login');
-}, [navigate]);
-
+    setIsAuthenticated(false);
+    setUser({
+      id: null,
+      name: null,
+      roles: [],
+      permissions: [],
+      services: [],
+    });
+    navigate('/login');
+  }, [navigate]);
 
   /**
    * Función para obtener los roles, permisos y servicios actualizados del usuario.
@@ -115,16 +114,13 @@ const logout = useCallback(async () => {
     validateToken();
   }, [token, logout, fetchUserPermissions]);
 
+  // Hook para manejar la expiración de sesión (tokenExpired)
   useEffect(() => {
     const handleTokenExpired = () => {
-      // Solo mostramos alerta si la app ya terminó su arranque y estaba autenticada.
+      // Solo redirigimos, sin Swal ni cartel.
       if (!isAuthenticated || initialLoad) return;
       logout();
-      Swal.fire({
-        icon: 'error',
-        title: 'Sesión expirada',
-        text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
-      });
+      // NO Swal.fire()
     };
 
     window.addEventListener('tokenExpired', handleTokenExpired);
