@@ -37,8 +37,8 @@ const RecibosHistorial = () => {
 
   const canShowClients = user?.permissions.includes("recibos.show.cliente");
   const canDeleteRecibo = user?.permissions.includes("recibos.anular");
-  const canShowTributo = user?.permissions.includes("tributos.show.cliente");
-  const canShowServicio = user?.permissions.includes("servicios.show.cliente");
+  const canShowTributo = user?.permissions.includes("tributos.show.clientes");
+  const canShowServicio = user?.permissions.includes("servicios.show.clientes");
 
   // Estado
   const [selectedCliente, setSelectedCliente] = useState(null);

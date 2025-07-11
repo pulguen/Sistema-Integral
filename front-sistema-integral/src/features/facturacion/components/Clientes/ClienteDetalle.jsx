@@ -56,7 +56,8 @@ export default function ClienteDetalle() {
   if (loadingClient) return <Loading />;
   if (!cliente) return <p>Cliente no encontrado</p>;
 
-  const handleDelete = async () => {
+  // --- BORRADO DE CLIENTE ---
+  const handleDeleteCliente = async () => {
     const { isConfirmed } = await Swal.fire({
       title: '¿Eliminar cliente?',
       text: 'Esta acción no se puede deshacer.',
@@ -71,8 +72,12 @@ export default function ClienteDetalle() {
       Swal.fire('Eliminado', 'Cliente eliminado con éxito.', 'success');
       navigate('/facturacion/clientes');
     } catch (err) {
-      console.error(err);
-      Swal.fire('Error', 'No se pudo eliminar el cliente.', 'error');
+      Swal.fire(
+        'No se pudo eliminar',
+        err?.message ||
+          'No se pudo eliminar el cliente. Verifica que no tenga servicios, cuentas o recibos asociados.',
+        'error'
+      );
     }
   };
 
@@ -95,7 +100,7 @@ export default function ClienteDetalle() {
             cliente={cliente}
             onEditMode={() => setShowEditModal(true)}
             hasPermission={hasPermission}
-            handleDeleteCliente={handleDelete}
+            handleDelete={handleDeleteCliente}
           />
         </Col>
 

@@ -48,8 +48,8 @@ export default function PeriodosHistorial() {
   const canShowClients = user?.permissions.includes("cuentas.show.cliente");
   const canEditPeriod = user?.permissions.includes("cuentas.update");
   const canDeletePeriod = user?.permissions.includes("cuentas.destroy");
-  const canShowTributos = user?.permissions.includes("tributos.show.cliente");
-  const canShowServices = user?.permissions.includes("servicios.show.cliente");
+  const canShowTributos = user?.permissions.includes("tributos.show.clientes");
+  const canShowServices = user?.permissions.includes("servicios.show.clientes");
 
   // Estados principales
   const [selectedCliente, setSelectedCliente] = useState(null);

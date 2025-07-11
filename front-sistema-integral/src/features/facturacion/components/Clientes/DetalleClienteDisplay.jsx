@@ -23,10 +23,7 @@ export default function DetalleClienteDisplay({
     ? formatDateToDMY(fechaNacimientoRaw)
     : 'No disponible';
 
-
-
   const dir = cliente.direccion || {};
-      console.log('Cliente:', cliente);
   return (
     <>
       <p><strong>Tipo de Cliente:</strong> {tipo}</p>

@@ -35,7 +35,6 @@ export const ClientProvider = ({ children }) => {
       setClients(all.map(transformarCliente));
       setPageCount(Math.ceil(total / per_page));
     } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
       console.error('Error fetching clients:', err);
       setClients([]);
       setPageCount(0);
@@ -45,39 +44,38 @@ export const ClientProvider = ({ children }) => {
   }, []);
 
   // 2. Búsqueda
-  const searchClients = useCallback(
-    async term => {
-      setSearchTerm(term);
-      if (!term.trim()) {
-        setIsSearching(false);
-        await fetchClients({ page: 1, per_page: BATCH_SIZE });
-        return [];
-      }
+const searchClients = useCallback(
+  async term => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setIsSearching(false);
+      await fetchClients({ page: 1, per_page: BATCH_SIZE });
+      return [];
+    }
 
-      setLoading(true);
-      try {
-        const res = await customFetch(`/clientes/search/${encodeURIComponent(term)}`);
-        const data = Array.isArray(res) ? res : unpackData(res.data);
-        const clientesTransformados = data.map(transformarCliente);
+    setLoading(true);
+    try {
+      const res = await customFetch(`/clientes/search/${encodeURIComponent(term)}`);
+      const data = Array.isArray(res) ? res : unpackData(res.data);
+      const clientesTransformados = data.map(transformarCliente);
 
-        setClients(clientesTransformados);
-        setPageCount(1);
-        setIsSearching(true);
+      setClients(clientesTransformados);
+      setPageCount(1);
+      setIsSearching(true);
 
-        return clientesTransformados;
-      } catch (err) {
-        if (err.status === 401 || err.status === 403) return [];
-        console.error('Error searching clients:', err);
-        setClients([]);
-        setPageCount(0);
-        setIsSearching(false);
-        return [];
-      } finally {
-        setLoading(false);
-      }
-    },
-    [fetchClients]
-  );
+      return clientesTransformados;
+    } catch (err) {
+      console.error('Error searching clients:', err);
+      setClients([]);
+      setPageCount(0);
+      setIsSearching(false);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  },
+  [fetchClients]
+);
 
   // 3. Obtener uno por ID
   const fetchClientById = useCallback(async id => {
@@ -87,7 +85,6 @@ export const ClientProvider = ({ children }) => {
       setCurrentClient(transformarCliente(data));
       return transformarCliente(data);
     } catch (err) {
-      if (err.status === 401 || err.status === 403) return null;
       console.error('Error fetching client by id:', err);
       setCurrentClient(null);
       throw err;
@@ -114,11 +111,25 @@ export const ClientProvider = ({ children }) => {
   }, [fetchClients, currentClient]);
 
   // 6. Borrar
-  const removeClient = useCallback(async id => {
+const removeClient = useCallback(async id => {
+  try {
     await customFetch(`/clientes/${id}`, 'DELETE');
     if (currentClient?.id === id) setCurrentClient(null);
     await fetchClients({ page: 1, per_page: BATCH_SIZE });
-  }, [fetchClients, currentClient]);
+  } catch (err) {
+    // Verificá si es el error esperado
+    if (
+      err?.message?.includes('delete() on null') ||
+      (err?.response && err.response.status === 404)
+    ) {
+      // No mostrar como "error": es informativo, el cliente ya no existe
+      await fetchClients({ page: 1, per_page: BATCH_SIZE });
+      throw new Error('El cliente no existe o ya fue eliminado.');
+    }
+    throw err;
+  }
+}, [fetchClients, currentClient]);
+
 
   // carga inicial
   useEffect(() => {
@@ -145,3 +156,8 @@ export const ClientProvider = ({ children }) => {
     </ClientContext.Provider>
   );
 };
+
+
+
+
+

@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { Breadcrumb, InputGroup, Form, Button } from 'react-bootstrap';
 import { FaSearch, FaTimes, FaPlus, FaRedo, FaEdit, FaTrash } from 'react-icons/fa';
+import Swal from 'sweetalert2';
 import CustomButton from '../../../../components/common/botons/CustomButton.jsx';
 import CommonTable from '../../../../components/common/table/table.jsx';
 import NewClientModal from '../../../../components/common/modals/NewClientModal.jsx';
@@ -64,9 +65,28 @@ export default function Clientes() {
           <CustomButton
             variant="danger"
             size="sm"
-            onClick={e => {
+            onClick={async e => {
               e.stopPropagation();
-              removeClient(row.original.id);
+              const confirm = await Swal.fire({
+                title: '¿Eliminar cliente?',
+                text: 'Esta acción no se puede deshacer. ¿Seguro que deseas continuar?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+              });
+              if (!confirm.isConfirmed) return;
+              try {
+                await removeClient(row.original.id);
+                Swal.fire('Eliminado', 'El cliente ha sido eliminado.', 'success');
+              } catch (error) {
+                Swal.fire(
+                  'No se pudo eliminar',
+                  error?.message ||
+                    'No se pudo eliminar el cliente. Verifica que no tenga servicios, cuentas o recibos asociados.',
+                  'error'
+                );
+              }
             }}
           >
             <FaTrash />

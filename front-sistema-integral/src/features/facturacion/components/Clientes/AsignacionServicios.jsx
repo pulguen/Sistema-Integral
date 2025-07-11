@@ -64,7 +64,7 @@ export default function AsignacionServicios({
         variant="primary"
         className="mt-3"
         onClick={handleAsignar}
-        disabled={!hasPermission('clientes.sync-serv')}
+        disabled={!hasPermission('clientes.sincronizar-servicios')}
       >
         <FaSave /> Asignar Servicios
       </CustomButton>

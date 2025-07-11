@@ -301,7 +301,7 @@ const UsuarioDetalle = () => {
                     label={servicio.nombre}
                     checked={serviciosAsignados.includes(servicio.id)}
                     onChange={() => handleCheckboxChange(servicio.id)}
-                    disabled={!hasPermission('users.sync-serv')}
+                    disabled={!hasPermission('users.sincronizar-servicios')}
                   />
                 </Col>
               ))}
@@ -311,7 +311,7 @@ const UsuarioDetalle = () => {
             variant="primary"
             className="mt-3"
             onClick={handleAsignarServicios}
-            disabled={!hasPermission('users.sync-serv')}
+            disabled={!hasPermission('users.sincronizar-servicios')}
           >
             <FaSave /> Asignar Servicios
           </CustomButton>
@@ -334,7 +334,7 @@ const UsuarioDetalle = () => {
                     label={role.name}
                     checked={rolesAsignados.includes(role.id)}
                     onChange={() => handleCheckboxRoleChange(role.id)}
-                    disabled={!hasPermission('users.sync-roles')}
+                    disabled={!hasPermission('users.sincronizar-roles')}
                   />
                 </Col>
               ))}
@@ -344,7 +344,7 @@ const UsuarioDetalle = () => {
             variant="primary"
             className="mt-3"
             onClick={handleAsignarRoles}
-            disabled={!hasPermission('users.sync-roles')}
+            disabled={!hasPermission('users.sincronizar-roles')}
           >
             <FaSave /> Asignar Roles
           </CustomButton>

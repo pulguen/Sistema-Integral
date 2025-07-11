@@ -46,7 +46,19 @@ const customFetch = async (endpoint, method = 'GET', body = null) => {
 
     if (response.status === 422) {
       const errorData = JSON.parse(responseText);
-      throw new CustomError(`Error 422: ${errorData.message}`, response.status);
+      // Si hay errores de validación, tomá el primer mensaje
+      if (errorData["error de validación"]) {
+        const valObj = errorData["error de validación"];
+        const firstKey = Object.keys(valObj)[0];
+        const firstMsg = valObj[firstKey] && Array.isArray(valObj[firstKey]) ? valObj[firstKey][0] : JSON.stringify(valObj);
+        throw new CustomError(firstMsg, response.status);
+      }
+      // Si hay 'message', usalo
+      if (errorData.message) {
+        throw new CustomError(errorData.message, response.status);
+      }
+      // Si no, devolvé todo el body como string
+      throw new CustomError(JSON.stringify(errorData), response.status);
     }
 
     if (response.status === 429) {

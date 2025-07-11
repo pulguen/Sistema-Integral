@@ -81,7 +81,7 @@ export default function PermisosList() {
 
     setCargandoAsignacion(true);
     try {
-      await customFetch('/roles/sync/permisos', 'POST', body);
+      await customFetch('/roles/sincronizar-permisos', 'POST', body);
       Swal.fire('Éxito', 'Permisos sincronizados correctamente.', 'success');
       await fetchRoles();
       await fetchPermisos();
@@ -185,11 +185,11 @@ export default function PermisosList() {
           )}
 
           <div className="d-flex justify-content-start gap-2 mt-3">
-            {/* Botón para Guardar Cambios, requiere permiso roles.sync-perm */}
+            {/* Botón para Guardar Cambios, requiere permiso roles.sincronizar-permisos */}
             <CustomButton
               variant="primary"
               onClick={handleSaveChanges}
-              disabled={!hasPermission('roles.sync-perm') || cargandoAsignacion}
+              disabled={!hasPermission('roles.sincronizar-permisos') || cargandoAsignacion}
             >
               {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}
             </CustomButton>

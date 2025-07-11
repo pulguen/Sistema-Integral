@@ -4,16 +4,58 @@ import { formatDateOnlyDMY } from "../../../utils/dateUtils";
 import formatNumber from "../../../utils/formatNumber";
 import "../../../styles/DetalleCierreModal.css";
 
-// Muestra el nombre del tributo si viene, si no muestra el id
+// Helpers (originales)
 function renderTributo(detalle) {
   if (!detalle?.cuenta) return "-";
   if (detalle.cuenta.tributo && detalle.cuenta.tributo.nombre)
     return detalle.cuenta.tributo.nombre;
-  if (detalle.cuenta.tributo_id)
-    return detalle.cuenta.tributo_id;
+  if (detalle.cuenta.tributo_id) return detalle.cuenta.tributo_id;
   return "-";
 }
 
+function getNombreCliente(clientable) {
+  if (!clientable) return "-";
+  if (clientable.razon_social) return clientable.razon_social;
+  return `${clientable.nombre || ""} ${clientable.apellido || ""}`.trim() || "-";
+}
+
+function getUniqueTributos(detalles) {
+  return Array.from(
+    new Set(
+      (detalles || []).map((detalle) => renderTributo(detalle)).filter(Boolean)
+    )
+  ).join(', ');
+}
+
+// --- Cierre por cajero helpers ---
+function groupByCajero(arr) {
+  const grouped = {};
+  arr.forEach((d) => {
+    const id = d.cajero?.id || "sin_cajero";
+    if (!grouped[id]) grouped[id] = [];
+    grouped[id].push(d);
+  });
+  return grouped;
+}
+
+function getCajeroNombre(arr) {
+  const d = arr.find(x => x.cajero?.name) || arr[0];
+  return d?.cajero?.name || "Sin cajero";
+}
+
+function totalesRecibos(arr) {
+  const inicial = { t_recibos: 0, i_debito: 0, i_credito: 0, i_recargo: 0, i_descuento: 0, i_total: 0 };
+  return arr.reduce((ac, d) => ({
+    t_recibos: ac.t_recibos + 1,
+    i_debito: ac.i_debito + (d.i_debito ?? 0),
+    i_credito: ac.i_credito + (d.i_credito ?? 0),
+    i_recargo: ac.i_recargo + (d.i_recargo ?? 0),
+    i_descuento: ac.i_descuento + (d.i_descuento ?? 0),
+    i_total: ac.i_total + (d.i_total ?? 0)
+  }), inicial);
+}
+
+// ----
 const DetalleCierreModal = ({
   show,
   onHide,
@@ -26,6 +68,12 @@ const DetalleCierreModal = ({
   const pagados = detalle?.recibosPagados || [];
   const anulados = detalle?.recibosAnulados || [];
   const cierre = detalle || null;
+
+  // Agrupar recibos pagados/anulados por cajero
+  const pagadosByCajero = groupByCajero(pagados);
+  const anuladosByCajero = groupByCajero(anulados);
+  // Solo cajeros con cobros
+  const cajeroIds = Object.keys(pagadosByCajero).filter(id => pagadosByCajero[id].length > 0);
 
   const handlePrint = () => {
     if (!printRef.current) return;
@@ -137,6 +185,11 @@ const DetalleCierreModal = ({
                 display: block !important;
                 max-width: none !important;
               }
+              .mini-cierre-cajero { 
+                page-break-before: always; 
+                border: none !important; 
+                background: none !important;
+              }
               img.print-logo,
               .encabezado-cierre-table img.print-logo,
               td img.print-logo {
@@ -177,6 +230,7 @@ const DetalleCierreModal = ({
                 background-color: rgba(193, 209, 1, 0.05) !important;
                 background-color: color-mix(in srgb, var(--primary-color) 15%, transparent) !important;
               }
+              .mini-cierre-cajero { border: none !important; background: none !important;}
             }
           </style>
         </head>
@@ -204,24 +258,6 @@ const DetalleCierreModal = ({
     }
   };
 
-  // Función para mostrar nombre/razón social + apellido (si tiene)
-  function getNombreCliente(clientable) {
-    if (!clientable) return "-";
-    if (clientable.razon_social) return clientable.razon_social;
-    return `${clientable.nombre || ""} ${clientable.apellido || ""}`.trim() || "-";
-  }
-
-    function getUniqueTributos(detalles) {
-      return Array.from(
-        new Set(
-          (detalles || [])
-            .map((detalle) => renderTributo(detalle))
-            .filter(Boolean)
-        )
-      ).join(', ');
-    }
-
-  // Render para tabla de recibos (pagados/anulados)
   function renderRecibosTable(list) {
     return (
       <div className="table-responsive-print">
@@ -252,19 +288,10 @@ const DetalleCierreModal = ({
                   <td>$ {formatNumber(d.i_recargo)}</td>
                   <td>$ {formatNumber(d.i_credito)}</td>
                   <td>$ {formatNumber(d.i_total)}</td>
-                  <td>
-                    {getNombreCliente(d.cliente?.clientable)}
-                  </td>
-                <td>
-                  {getUniqueTributos(d.detalles)}
-                </td>
-
-                  <td>
-                    {d.cajero?.name || "-"}
-                  </td>
-                  <td>
-                    {d.emisor?.name || "-"}
-                  </td>
+                  <td>{getNombreCliente(d.cliente?.clientable)}</td>
+                  <td>{getUniqueTributos(d.detalles)}</td>
+                  <td>{d.cajero?.name || "-"}</td>
+                  <td>{d.emisor?.name || "-"}</td>
                 </tr>
               ))
             ) : (
@@ -278,35 +305,88 @@ const DetalleCierreModal = ({
     );
   }
 
-
-
-  // Render para la tabla de cuentas (detalle de depósitos)
-function renderCuentasTable(detalles) {
-  if (!detalles || !Array.isArray(detalles) || detalles.length === 0) return null;
-  return (
-    <>
-      <h5 className="mb-2 mt-4 text-primary">Detalle en Cuentas</h5>
-      <div className="table-responsive-print">
-        <table className="print-table">
-          <thead>
-            <tr>
-              <th style={{ minWidth: 100 }}>N° de Cuenta</th>
-              <th style={{ minWidth: 130 }}>Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {detalles.map((cuenta, idx) => (
-              <tr key={cuenta.n_cuenta || idx}>
-                <td>{cuenta.n_cuenta}</td>
-                <td>$ {formatNumber(cuenta.importe)}</td>
+  function renderCuentasTable(detalles) {
+    if (!detalles || !Array.isArray(detalles) || detalles.length === 0) return null;
+    return (
+      <>
+        <h5 className="mb-2 mt-4 text-primary">Detalle en Cuentas</h5>
+        <div className="table-responsive-print">
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th style={{ minWidth: 100 }}>N° de Cuenta</th>
+                <th style={{ minWidth: 130 }}>Importe</th>
               </tr>
-            ))}
+            </thead>
+            <tbody>
+              {detalles.map((cuenta, idx) => (
+                <tr key={cuenta.n_cuenta || idx}>
+                  <td>{cuenta.n_cuenta}</td>
+                  <td>$ {formatNumber(cuenta.importe)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  }
+
+  // Render cierre cajero (sin detalle de cuentas)
+  function renderCierreCajero(pagadosCajero, anuladosCajero, cajeroName, idx) {
+    const totales = totalesRecibos(pagadosCajero);
+    return (
+      <div className="mini-cierre-cajero" key={cajeroName + idx}>
+        <hr />
+        {/* Saltos de página: @media print .mini-cierre-cajero page-break-before: always */}
+        <table className="encabezado-cierre-table">
+          <tbody>
+            <tr>
+              <td style={{ verticalAlign: 'top', paddingRight: 12 }}>
+                <img src="/EscudoZapala.png" alt="Escudo Municipalidad de Zapala" className="print-logo" />
+              </td>
+              <td style={{ verticalAlign: 'top', paddingLeft: 0 }}>
+                <div className="titulo-muni">Municipalidad de Zapala</div>
+                <div className="subtitulo-muni">
+                  Cierre por Cajero: <b>{cajeroName}</b>
+                </div>
+                <div className="fecha-muni">Fecha: {formatDateOnlyDMY(cierre.f_cierre)}</div>
+              </td>
+            </tr>
           </tbody>
         </table>
+        <h5 className="mb-2 mt-2 text-primary">Resumen</h5>
+        <Table className="print-resumen-table" size="sm">
+          <tbody>
+            <tr>
+              <td className="label">Total Recibos</td>
+              <td>{totales.t_recibos}</td>
+              <td className="label">Importe</td>
+              <td>$ {formatNumber(totales.i_debito)}</td>
+            </tr>
+            <tr>
+              <td className="label">Crédito</td>
+              <td>$ {formatNumber(totales.i_credito)}</td>
+              <td className="label">Recargo</td>
+              <td>$ {formatNumber(totales.i_recargo)}</td>
+            </tr>
+            <tr>
+              <td className="label">Descuento</td>
+              <td>$ {formatNumber(totales.i_descuento)}</td>
+              <td className="label">Total</td>
+              <td className="text-success">
+                <strong>$ {formatNumber(totales.i_total)}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </Table>
+        <h5 className="mb-2 mt-4 text-success">Recibos Pagados</h5>
+        {renderRecibosTable(pagadosCajero)}
+        <h5 className="mb-2 mt-4 text-danger">Recibos Anulados</h5>
+        {renderRecibosTable(anuladosCajero)}
       </div>
-    </>
-  );
-}
+    );
+  }
 
   return (
     <Modal show={show} onHide={onHide} size="xl" centered>
@@ -323,7 +403,7 @@ function renderCuentasTable(detalles) {
             <Alert variant="danger">{error}</Alert>
           ) : cierre ? (
             <>
-              {/* Cabecera para impresión y pantalla */}
+              {/* === CIERRE GENERAL (tal cual lo tenés ahora) === */}
               <table className="encabezado-cierre-table">
                 <tbody>
                   <tr>
@@ -373,17 +453,18 @@ function renderCuentasTable(detalles) {
                   </tr>
                 </tbody>
               </Table>
-
-              {/* Recibos Pagados */}
               <h5 className="mb-2 mt-4 text-success">Recibos Pagados</h5>
               {renderRecibosTable(pagados)}
-
-              {/* Recibos Anulados */}
               <h5 className="mb-2 mt-4 text-danger">Recibos Anulados</h5>
               {renderRecibosTable(anulados)}
-
-              {/* Depósitos en cuentas */}
               {renderCuentasTable(cierre.detalles)}
+
+              {/* === CIERRES POR CAJERO (sin detalle de cuentas) === */}
+              {cajeroIds.map((id, idx) => {
+                const pagadosCajero = pagadosByCajero[id];
+                const anuladosCajero = anuladosByCajero[id] || [];
+                return renderCierreCajero(pagadosCajero, anuladosCajero, getCajeroNombre(pagadosCajero), idx);
+              })}
             </>
           ) : (
             <div className="text-center print-muted py-3">

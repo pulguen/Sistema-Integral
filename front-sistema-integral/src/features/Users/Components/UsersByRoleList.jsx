@@ -138,7 +138,7 @@ export default function UsersByRoleList({ roleId, onClose }) {
           <CustomButton
             variant="primary"
             onClick={handleSaveChanges}
-            disabled={!hasPermission('users.sync-roles')}
+            disabled={!hasPermission('users.sincronizar-roles')}
           >
             Guardar Cambios
           </CustomButton>

@@ -105,7 +105,7 @@ export default function RolesList({ userId, onClose }) {
   const handleSaveChanges = useCallback(async () => {
     setCargandoAsignacion(true);
     try {
-      const data = await customFetch(`/users/${userId}/roles-sinc`, 'POST', {
+      const data = await customFetch(`/users/${userId}/sincronizar-roles`, 'POST', {
         id: userId,
         roles: selectedRolesIds,
       });
@@ -153,7 +153,7 @@ export default function RolesList({ userId, onClose }) {
           <CustomButton
             onClick={handleSaveChanges}
             // 5. Deshabilitar si no tiene permiso O si está cargando
-            disabled={!hasPermission('users.sync-roles') || cargandoAsignacion}
+            disabled={!hasPermission('users.sincronizar-roles') || cargandoAsignacion}
             aria-label="Guardar Cambios de Roles"
           >
             {cargandoAsignacion ? 'Guardando...' : 'Guardar Cambios'}

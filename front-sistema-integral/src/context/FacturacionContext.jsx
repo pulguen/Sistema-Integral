@@ -1,3 +1,4 @@
+// FacturacionContext.jsx
 import React, { createContext, useState, useCallback, useEffect, useMemo } from "react";
 import customFetch from "./CustomFetch";
 import { transformarCliente, unpackData, titleCase } from "../utils/clienteUtils.js";
@@ -18,47 +19,47 @@ export const FacturacionProvider = ({ children }) => {
   const [provincias, setProvincias] = useState([]);
   const [pendingRequests, setPendingRequests] = useState(0);
 
+
   // Nuevo estado para el valor del módulo
-  const [moduleInfo, setModuleInfo] = useState({
-    valor_modulo: 0,
-    ordenanza_modulo: "",
-    updated_at: ""
-  });
+const [moduleInfo, setModuleInfo] = useState({
+  valor_modulo: 0,
+  ordenanza_modulo: "",
+  updated_at: ""
+});
 
   // "loading" será verdadero mientras haya al menos una petición pendiente.
   const loading = pendingRequests > 0;
 
-  // Limpia error si la sesión expira
-  useEffect(() => {
-    const clearOnLogout = () => setError(null);
-    window.addEventListener('tokenExpired', clearOnLogout);
-    return () => window.removeEventListener('tokenExpired', clearOnLogout);
-  }, []);
-
+  // Funciones para gestionar el contador de carga.
   const startLoading = () => setPendingRequests(prev => prev + 1);
   const finishLoading = () => setPendingRequests(prev => Math.max(prev - 1, 0));
 
-  const fetchClientes = useCallback(async () => {
-    startLoading();
-    try {
-      const response = await customFetch("/clientes");
-      console.log("Clientes API response:", response);
-      const rawClientes = Array.isArray(response)
-        ? response
-        : Array.isArray(response.data)
-          ? response.data
-          : [];
-      const clientesFormateados = rawClientes.map(transformarCliente);
-      setClientes(clientesFormateados);
-      setError(null);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener los clientes:", err);
-      setError("Error al obtener los clientes.");
-    } finally {
-      finishLoading();
-    }
-  }, []);
+const fetchClientes = useCallback(async () => {
+  startLoading();
+  try {
+    const response = await customFetch("/clientes");
+    console.log("Clientes API response:", response);
+
+    // 1) Extraigo la lista real
+    const rawClientes = Array.isArray(response)
+      ? response
+      : Array.isArray(response.data)
+        ? response.data
+        : [];
+
+    // 2) Transformo
+    const clientesFormateados = rawClientes.map(transformarCliente);
+
+    // 3) Seteo
+    setClientes(clientesFormateados);
+    setError(null);
+  } catch (err) {
+    console.error("Error al obtener los clientes:", err);
+    setError("Error al obtener los clientes.");
+  } finally {
+    finishLoading();
+  }
+}, []);
 
   const fetchTributos = useCallback(async () => {
     startLoading();
@@ -67,9 +68,8 @@ export const FacturacionProvider = ({ children }) => {
       console.log("Tributos obtenidos:", data);
       setTributos(data || []);
       setError(null);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener los tributos:", err);
+    } catch (error) {
+      console.error("Error al obtener los tributos:", error);
       setError("Error al obtener los tributos.");
     } finally {
       finishLoading();
@@ -81,12 +81,12 @@ export const FacturacionProvider = ({ children }) => {
       const data = await customFetch(`/tributos/${tributoId}`);
       console.log("Servicios para tributo", tributoId, ":", data);
       setServicios(data.servicios || []);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener los servicios:", err);
+    } catch (error) {
+      console.error("Error al obtener los servicios:", error);
       setError("Error al obtener los servicios.");
     }
   }, []);
+
 
   const fetchPeriodosByClienteYServicio = useCallback(
     async (clienteId, servicioId, tributoId) => {
@@ -118,11 +118,10 @@ export const FacturacionProvider = ({ children }) => {
             total: i_debito - i_descuento + i_recargo_actualizado,
           };
         });
-      } catch (err) {
-        if (err.status === 401 || err.status === 403) return [];
-        console.error("Error al obtener los períodos:", err);
+      } catch (error) {
+        console.error("Error al obtener los períodos:", error);
         setError("Error al obtener los períodos.");
-        throw err;
+        throw error;
       }
     },
     []
@@ -135,42 +134,51 @@ export const FacturacionProvider = ({ children }) => {
       console.log("Cliente obtenido por ID:", data);
       setError(null);
       return data;
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return null;
-      console.error("Error al obtener el cliente:", err);
+    } catch (error) {
+      console.error("Error al obtener el cliente:", error);
       setError("Error al obtener el cliente.");
-      throw err;
+      throw error;
     } finally {
       finishLoading();
     }
   }, []);
 
-  const fetchRecibosByCliente = useCallback(async (clienteId, showAlert = true) => {
-    try {
-      const response = await customFetch(
-        `/recibos/cliente/${clienteId}?page=1&per_page=100`,
-        "GET",
-        null,
-        showAlert
-      );
-      console.log(`Recibos para cliente ${clienteId}:`, response);
-      let dataArray = [];
-      if (Array.isArray(response)) {
-        if (response.length === 2 && Array.isArray(response[0])) {
-          dataArray = response[0];
-        }
-      } else if (response.data && Array.isArray(response.data)) {
-        dataArray = response.data;
+const fetchRecibosByCliente = useCallback(async (clienteId, showAlert = true) => {
+  try {
+    const response = await customFetch(
+      `/recibos/cliente/${clienteId}?page=1&per_page=100`,
+      "GET",
+      null,
+      showAlert
+    );
+    console.log(`Recibos para cliente ${clienteId}:`, response);
+    // La respuesta puede ser:
+    // - un array de recibos plano
+    // - { data: [...] }
+    // - [array, status]
+    let dataArray = [];
+    if (Array.isArray(response)) {
+      // ¿Es un array plano de recibos? ¡Listo!
+      if (response.length && typeof response[0] === "object" && !Array.isArray(response[0])) {
+        dataArray = response;
       }
-      console.log("Todos los recibos del cliente:", dataArray);
-      return dataArray;
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return [];
-      console.error("Error al obtener los recibos del cliente:", err);
-      setError("Error al obtener los recibos del cliente.");
-      throw err;
+      // ¿Es [array, status]?
+      else if (response.length === 2 && Array.isArray(response[0])) {
+        dataArray = response[0];
+      }
+    } else if (response && Array.isArray(response.data)) {
+      dataArray = response.data;
     }
-  }, []);
+    console.log("Todos los recibos del cliente:", dataArray);
+    return dataArray;
+  } catch (error) {
+    console.error("Error al obtener los recibos del cliente:", error);
+    setError("Error al obtener los recibos del cliente.");
+    throw error;
+  }
+}, []);
+
+
 
   const fetchCondicionesPago = useCallback(async () => {
     try {
@@ -193,37 +201,39 @@ export const FacturacionProvider = ({ children }) => {
         );
       }
       setCondicionesPago(flatConditions);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener condiciones de pago:", err);
+    } catch (error) {
+      console.error("Error al obtener condiciones de pago:", error);
     }
   }, []);
 
-  const fetchCalles = useCallback(async () => {
-    try {
-      const data = await customFetch("/calles");
-      const formatted = unpackData(data)
-        .map(calle => ({
-          ...calle,
-          nombre: titleCase(calle.nombre)
-        }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre));
-      console.log("Calles formateadas y ordenadas:", formatted);
-      setCalles(formatted);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener las calles:", err);
-    }
-  }, []);
+const fetchCalles = useCallback(async () => {
+  try {
+    const data = await customFetch("/calles");
+    // Aplicamos titleCase a cada nombre de calle y luego ordenamos
+    const formatted = unpackData(data)
+      .map(calle => ({
+        ...calle,
+        nombre: titleCase(calle.nombre)
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre)); // orden alfabético por nombre
+
+    console.log("Calles formateadas y ordenadas:", formatted);
+    setCalles(formatted);
+  } catch (error) {
+    console.error("Error al obtener las calles:", error);
+  }
+}, []);
+
+  
+  
 
   const fetchMunicipios = useCallback(async () => {
     try {
       const data = await customFetch("/municipios");
       console.log("Municipios obtenidos:", data);
       setMunicipios(unpackData(data));
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener los municipios:", err);
+    } catch (error) {
+      console.error("Error al obtener los municipios:", error);
     }
   }, []);
 
@@ -232,30 +242,31 @@ export const FacturacionProvider = ({ children }) => {
       const data = await customFetch("/provincias");
       console.log("Provincias obtenidas:", data);
       setProvincias(unpackData(data));
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener las provincias:", err);
+    } catch (error) {
+      console.error("Error al obtener las provincias:", error);
     }
   }, []);
 
-  const fetchModuleValue = useCallback(async () => {
-    try {
-      const data = await customFetch("/general");
-      setModuleInfo({
-        valor_modulo: data.valor_modulo,
-        ordenanza_modulo: data.ordenanza_modulo,
-        updated_at: data.updated_at || data.created_at || ""
-      });
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) return;
-      console.error("Error al obtener el valor del módulo:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Hubo un problema al obtener el valor del módulo.",
-      });
-    }
-  }, []);
+  // Función para obtener el valor del módulo.
+const fetchModuleValue = useCallback(async () => {
+  try {
+    const data = await customFetch("/general");
+    setModuleInfo({
+      valor_modulo: data.valor_modulo,
+      ordenanza_modulo: data.ordenanza_modulo,
+      updated_at: data.updated_at || data.created_at || ""
+    });
+  } catch (error) {
+    console.error("Error al obtener el valor del módulo:", error);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Hubo un problema al obtener el valor del módulo.",
+    });
+  }
+}, []);
+
+  
 
   // Cargar datos al montar.
   useEffect(() => {
@@ -265,15 +276,15 @@ export const FacturacionProvider = ({ children }) => {
     fetchCalles();
     fetchMunicipios();
     fetchProvincias();
+    // Llamamos a fetchModuleValue para establecer moduleValue.
     fetchModuleValue();
     async function fetchServicios() {
       try {
         const data = await customFetch("/servicios");
         console.log("Servicios obtenidos:", data);
         setServiciosDisponibles(unpackData(data));
-      } catch (err) {
-        if (err.status === 401 || err.status === 403) return;
-        console.error("Error al obtener servicios:", err);
+      } catch (error) {
+        console.error("Error al obtener servicios:", error);
       }
     }
     fetchServicios();

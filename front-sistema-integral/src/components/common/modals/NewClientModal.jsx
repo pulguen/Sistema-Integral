@@ -1,4 +1,3 @@
-// src/components/common/modals/NewClientModal.jsx
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import Swal from 'sweetalert2';
@@ -222,13 +221,13 @@ export default function NewClientModal({
     handleClose();
   };
 
-  // Envío final
+  // Envío final con control de borrado si falla la asignación de servicios
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep1() || !validateStep2()) return;
     if (serviciosSeleccionados.length === 0) {
-    Swal.fire('Servicios requeridos', 'Debes asignar al menos un servicio al cliente.', 'warning');
-    return;
+      Swal.fire('Servicios requeridos', 'Debes asignar al menos un servicio al cliente.', 'warning');
+      return;
     }
 
     // Armar payload
@@ -294,25 +293,30 @@ export default function NewClientModal({
     });
     if (!confirm.isConfirmed) return;
 
+    let newClient = null;
     try {
-      // Creo cliente
-      const newClient = await handleSubmit(payload);
-      // Asigno servicios
-      if (serviciosSeleccionados.length > 0) {
-        await customFetch(
-          `/clientes/${newClient.id}/serv-sinc`,
-          'POST',
-          { servicios: serviciosSeleccionados.map((id) => String(id)) }
-        );
-      }
+      // 1. Crear cliente
+      newClient = await handleSubmit(payload);
+
+      // 2. Asignar servicios
+      await customFetch(
+        `/clientes/${newClient.id}/sincronizar-servicios`,
+        'POST',
+        { servicios: serviciosSeleccionados.map((id) => String(id)) }
+      );
+
       await Swal.fire('Éxito', 'Cliente creado correctamente.', 'success');
       handleModalClose();
       onClientCreated?.();
-    } catch (err) {
-      console.error(err);
+
+  } catch (err) {
+    if (newClient && newClient.id) {
+      // (borrado automático)
+    } else {
       Swal.fire('Error', err.message || 'No se pudo crear el cliente.', 'error');
     }
-  };
+  }
+};
 
   return (
     <Modal
@@ -425,7 +429,6 @@ export default function NewClientModal({
           {step === 2 && (
             <>
               <h5 className="mb-3">Dirección</h5>
-
               <Form.Group className="mb-3">
                 <Form.Label>Provincia</Form.Label>
                 <Form.Select
@@ -439,7 +442,6 @@ export default function NewClientModal({
                   ))}
                 </Form.Select>
               </Form.Group>
-
               <Form.Group className="mb-3">
                 <Form.Label>Municipio</Form.Label>
                 <Form.Select
@@ -454,7 +456,6 @@ export default function NewClientModal({
                   ))}
                 </Form.Select>
               </Form.Group>
-
               <Form.Group className="mb-3">
                 <Form.Label>Calle</Form.Label>
                 <Form.Select
@@ -472,7 +473,6 @@ export default function NewClientModal({
                   Agregar nueva calle
                 </Button>
               </Form.Group>
-
               <Form.Group className="mb-3">
                 <Form.Label>Altura</Form.Label>
                 <Form.Control
@@ -482,7 +482,6 @@ export default function NewClientModal({
                   onChange={handleDomicilioChange}
                 />
               </Form.Group>
-
               <Form.Group className="mb-3">
                 <Form.Label>Código Postal</Form.Label>
                 <Form.Control
@@ -492,7 +491,6 @@ export default function NewClientModal({
                   onChange={handleDomicilioChange}
                 />
               </Form.Group>
-
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
@@ -528,7 +526,6 @@ export default function NewClientModal({
                   </Form.Group>
                 </Col>
               </Row>
-
               <Form.Group className="mb-3">
                 <Form.Check
                   type="checkbox"
@@ -538,7 +535,6 @@ export default function NewClientModal({
                   onChange={handleDomicilioChange}
                 />
               </Form.Group>
-
               {domicilio.es_esquina && (
                 <Form.Group className="mb-3">
                   <Form.Label>Calle Esquina</Form.Label>
@@ -554,7 +550,6 @@ export default function NewClientModal({
                   </Form.Select>
                 </Form.Group>
               )}
-
               <Form.Group className="mb-3">
                 <Form.Label>Referencia (opc.)</Form.Label>
                 <Form.Control
@@ -563,7 +558,6 @@ export default function NewClientModal({
                   onChange={handleDomicilioChange}
                 />
               </Form.Group>
-
               <div className="d-flex justify-content-between">
                 <Button variant="secondary" onClick={goBack}>Volver</Button>
                 <Button variant="primary" onClick={goNext}>Siguiente</Button>
