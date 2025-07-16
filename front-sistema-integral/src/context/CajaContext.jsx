@@ -96,6 +96,13 @@ export const CajaProvider = ({ children }) => {
 
   // ---- FUNCIONES DE BUSQUEDA ----
 
+  // NUEVA función fetchRecibos (la que faltaba)
+  const fetchRecibos = useCallback(async (params) => {
+    const query = qs.stringify(params, { arrayFormat: "brackets" });
+    const response = await customFetch(`/recibos${query ? '?' + query : ''}`, "GET");
+    return adaptarRecibos(response);
+  }, []);
+
   // Búsqueda rápida por número de recibo
   const buscarReciboRapido = useCallback(async (numeroRecibo) => {
     if (!numeroRecibo) return;
@@ -249,6 +256,34 @@ export const CajaProvider = ({ children }) => {
     return () => { activo = false };
   }, []);
 
+  // **ACÁ VA LA FUNCIÓN CLAVE QUE FALTABA**
+  const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {
+        f_pago_min: fechaCierre,
+        f_pago_max: fechaCierre,
+        condicion_pago_id: [1, 2],
+      };
+      const response = await fetchRecibos(params);
+      // Agrupa por condición de pago
+      const pagados = [];
+      const anulados = [];
+      (response || []).forEach(r => {
+        if (Number(r.condicion_pago_id) === 1) pagados.push(r);
+        else if (Number(r.condicion_pago_id) === 2) anulados.push(r);
+      });
+      return { pagados, anulados };
+    } catch (err) {
+      setError("Error al obtener recibos del cierre.");
+      // IMPORTANTE: devolvé arrays vacíos para que no crashee el modal
+      return { pagados: [], anulados: [] };
+      // Si preferís tirar error y manejar en el modal, cambiá esto por: throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchRecibos]);
 
   // ----------- PROVIDER VALUE -----------
   const contextValue = {
@@ -277,7 +312,8 @@ export const CajaProvider = ({ children }) => {
     cerrarModalDetalle,
     reciboSeleccionado,
 
-    // otros
+    // Otros
+    fetchRecibosPorFechaYCierre,
     pagarRecibo,
     fetchEstadoCajaCerrada,
     cajaCerrada,
