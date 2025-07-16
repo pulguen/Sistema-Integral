@@ -1,3 +1,4 @@
+// src/pages/Caja/HomeCaja.jsx
 import React, { useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { Card, Breadcrumb } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
@@ -13,12 +14,12 @@ import getBackendErrorMsg from '../../../utils/getBackendErrorMsg.js';
 
 const CajaHome = () => {
   const {
-    buscarRecibo,
+    buscarReciboRapido,
     pagarRecibo,
     cajaCerrada,
     fetchEstadoCajaCerrada,
     loading,
-    fetchRecibos, // <--- agregado: trae del contexto!
+    fetchRecibos,
   } = useContext(CajaContext);
   const { user } = useContext(AuthContext);
 
@@ -38,7 +39,6 @@ const CajaHome = () => {
     fetchEstadoCajaCerrada();
   }, [fetchEstadoCajaCerrada]);
 
-  // Acumulador de recibos para la calculadora
   const [recibosAProcesar, setRecibosAProcesar] = useState([]);
 
   const handleAgregarAProcesar = useCallback((nuevoRecibo) => {
@@ -74,12 +74,12 @@ const CajaHome = () => {
     try {
       let data;
       if (busquedaManual) {
-        data = await buscarRecibo(busqueda);
+        data = await buscarReciboRapido(busqueda);
       } else {
         await buscarReciboConChecksum(busqueda);
         const numeroRecibo = extractReciboNumber(busqueda);
         setBusqueda(numeroRecibo);
-        data = await buscarRecibo(numeroRecibo);
+        data = await buscarReciboRapido(numeroRecibo);
       }
       setResultado(prev => {
         const nuevos = data.filter(n => !prev.some(r => r.id === n.id));
@@ -103,7 +103,7 @@ const CajaHome = () => {
   }, [
     busqueda,
     busquedaManual,
-    buscarRecibo,
+    buscarReciboRapido,
     buscarReciboConChecksum,
     extractReciboNumber,
     handleAgregarAProcesar
@@ -117,16 +117,15 @@ const CajaHome = () => {
     if (inputRef.current) inputRef.current.focus();
   }, [handleResetCalculadora]);
 
-  // Nuevo: Usar fetchRecibos del contexto para traer los de hoy
+  // Traer recibos de hoy
   const fetchRecibosHoy = useCallback(async () => {
     setLoadingRecibosHoy(true);
     try {
       const fechaPago = new Date().toISOString().split("T")[0];
-      // Pido pagados y anulados, los filtrás después si querés separar
       const recibos = await fetchRecibos({
         f_pago_min: fechaPago,
         f_pago_max: fechaPago,
-        condicion_pago_id: [1, 2], // 1: pagado, 2: anulado
+        condicion_pago_id: [1, 2],
       });
       setRecibosHoy(Array.isArray(recibos) ? recibos : []);
     } catch (err) {
@@ -141,8 +140,7 @@ const CajaHome = () => {
     fetchRecibosHoy();
   }, [fetchRecibosHoy]);
 
-  // Cobro individual usando SIEMPRE pagarRecibo
-// Cobro individual
+  // Cobro individual
   const handleCobrarRecibo = useCallback(async (n_recibo) => {
     const result = await Swal.fire({
       title: "Confirmar cobro",
@@ -171,49 +169,47 @@ const CajaHome = () => {
     }
   }, [pagarRecibo, fetchRecibosHoy]);
 
-
   const puedenCobrarSeleccionados = recibosAProcesar.length > 0 && recibosAProcesar.every(r => {
     const estado = r.condicion_pago?.nombre?.toLowerCase();
     const vencido = new Date(r.f_vencimiento) < new Date();
     return !r.f_pago && estado !== "anulado" && !vencido;
   });
 
-  // Cobro múltiple usando SIEMPRE pagarRecibo
-// Cobro múltiple
-const handleCobrarSeleccionados = useCallback(async () => {
-  if (recibosAProcesar.length === 0) return;
-  const n_recibos = recibosAProcesar.map(r => r.n_recibo);
+  // Cobro múltiple
+  const handleCobrarSeleccionados = useCallback(async () => {
+    if (recibosAProcesar.length === 0) return;
+    const n_recibos = recibosAProcesar.map(r => r.n_recibo);
 
-  const result = await Swal.fire({
-    title: n_recibos.length > 1 ? "¿Cobrar todos los recibos?" : "¿Cobrar este recibo?",
-    text: n_recibos.length > 1
-      ? `Se cobrarán ${n_recibos.length} recibos. ¿Desea continuar?`
-      : `Se cobrará el recibo N° ${n_recibos[0]}. ¿Desea continuar?`,
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Sí, cobrar",
-    cancelButtonText: "Cancelar",
-    customClass: {
-      confirmButton: 'btn btn-success mx-2',
-      cancelButton: 'btn btn-secondary mx-2'
-    },
-    buttonsStyling: false,
-  });
-  if (!result.isConfirmed) return;
+    const result = await Swal.fire({
+      title: n_recibos.length > 1 ? "¿Cobrar todos los recibos?" : "¿Cobrar este recibo?",
+      text: n_recibos.length > 1
+        ? `Se cobrarán ${n_recibos.length} recibos. ¿Desea continuar?`
+        : `Se cobrará el recibo N° ${n_recibos[0]}. ¿Desea continuar?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cobrar",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        confirmButton: 'btn btn-success mx-2',
+        cancelButton: 'btn btn-secondary mx-2'
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
 
-  try {
-    await pagarRecibo(n_recibos);
-    Swal.fire("¡Cobro realizado!", "Se cobraron los recibos seleccionados.", "success");
-    handleResetCalculadora();
-    fetchRecibosHoy();
-    setResultado([]);
-  } catch (err) {
-    const msg = getBackendErrorMsg(err, 'No se pudieron cobrar los recibos seleccionados.');
-    Swal.fire("Error", msg, "error");
-  }
-}, [recibosAProcesar, pagarRecibo, handleResetCalculadora, fetchRecibosHoy, setResultado]);
+    try {
+      await pagarRecibo(n_recibos);
+      Swal.fire("¡Cobro realizado!", "Se cobraron los recibos seleccionados.", "success");
+      handleResetCalculadora();
+      fetchRecibosHoy();
+      setResultado([]);
+    } catch (err) {
+      const msg = getBackendErrorMsg(err, 'No se pudieron cobrar los recibos seleccionados.');
+      Swal.fire("Error", msg, "error");
+    }
+  }, [recibosAProcesar, pagarRecibo, handleResetCalculadora, fetchRecibosHoy, setResultado]);
 
-// Anular recibo
+  // Anular recibo
   const handleAnular = useCallback(async (recibo) => {
     const result = await Swal.fire({
       title: "Anular Recibo",
@@ -245,7 +241,6 @@ const handleCobrarSeleccionados = useCallback(async () => {
       }
     }
   }, [fetchRecibosHoy]);
-
 
   const handleQuitarRecibo = useCallback((reciboId) => {
     setResultado(prev => prev.filter(r => r.id !== reciboId));

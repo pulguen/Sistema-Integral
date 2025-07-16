@@ -3,10 +3,9 @@ import React, { createContext, useState, useCallback, useEffect } from 'react';
 import customFetch from './CustomFetch';
 import qs from 'qs';
 
-// 1. Export nombrado del contexto:
 export const CajaContext = createContext();
 
-// ------ ADAPTADOR UNIVERSAL DE RECIBOS ------
+// Adaptador universal de recibos
 const CONDICIONES = {
   1: { nombre: 'Pagado', color: 'success' },
   2: { nombre: 'Anulado', color: 'danger' },
@@ -66,62 +65,57 @@ function adaptarRecibos(data) {
   });
 }
 
-// 2. Provider con TODOS los estados y lógica
 export const CajaProvider = ({ children }) => {
-  // Estados principales
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [recibos, setRecibos] = useState([]); // lista de recibos actuales
+  const [recibos, setRecibos] = useState([]);
   const [detalleCierre, setDetalleCierre] = useState(null);
   const [cajaCerrada, setCajaCerrada] = useState(false);
   const [cajeros, setCajeros] = useState([]);
 
-  // Estados de paginación local
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(15);
 
-  // Modal de detalle
   const [showModal, setShowModal] = useState(false);
   const [reciboSeleccionado, setReciboSeleccionado] = useState(null);
 
-  // Filtros para búsqueda avanzada
   const [filtrosAvanzados, setFiltrosAvanzados] = useState({
     fechaDesde: '',
     fechaHasta: '',
     importeMin: '',
     importeMax: '',
-    cliente: null,   // objeto cliente completo
-    cajero: '',      // id de cajero
+    cliente: null,
+    cajero: '',
   });
 
-  // ---- FUNCIONES DE BUSQUEDA ----
-
-  // NUEVA función fetchRecibos (la que faltaba)
+  // NUEVA función fetchRecibos exportada
   const fetchRecibos = useCallback(async (params) => {
     const query = qs.stringify(params, { arrayFormat: "brackets" });
     const response = await customFetch(`/recibos${query ? '?' + query : ''}`, "GET");
     return adaptarRecibos(response);
   }, []);
 
-  // Búsqueda rápida por número de recibo
+  // Búsqueda rápida por número de recibo, siempre retorna array
   const buscarReciboRapido = useCallback(async (numeroRecibo) => {
-    if (!numeroRecibo) return;
+    if (!numeroRecibo) return [];
     setLoading(true);
     try {
       let data = await customFetch(`/recibos/${numeroRecibo}`);
-      setRecibos(adaptarRecibos(data));
+      // Convertir SIEMPRE a array
+      const arr = adaptarRecibos(data);
+      setRecibos(arr);
       setPageIndex(0);
       setError(null);
+      return arr;
     } catch (err) {
       setRecibos([]);
       setError('Error al buscar recibo.');
-      throw err;
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Búsqueda avanzada
   const buscarRecibosAvanzados = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -137,8 +131,7 @@ export const CajaProvider = ({ children }) => {
         params.cliente_id = [filtrosAvanzados.cliente.id];
       if (filtrosAvanzados.cajero)
         params.cajero_id = [filtrosAvanzados.cajero];
-      params.condicion_pago_id = ['1']; // Solo pagados
-
+      params.condicion_pago_id = ['1'];
       const query = qs.stringify(params, { arrayFormat: "brackets" });
       let response = await customFetch(`/recibos${query ? '?' + query : ''}`, "GET");
       setRecibos(adaptarRecibos(response));
@@ -152,7 +145,6 @@ export const CajaProvider = ({ children }) => {
     }
   }, [filtrosAvanzados]);
 
-  // Limpiar filtros avanzados
   const limpiarFiltrosAvanzados = useCallback(() => {
     setFiltrosAvanzados({
       fechaDesde: '',
@@ -164,7 +156,6 @@ export const CajaProvider = ({ children }) => {
     });
   }, []);
 
-  // ----- MODAL DETALLE -----
   const abrirModalDetalle = useCallback((recibo) => {
     setReciboSeleccionado(recibo);
     setShowModal(true);
@@ -174,7 +165,6 @@ export const CajaProvider = ({ children }) => {
     setShowModal(false);
   }, []);
 
-  // Cobrar recibos (NO obligatorio acá)
   const pagarRecibo = useCallback(async (recibos) => {
     setLoading(true);
     try {
@@ -192,7 +182,6 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-  // Estado de la caja (cerrada o no)
   const fetchEstadoCajaCerrada = useCallback(async () => {
     try {
       const response = await customFetch("/cierres", "GET");
@@ -215,7 +204,6 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-  // Detalle de cierre
   const fetchDetalleCierre = useCallback(async (id) => {
     setLoading(true);
     setError(null);
@@ -231,12 +219,10 @@ export const CajaProvider = ({ children }) => {
     }
   }, []);
 
-  // Cargar cajeros al montar (solo una vez)
   useEffect(() => {
     let activo = true;
     customFetch('/recibos/cajeros/ids')
       .then(res => {
-        // Unificar cajeros por id, mostrar el name si existe, si no mostrar "Sin nombre" o el id
         const unicos = {};
         (Array.isArray(res) ? res : []).forEach(item => {
           if (item.cajero_id && !unicos[item.cajero_id]) {
@@ -256,7 +242,6 @@ export const CajaProvider = ({ children }) => {
     return () => { activo = false };
   }, []);
 
-  // **ACÁ VA LA FUNCIÓN CLAVE QUE FALTABA**
   const fetchRecibosPorFechaYCierre = useCallback(async (fechaCierre) => {
     setLoading(true);
     setError(null);
@@ -267,7 +252,6 @@ export const CajaProvider = ({ children }) => {
         condicion_pago_id: [1, 2],
       };
       const response = await fetchRecibos(params);
-      // Agrupa por condición de pago
       const pagados = [];
       const anulados = [];
       (response || []).forEach(r => {
@@ -277,50 +261,38 @@ export const CajaProvider = ({ children }) => {
       return { pagados, anulados };
     } catch (err) {
       setError("Error al obtener recibos del cierre.");
-      // IMPORTANTE: devolvé arrays vacíos para que no crashee el modal
       return { pagados: [], anulados: [] };
-      // Si preferís tirar error y manejar en el modal, cambiá esto por: throw err;
     } finally {
       setLoading(false);
     }
   }, [fetchRecibos]);
 
-  // ----------- PROVIDER VALUE -----------
   const contextValue = {
-    // Estados y setters
     loading,
     error,
     recibos,
     setRecibos,
-
-    // paginación
     pageIndex,
     setPageIndex,
     pageSize,
     setPageSize,
-
-    // filtros avanzados
     filtrosAvanzados,
     setFiltrosAvanzados,
     buscarReciboRapido,
     buscarRecibosAvanzados,
     limpiarFiltrosAvanzados,
-
-    // modal detalle
     showModal,
     abrirModalDetalle,
     cerrarModalDetalle,
     reciboSeleccionado,
-
-    // Otros
     fetchRecibosPorFechaYCierre,
     pagarRecibo,
     fetchEstadoCajaCerrada,
     cajaCerrada,
     fetchDetalleCierre,
     detalleCierre,
-
-    cajeros, // para el filtro de cajeros en búsqueda avanzada
+    cajeros,
+    fetchRecibos, // <---- exportado!
   };
 
   return (
