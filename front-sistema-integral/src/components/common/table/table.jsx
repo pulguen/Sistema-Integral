@@ -1,4 +1,3 @@
-// src/components/common/table/table.jsx
 import React from 'react';
 import { Table, Button, Spinner, Form, Alert } from 'react-bootstrap';
 import { useTable, useSortBy, usePagination } from 'react-table';
@@ -15,15 +14,17 @@ function DefaultColumnFilter({ column: { filterValue, setFilter } }) {
   );
 }
 
+const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
+
 const CommonTable = ({
   columns,
   data,
   loading = false,
-  fetchData,             // si lo pasas, modo servidor
-  controlledPageCount,
-  initialPageIndex = 0,
-  initialPageSize = 15,
-  pageSizeOptions = [15, 30, 45, 60],
+  fetchData,               // (opcional) para paginación server-side
+  controlledPageCount,     // solo en server-side
+  initialPageIndex,
+  initialPageSize,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
   onRowClick,
   className = '',
   ...rest
@@ -32,12 +33,26 @@ const CommonTable = ({
 
   const defaultColumn = React.useMemo(() => ({ Filter: DefaultColumnFilter }), []);
 
+  const tableOptions = {
+    columns,
+    data,
+    defaultColumn,
+    manualPagination: isServerSide,
+    pageCount: isServerSide ? controlledPageCount : undefined,
+    autoResetPage: false
+  };
+  if (isServerSide && typeof initialPageIndex !== "undefined" && typeof initialPageSize !== "undefined") {
+    tableOptions.initialState = { pageIndex: initialPageIndex, pageSize: initialPageSize };
+  } else if (!isServerSide) {
+    tableOptions.initialState = { pageIndex: 0, pageSize: pageSizeOptions[0] };
+  }
+
   const {
     getTableProps,
     getTableBodyProps,
     headerGroups,
     prepareRow,
-    page,               // filas de la página actual
+    page,
     canPreviousPage,
     canNextPage,
     pageOptions,
@@ -48,24 +63,16 @@ const CommonTable = ({
     setPageSize,
     state: { pageIndex, pageSize }
   } = useTable(
-    {
-      columns,
-      data,
-      defaultColumn,
-      manualPagination: isServerSide,
-      pageCount: isServerSide ? controlledPageCount : undefined,
-      autoResetPage: false,
-      initialState: { pageIndex: initialPageIndex, pageSize: initialPageSize }
-    },
+    tableOptions,
     useSortBy,
     usePagination
   );
 
-  // si estamos en remoto, cada vez que cambie pageIndex o pageSize...
   React.useEffect(() => {
-    if (isServerSide) {
+    if (isServerSide && fetchData) {
       fetchData({ page: pageIndex + 1, per_page: pageSize });
     }
+    // eslint-disable-next-line
   }, [isServerSide, fetchData, pageIndex, pageSize]);
 
   if (loading) {
@@ -97,7 +104,7 @@ const CommonTable = ({
               prepareRow(row);
               return (
                 <tr
-                  key={row.id}
+                  key={row.id || row.original.id || row.index}
                   {...row.getRowProps({
                     onClick: () => onRowClick && onRowClick(row.original),
                     style: { cursor: onRowClick ? 'pointer' : 'default' }
@@ -114,7 +121,7 @@ const CommonTable = ({
           </tbody>
         </Table>
       </div>
-      <div className="pagination d-flex justify-content-between align-items-center">
+      <div className="pagination d-flex justify-content-between align-items-center mt-3">
         <div>
           <Button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="me-2">{'<<'}</Button>
           <Button onClick={() => previousPage()} disabled={!canPreviousPage} className="me-2">{'<'}</Button>
@@ -125,9 +132,13 @@ const CommonTable = ({
         <span>| Ir a la página: {' '}
           <input
             type="number"
+            min={1}
+            max={pageOptions.length}
             value={pageIndex + 1}
             onChange={e => {
-              const p = e.target.value ? Number(e.target.value) - 1 : 0;
+              let p = Number(e.target.value) - 1;
+              if (isNaN(p) || p < 0) p = 0;
+              if (p >= pageCount) p = pageCount - 1;
               gotoPage(p);
             }}
             style={{ width: '60px' }}

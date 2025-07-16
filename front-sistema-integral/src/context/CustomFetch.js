@@ -1,5 +1,3 @@
-// src/context/CustomFetch.js
-
 export class CustomError extends Error {
   constructor(message, status) {
     super(message);
@@ -26,7 +24,6 @@ const customFetch = async (endpoint, method = 'GET', body = null) => {
     const response = await fetch(url, options);
     const responseText = await response.text();
 
-    // Verifica si el backend devolvió HTML por error de configuración/redirección
     if (response.headers.get('content-type')?.includes('text/html')) {
       throw new CustomError(
         'El servidor devolvió HTML en lugar de JSON. Esto sugiere un problema de configuración en el servidor o una redirección inesperada.',
@@ -34,7 +31,6 @@ const customFetch = async (endpoint, method = 'GET', body = null) => {
       );
     }
 
-    // Manejo de sesión expirada: dispara un evento para que el layout lo maneje
     if (response.status === 401 || response.status === 403) {
       if (endpoint === '/login') {
         throw new CustomError('Credenciales incorrectas', response.status);
@@ -46,18 +42,15 @@ const customFetch = async (endpoint, method = 'GET', body = null) => {
 
     if (response.status === 422) {
       const errorData = JSON.parse(responseText);
-      // Si hay errores de validación, tomá el primer mensaje
       if (errorData["error de validación"]) {
         const valObj = errorData["error de validación"];
         const firstKey = Object.keys(valObj)[0];
         const firstMsg = valObj[firstKey] && Array.isArray(valObj[firstKey]) ? valObj[firstKey][0] : JSON.stringify(valObj);
         throw new CustomError(firstMsg, response.status);
       }
-      // Si hay 'message', usalo
       if (errorData.message) {
         throw new CustomError(errorData.message, response.status);
       }
-      // Si no, devolvé todo el body como string
       throw new CustomError(JSON.stringify(errorData), response.status);
     }
 
@@ -67,16 +60,12 @@ const customFetch = async (endpoint, method = 'GET', body = null) => {
     }
 
     if (!response.ok) {
-      // Incluye el texto devuelto por el backend, útil para casos como “No existen recibos...”
       throw new CustomError(`Error ${response.status}: ${responseText}`, response.status);
     }
 
-    // Respuesta vacía es aceptada como []
     if (!responseText.trim()) return [];
-
     return JSON.parse(responseText);
   } catch (error) {
-    // NO mostrar alertas aquí: que las maneje el componente o layout
     throw error;
   }
 };

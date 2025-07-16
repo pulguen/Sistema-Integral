@@ -1,110 +1,45 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Breadcrumb, Form, Row, Col, Spinner } from 'react-bootstrap';
+import React, { useContext, useState, useEffect } from 'react';
+import { CajaContext } from '../../../context/CajaContext';
+import { Card, Breadcrumb, Tabs, Tab } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import Swal from 'sweetalert2';
-import customFetch from '../../../context/CustomFetch.js';
+import BusquedaRapidaForm from './BusquedaRapidaForm';
+import BusquedaAvanzadaForm from './BusquedaAvanzadaForm';
+import HistorialCajaTable from './HistorialCajaTable';
 import DetalleReciboModal from '../../../components/common/modals/DetalleReciboModal.jsx';
-import CustomButton from '../../../components/common/botons/CustomButton.jsx';
-import CommonTable from '../../../components/common/table/table.jsx';
-import { FaEye } from 'react-icons/fa';
-
-const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
+import formatNumber from '../../../utils/formatNumber';
 
 const HistorialCaja = () => {
-  const [recibos, setRecibos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    recibos, loading, pageIndex, setPageIndex, pageSize, setPageSize,
+    showModal, abrirModalDetalle, cerrarModalDetalle, reciboSeleccionado,
+    setRecibos, limpiarFiltrosAvanzados
+  } = useContext(CajaContext);
 
-  const [filtroRecibo, setFiltroRecibo] = useState('');
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
-  const [filtroImporteMin, setFiltroImporteMin] = useState('');
-  const [filtroImporteMax, setFiltroImporteMax] = useState('');
-  const [filtroCliente, setFiltroCliente] = useState('');
-  const [filtroCajero, setFiltroCajero] = useState('');
+  const [activeTab, setActiveTab] = useState('rapida');
+  const [resetSignal, setResetSignal] = useState(0);
 
-  const [selectedRecibo, setSelectedRecibo] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
-
+  // Limpia TODO al cambiar de tab
   useEffect(() => {
-    const fetchHistorialRecibos = async () => {
-      setLoading(true);
-      try {
-        const response = await customFetch(`/recibos`);
-        const allData = response?.data || [];
-        // Log para chequear los datos crudos
-        console.log('📦 Datos crudos de recibos:', allData);
-
-        // Solo los pagados
-        const historial = allData
-          .filter(r => r.condicion_pago_id === 1)
-          .sort((a, b) => new Date(b.f_pago || b.f_vencimiento) - new Date(a.f_pago || a.f_vencimiento))
-          .map(r => {
-            // Nombre cliente
-            let clienteNombre = '';
-            if (r.cliente && r.cliente.clientable) {
-              const { nombre, apellido } = r.cliente.clientable;
-              clienteNombre = [nombre, apellido].filter(Boolean).join(' ').trim();
-            }
-            // Nombre cajero
-            let cajeroNombre = '';
-            if (r.cajero && r.cajero.name) {
-              cajeroNombre = r.cajero.name;
-            }
-            return {
-              ...r,
-              cliente_nombre: clienteNombre,
-              cajero_nombre: cajeroNombre,
-            };
-          });
-
-        setRecibos(historial);
-      } catch (error) {
-        console.error("Error al obtener el historial de recibos:", error);
-        Swal.fire('Error', 'Error al obtener el historial de recibos.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHistorialRecibos();
-  }, []);
-
-  const filteredRecibos = useMemo(() => recibos.filter((r) => {
-    let pass = true;
-    if (filtroRecibo) pass = pass && r.n_recibo?.toString().includes(filtroRecibo);
-    if (filtroFechaDesde) pass = pass && r.f_pago && new Date(r.f_pago) >= new Date(filtroFechaDesde);
-    if (filtroFechaHasta) pass = pass && r.f_pago && new Date(r.f_pago) <= new Date(filtroFechaHasta);
-    if (filtroImporteMin) pass = pass && r.i_total >= parseFloat(filtroImporteMin);
-    if (filtroImporteMax) pass = pass && r.i_total <= parseFloat(filtroImporteMax);
-    if (filtroCliente) pass = pass && r.cliente_nombre?.toLowerCase().includes(filtroCliente.toLowerCase());
-    if (filtroCajero) pass = pass && r.cajero_nombre?.toLowerCase().includes(filtroCajero.toLowerCase());
-    return pass;
-  }), [recibos, filtroRecibo, filtroFechaDesde, filtroFechaHasta, filtroImporteMin, filtroImporteMax, filtroCliente, filtroCajero]);
-
-  const currentPageData = useMemo(() => {
-    const start = pageIndex * pageSize;
-    return filteredRecibos.slice(start, start + pageSize);
-  }, [filteredRecibos, pageIndex, pageSize]);
-
-  const resetFilters = () => {
-    setFiltroRecibo('');
-    setFiltroFechaDesde('');
-    setFiltroFechaHasta('');
-    setFiltroImporteMin('');
-    setFiltroImporteMax('');
-    setFiltroCliente('');
-    setFiltroCajero('');
+    setRecibos([]);
     setPageIndex(0);
-  };
+    setResetSignal(s => s + 1); // trigger reset en los forms hijos
+    limpiarFiltrosAvanzados();
+  }, [activeTab, setRecibos, setPageIndex, limpiarFiltrosAvanzados]);
 
-  const handleVerDetalle = (recibo) => {
-    setSelectedRecibo(recibo);
-    setShowModal(true);
-  };
+  const pageCount = Math.max(1, Math.ceil(recibos.length / pageSize));
+  const canPreviousPage = pageIndex > 0;
+  const canNextPage = pageIndex + 1 < pageCount;
 
-  const columns = useMemo(() => [
+  const gotoPage = (p) => setPageIndex(p);
+  const previousPage = () => { if (canPreviousPage) setPageIndex(pageIndex - 1); };
+  const nextPage = () => { if (canNextPage) setPageIndex(pageIndex + 1); };
+
+  // Slice local
+  const paginatedRecibos = recibos.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+
+  // Columnas...
+  const columns = [
+    { Header: '#', accessor: 'nro' },
     { Header: 'N° Recibo', accessor: 'n_recibo' },
     {
       Header: 'Fecha de Pago',
@@ -114,120 +49,67 @@ const HistorialCaja = () => {
     {
       Header: 'Total',
       accessor: 'i_total',
-      Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+      Cell: ({ value }) => `$ ${formatNumber(value)}`
     },
+    { Header: 'Cliente', accessor: 'cliente_nombre' },
+    { Header: 'Cajero', accessor: 'cajero_nombre' },
     {
-      Header: 'Cliente',
-      accessor: 'cliente_nombre'
-    },
-    {
-      Header: 'Cajero',
-      accessor: 'cajero_nombre'
+      Header: 'Condición',
+      accessor: 'condicion_nombre',
+      Cell: ({ row }) => (
+        <span className={`badge bg-${row.original.condicion_color}`}>
+          {row.original.condicion_nombre}
+        </span>
+      )
     },
     {
       Header: 'Acciones',
       accessor: 'acciones',
-      disableSortBy: true,
-      Cell: ({ row: { original } }) => (
-        <CustomButton variant="info" onClick={() => handleVerDetalle(original)}>
-          <FaEye className="me-2" /> ver
-        </CustomButton>
+      Cell: ({ row }) => (
+        <button className="btn btn-info btn-sm" onClick={() => abrirModalDetalle(row.original)}>
+          Ver
+        </button>
       )
     }
-  ], []);
+  ];
 
   return (
     <Card className="shadow-sm p-4 mt-4">
       <Breadcrumb>
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-          Inicio
-        </Breadcrumb.Item>
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/caja" }}>
-          Home Caja
-        </Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>Inicio</Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/caja" }}>Home Caja</Breadcrumb.Item>
         <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
       </Breadcrumb>
-      <h2 className="text-center mb-4 text-primary">Historial de Cobros</h2>
-      <h4 className="text-center mb-4 text-primary">Busqueda de recibos cobrados</h4>
-      <Card.Body>
-        <Form className="mb-4">
-          <Row>
-            <Col md={2}>
-              <Form.Group controlId="filtroRecibo">
-                <Form.Label>N° Recibo</Form.Label>
-                <Form.Control type="text" value={filtroRecibo} onChange={(e) => setFiltroRecibo(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group controlId="filtroFechaDesde">
-                <Form.Label>Fecha Desde</Form.Label>
-                <Form.Control type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group controlId="filtroFechaHasta">
-                <Form.Label>Fecha Hasta</Form.Label>
-                <Form.Control type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group controlId="filtroImporteMin">
-                <Form.Label>Importe Mínimo</Form.Label>
-                <Form.Control type="number" value={filtroImporteMin} onChange={(e) => setFiltroImporteMin(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group controlId="filtroImporteMax">
-                <Form.Label>Importe Máximo</Form.Label>
-                <Form.Control type="number" value={filtroImporteMax} onChange={(e) => setFiltroImporteMax(e.target.value)} />
-              </Form.Group>
-            </Col>
-          </Row>
-          <Row className="mt-3">
-            <Col md={3}>
-              <Form.Group controlId="filtroCliente">
-                <Form.Label>Cliente (Nombre o Razón Social)</Form.Label>
-                <Form.Control type="text" value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group controlId="filtroCajero">
-                <Form.Label>Cajero (Nombre)</Form.Label>
-                <Form.Control type="text" value={filtroCajero} onChange={(e) => setFiltroCajero(e.target.value)} />
-              </Form.Group>
-            </Col>
-            <Col md={3} className="d-flex align-items-end">
-              <CustomButton variant="secondary" onClick={resetFilters}>Limpiar filtros</CustomButton>
-            </Col>
-          </Row>
-        </Form>
-
-        {loading ? (
-          <div className="text-center">
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Cargando...</span>
-            </Spinner>
-          </div>
-        ) : (
-          <CommonTable
-            columns={columns}
-            data={currentPageData}
-            initialPageIndex={pageIndex}
-            initialPageSize={pageSize}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            onPageChange={setPageIndex}
-            onPageSizeChange={setPageSize}
-          />
-        )}
-      </Card.Body>
-
-      {showModal && selectedRecibo && (
-        <DetalleReciboModal
-          show={showModal}
-          handleClose={() => setShowModal(false)}
-          recibo={selectedRecibo}
-        />
-      )}
+      <h2 className="text-center mb-2 text-primary">Historial de Cobros</h2>
+      <h4 className="text-center mb-4 text-primary">Búsqueda de recibos cobrados</h4>
+      <Tabs activeKey={activeTab} onSelect={setActiveTab} className="mb-3" justify>
+        <Tab eventKey="rapida" title="Búsqueda rápida">
+          <BusquedaRapidaForm resetSignal={resetSignal} />
+        </Tab>
+        <Tab eventKey="avanzada" title="Búsqueda avanzada">
+          <BusquedaAvanzadaForm resetSignal={resetSignal} />
+        </Tab>
+      </Tabs>
+      {/* TABLA */}
+      <HistorialCajaTable
+        data={paginatedRecibos}
+        loading={loading}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
+        pageCount={pageCount}
+        gotoPage={gotoPage}
+        previousPage={previousPage}
+        nextPage={nextPage}
+        setPageSize={setPageSize}
+        canPreviousPage={canPreviousPage}
+        canNextPage={canNextPage}
+        columns={columns}
+      />
+      <DetalleReciboModal
+        show={showModal}
+        recibo={reciboSeleccionado}
+        handleClose={cerrarModalDetalle}
+      />
     </Card>
   );
 };

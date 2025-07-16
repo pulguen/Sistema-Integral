@@ -116,7 +116,7 @@ export default function ClienteDetalle() {
             serviciosAsignados={serviciosAsignados}
             setServiciosAsignados={setServiciosAsignados}
             onAsignar={async () => {
-              await customFetch(`/clientes/${cliente.id}/serv-sinc`, 'POST', {
+              await customFetch(`/clientes/${cliente.id}/sincronizar-servicios`, 'POST', {
                 servicios: serviciosAsignados
               });
               Swal.fire('Éxito', 'Servicios sincronizados.', 'success');

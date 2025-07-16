@@ -8,16 +8,15 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
-  // Inicializamos el token y los datos del usuario desde localStorage
-  const storedToken = localStorage.getItem('token') || null;
-  const [token, setToken] = useState(storedToken);
-
-  const storedUserId = localStorage.getItem('userId') || null;
-  const storedUserName = localStorage.getItem('userName') || null;
+  // Carga inicial desde localStorage
+  const storedToken = localStorage.getItem('token');
+  const storedUserId = localStorage.getItem('userId');
+  const storedUserName = localStorage.getItem('userName');
   const storedUserRoles = JSON.parse(localStorage.getItem('userRoles') || '[]');
   const storedUserPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
   const storedUserServices = JSON.parse(localStorage.getItem('userServices') || '[]');
 
+  const [token, setToken] = useState(storedToken || null);
   const [isAuthenticated, setIsAuthenticated] = useState(!!storedToken);
   const [user, setUser] = useState({
     id: storedUserId,
@@ -26,45 +25,38 @@ export const AuthProvider = ({ children }) => {
     permissions: storedUserPermissions,
     services: storedUserServices,
   });
-
   const [loading, setLoading] = useState(true);
-  // Flag para distinguir arranque (startup) de la aplicación
   const [initialLoad, setInitialLoad] = useState(true);
 
-const logout = useCallback(async () => {
-  try {
-    await customFetch('/logout', 'GET', null, false);
-  } catch (error) {
-    console.error('Error en logout:', error);
-  }
-  setToken(null);
-  localStorage.clear();
+  // LOGOUT
+  const logout = useCallback(async () => {
+    try {
+      await customFetch('/logout', 'GET', null, false);
+    } catch (error) {
+      // No importa el error en logout, simplemente continuamos
+    }
+    setToken(null);
+    setIsAuthenticated(false);
+    setUser({
+      id: null,
+      name: null,
+      roles: [],
+      permissions: [],
+      services: [],
+    });
+    localStorage.clear();
+    navigate('/login');
+  }, [navigate]);
 
-  setIsAuthenticated(false);
-  setUser({
-    id: null,
-    name: null,
-    roles: [],
-    permissions: [],
-    services: [],
-  });
-  navigate('/login');
-}, [navigate]);
-
-
-  /**
-   * Función para obtener los roles, permisos y servicios actualizados del usuario.
-   * Se agrega el parámetro opcional "showAlert" (por defecto true) para poder
-   * controlar la visualización de alertas en las peticiones.
-   */
+  // FETCH DE PERMISOS, ROLES Y SERVICIOS
   const fetchUserPermissions = useCallback(async (showAlert = true) => {
     if (!user.id) return;
     try {
       const data = await customFetch(`/users/${user.id}`, 'GET', null, showAlert);
-      const updatedRoles = data.roles.map((role) => role.name);
-      const updatedPermissions = data.roles.flatMap((role) =>
-        role.permissions.map((permission) => permission.name)
-      );
+      const updatedRoles = data.roles?.map((role) => role.name) || [];
+      const updatedPermissions = data.roles?.flatMap((role) =>
+        role.permissions?.map((permission) => permission.name)
+      ) || [];
       const updatedServices = data.servicios
         ? data.servicios.map((serv) => serv.id)
         : [];
@@ -81,7 +73,6 @@ const logout = useCallback(async () => {
       localStorage.setItem('userServices', JSON.stringify(updatedServices));
     } catch (error) {
       if (showAlert) {
-        console.error('Error al actualizar los permisos/servicios:', error);
         Swal.fire({
           icon: 'error',
           title: 'Error al actualizar permisos',
@@ -91,6 +82,7 @@ const logout = useCallback(async () => {
     }
   }, [user.id]);
 
+  // VALIDAR TOKEN EN CADA ARRANQUE O CAMBIO
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
@@ -99,60 +91,62 @@ const logout = useCallback(async () => {
         setInitialLoad(false);
         return;
       }
-
       const userId = localStorage.getItem('userId');
       if (userId) {
         setIsAuthenticated(true);
-        // Al iniciar la aplicación, se invoca sin mostrar alertas (modo silencioso)
-        await fetchUserPermissions(false);
+        await fetchUserPermissions(false); // Silencioso al iniciar
       } else {
-        logout();
+        await logout();
       }
       setLoading(false);
-      setInitialLoad(false); // Arranque finalizado
+      setInitialLoad(false);
     };
-
     validateToken();
-  }, [token, logout, fetchUserPermissions]);
+    // eslint-disable-next-line
+  }, [token]); // Dependencia sólo token
 
+  // CONTROL DE CARTEL SESIÓN EXPIRADA ÚNICO
   useEffect(() => {
     const handleTokenExpired = () => {
-      // Solo mostramos alerta si la app ya terminó su arranque y estaba autenticada.
+      // Evitar múltiples alertas con un flag global
+      if (window.__SESSION_EXPIRED__) return;
+      window.__SESSION_EXPIRED__ = true;
+
+      // Solo mostrar si la app ya terminó su arranque y estaba autenticada
       if (!isAuthenticated || initialLoad) return;
       logout();
       Swal.fire({
         icon: 'error',
         title: 'Sesión expirada',
         text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
+      }).then(() => {
+        window.__SESSION_EXPIRED__ = false;
       });
     };
 
     window.addEventListener('tokenExpired', handleTokenExpired);
-
     return () => {
       window.removeEventListener('tokenExpired', handleTokenExpired);
+      window.__SESSION_EXPIRED__ = false;
     };
+    // eslint-disable-next-line
   }, [logout, isAuthenticated, initialLoad]);
 
-  /**
-   * Función para hacer login.
-   * Se reciben email y password, y se almacena la sesión en localStorage.
-   */
+  // LOGIN
   const login = async (email, password) => {
+    window.__SESSION_EXPIRED__ = false; // Reseteo del flag por si acaso
     try {
       const data = await customFetch('/login', 'POST', { email, password });
-      // Si data es undefined, detenemos la ejecución retornando false.
       if (!data) return false;
 
       const token = data.token?.plainTextToken;
       const userData = data.user;
-      console.log('Datos del usuario:', userData);
 
       if (token && userData) {
-        const roles = userData.roles.map((role) => role.name);
-        const permissions = userData.roles.flatMap((role) =>
-          role.permissions.map((permission) => permission.name)
-        );
+        const roles = userData.roles?.map((role) => role.name) || [];
+        const permissions = userData.roles?.flatMap((role) =>
+          role.permissions?.map((permission) => permission.name)
+        ) || [];
         let servicesArray = [];
         if (Array.isArray(userData.servicios)) {
           servicesArray = userData.servicios.map((s) => s.id);
@@ -181,8 +175,6 @@ const logout = useCallback(async () => {
         return false;
       }
     } catch (error) {
-      console.error('Error en login:', error);
-      // Mostrar el mensaje específico del error lanzado por customFetch
       Swal.fire({
         icon: 'error',
         title: 'Error de conexión',

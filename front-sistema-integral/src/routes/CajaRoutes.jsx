@@ -15,13 +15,13 @@ import ArqueoCaja from '../features/caja/components/ArqueoCaja';
 
 function CajaLayout() {
   return (
-    <GlobalLayout>
-      <MainLayout section="caja">
-        <CajaProvider>
+    <CajaProvider>
+      <GlobalLayout>
+        <MainLayout section="caja">
           <Outlet />
-        </CajaProvider>
-      </MainLayout>
-    </GlobalLayout>
+        </MainLayout>
+      </GlobalLayout>
+    </CajaProvider>
   );
 }
 
