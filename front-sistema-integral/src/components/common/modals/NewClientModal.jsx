@@ -183,12 +183,12 @@ export default function NewClientModal({
   };
   const validateStep2 = () => {
     const { provincia_id, municipio_id, calle_id, altura, codigo_postal } = domicilio;
-    if (!provincia_id || !municipio_id || !calle_id || !altura) {
+    if (!provincia_id || !municipio_id || !calle_id) {
       Swal.fire('Campos incompletos', 'Completa la dirección.', 'warning');
       return false;
     }
-    if (Number(altura) <= 0) {
-      Swal.fire('Error', 'Altura debe ser positiva.', 'error');
+    if (altura !== '' && Number(altura) <= 0) {
+      Swal.fire('Error', 'Si indicás altura debe ser un valor positivo.', 'error');
       return false;
     }
     if (codigo_postal !== '' && !/^\d+$/.test(codigo_postal)) {
@@ -221,7 +221,7 @@ export default function NewClientModal({
     handleClose();
   };
 
-  // Envío final con control de borrado si falla la asignación de servicios
+  // Envío final con resumen visual
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!validateStep1() || !validateStep2()) return;
@@ -235,7 +235,7 @@ export default function NewClientModal({
       provincia_id: Number(domicilio.provincia_id),
       municipio_id: Number(domicilio.municipio_id),
       calle_id: Number(domicilio.calle_id),
-      altura: Number(domicilio.altura),
+      ...(domicilio.altura !== '' && { altura: Number(domicilio.altura) }),
       ...(domicilio.codigo_postal !== '' && { codigo_postal: Number(domicilio.codigo_postal) }),
       ...(domicilio.n_casa && { n_casa: domicilio.n_casa }),
       ...(domicilio.n_piso && { n_piso: domicilio.n_piso }),
@@ -263,33 +263,73 @@ export default function NewClientModal({
       };
     }
 
-    // Confirmar
+    // Resumen visual con bloques y campos opcionales
+    const resumenHtml = `
+      <div style="text-align:left;max-width:480px;margin:0 auto;font-size:15px">
+        <h6 style="margin-bottom:4px">🧑 Datos del cliente</h6>
+        <div style="margin-left:8px">
+          <div><strong>Tipo:</strong> ${clientType}</div>
+          ${
+            clientType === 'Persona'
+              ? `
+            <div><strong>Nombre:</strong> ${payload.nombre}</div>
+            <div><strong>Apellido:</strong> ${payload.apellido}</div>
+            <div><strong>DNI:</strong> ${payload.dni}</div>
+            <div><strong>Email:</strong> ${payload.email}</div>
+            <div><strong>Teléfono:</strong> ${payload.telefono}</div>
+            <div><strong>F. Nac.:</strong> ${payload.f_nacimiento}</div>
+          `
+              : `
+            <div><strong>Razón Social:</strong> ${payload.nombre}</div>
+            <div><strong>CUIT:</strong> ${payload.cuit}</div>
+          `
+          }
+        </div>
+        <hr/>
+        <h6 style="margin-bottom:4px">🏠 Dirección</h6>
+        <div style="margin-left:8px">
+          <div><strong>Provincia:</strong> ${provincias.find(p => p.id === payload.provincia_id)?.nombre || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Municipio:</strong> ${municipiosOrdenados.find(m => m.id === payload.municipio_id)?.nombre || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Calle:</strong> ${localCalles.find(c => c.id === payload.calle_id)?.nombre || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Altura:</strong> ${payload.altura != null ? payload.altura : '<span style="color:#888">–</span>'}</div>
+          <div><strong>C.P.:</strong> ${payload.codigo_postal != null ? payload.codigo_postal : '<span style="color:#888">–</span>'}</div>
+          <div><strong>N° Casa:</strong> ${payload.n_casa || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Piso:</strong> ${payload.n_piso || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Depto:</strong> ${payload.n_departamento || '<span style="color:#888">–</span>'}</div>
+          <div><strong>Esquina:</strong> ${payload.es_esquina ? 'Sí' : 'No'}</div>
+          ${
+            payload.es_esquina
+              ? `<div><strong>Calle Esquina:</strong> ${localCalles.find(c => c.id === Number(payload.calle_esquina_id))?.nombre || '<span style="color:#888">–</span>'}</div>`
+              : ''
+          }
+          <div><strong>Referencia:</strong> ${payload.referencia || '<span style="color:#888">–</span>'}</div>
+        </div>
+        <hr/>
+        <h6 style="margin-bottom:4px">🔗 Servicios asignados</h6>
+        <div style="margin-left:8px">
+          ${
+            serviciosSeleccionados.length > 0
+              ? serviciosSeleccionados
+                  .map(
+                    (id) =>
+                      serviciosDisponibles.find((s) => s.id === id)?.nombre
+                  )
+                  .filter(Boolean)
+                  .join(', ')
+              : '<span style="color:#888">– Ninguno –</span>'
+          }
+        </div>
+      </div>
+    `;
+
     const confirm = await Swal.fire({
-      title: 'Revisa los datos ingresados',
-      html: `
-        <strong>Tipo:</strong> ${clientType}<br/>
-        ${clientType === 'Persona'
-          ? `<strong>Nombre:</strong> ${payload.nombre}<br/>
-             <strong>Apellido:</strong> ${payload.apellido}<br/>
-             <strong>DNI:</strong> ${payload.dni}<br/>
-             <strong>Email:</strong> ${payload.email}<br/>
-             <strong>Teléfono:</strong> ${payload.telefono}<br/>
-             <strong>F. Nac.:</strong> ${payload.f_nacimiento}<br/>`
-          : `<strong>Razón Social:</strong> ${payload.nombre}<br/>
-             <strong>CUIT:</strong> ${payload.cuit}<br/>`}
-        <strong>Provincia:</strong> ${provincias.find(p => p.id === payload.provincia_id)?.nombre}<br/>
-        <strong>Municipio:</strong> ${municipiosOrdenados.find(m => m.id === payload.municipio_id)?.nombre}<br/>
-        <strong>Calle:</strong> ${localCalles.find(c => c.id === payload.calle_id)?.nombre}<br/>
-        <strong>Altura:</strong> ${payload.altura}<br/>
-        ${payload.codigo_postal != null ? `<strong>C.P.:</strong> ${payload.codigo_postal}<br/>` : ''}
-        ${serviciosSeleccionados.length > 0
-          ? `<strong>Servicios:</strong> ${serviciosSeleccionados.map(id => serviciosDisponibles.find(s => s.id === id)?.nombre).filter(Boolean).join(', ')}<br/>`
-          : ''}
-      `,
+      title: 'Revisá los datos antes de crear',
+      html: resumenHtml,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Sí, crear',
       cancelButtonText: 'Cancelar',
+      width: 600,
     });
     if (!confirm.isConfirmed) return;
 
@@ -309,14 +349,14 @@ export default function NewClientModal({
       handleModalClose();
       onClientCreated?.();
 
-  } catch (err) {
-    if (newClient && newClient.id) {
-      // (borrado automático)
-    } else {
-      Swal.fire('Error', err.message || 'No se pudo crear el cliente.', 'error');
+    } catch (err) {
+      if (newClient && newClient.id) {
+        // (borrado automático)
+      } else {
+        Swal.fire('Error', err.message || 'No se pudo crear el cliente.', 'error');
+      }
     }
-  }
-};
+  };
 
   return (
     <Modal
@@ -332,13 +372,22 @@ export default function NewClientModal({
       </Modal.Header>
 
       <Modal.Body>
+        {/* Leyenda campos requeridos y paso */}
+        <div className="mb-2 d-flex justify-content-between align-items-center">
+          <small className="text-muted">
+            <span className="text-danger">*</span> Campos obligatorios
+          </small>
+          <span className="badge bg-light text-dark">{`Paso ${step} de 3`}</span>
+        </div>
         <Form onSubmit={onSubmit}>
           {/* STEP 1 */}
           {step === 1 && (
             <>
               <Form.Group className="mb-3">
-                <Form.Label>¿Es Persona o Empresa?</Form.Label>
-                <Form.Select value={clientType} onChange={handleClientTypeChange}>
+                <Form.Label>
+                  ¿Es Persona o Empresa? <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Select value={clientType} onChange={handleClientTypeChange} autoFocus>
                   <option value="">-- Seleccione --</option>
                   <option value="Persona">Persona</option>
                   <option value="Empresa">Empresa</option>
@@ -347,48 +396,55 @@ export default function NewClientModal({
               {clientType === 'Persona' ? (
                 <>
                   <Form.Group className="mb-3">
-                    <Form.Label>Nombre</Form.Label>
+                    <Form.Label>Nombre <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="nombre"
                       value={personaData.nombre}
                       onChange={handlePersonaChange}
+                      placeholder="Ej: Juan"
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>Apellido</Form.Label>
+                    <Form.Label>Apellido <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="apellido"
                       value={personaData.apellido}
                       onChange={handlePersonaChange}
+                      placeholder="Ej: Pérez"
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>DNI</Form.Label>
+                    <Form.Label>DNI <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="dni"
                       value={personaData.dni}
                       onChange={handlePersonaChange}
+                      placeholder="Sólo números"
                     />
+                    <Form.Text muted>Sin puntos ni espacios.</Form.Text>
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>Email</Form.Label>
+                    <Form.Label>Email <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       type="email"
                       name="email"
                       value={personaData.email}
                       onChange={handlePersonaChange}
+                      placeholder="Ej: ejemplo@email.com"
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>Teléfono</Form.Label>
+                    <Form.Label>Teléfono <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="telefono"
                       value={personaData.telefono}
                       onChange={handlePersonaChange}
+                      placeholder="Ej: 2994001234"
                     />
+                    <Form.Text muted>Ingresar sólo números.</Form.Text>
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>Fecha de Nacimiento</Form.Label>
+                    <Form.Label>Fecha de Nacimiento <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       type="date"
                       name="f_nacimiento"
@@ -400,20 +456,23 @@ export default function NewClientModal({
               ) : clientType === 'Empresa' ? (
                 <>
                   <Form.Group className="mb-3">
-                    <Form.Label>Razón Social</Form.Label>
+                    <Form.Label>Razón Social <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="nombre"
                       value={empresaData.nombre}
                       onChange={handleEmpresaChange}
+                      placeholder="Ej: Ferretería El Tornillo"
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label>CUIT</Form.Label>
+                    <Form.Label>CUIT <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       name="cuit"
                       value={empresaData.cuit}
                       onChange={handleEmpresaChange}
+                      placeholder="Sólo números"
                     />
+                    <Form.Text muted>Sin guiones ni espacios.</Form.Text>
                   </Form.Group>
                 </>
               ) : null}
@@ -430,7 +489,9 @@ export default function NewClientModal({
             <>
               <h5 className="mb-3">Dirección</h5>
               <Form.Group className="mb-3">
-                <Form.Label>Provincia</Form.Label>
+                <Form.Label>
+                  Provincia <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   name="provincia_id"
                   value={domicilio.provincia_id}
@@ -443,7 +504,9 @@ export default function NewClientModal({
                 </Form.Select>
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Municipio</Form.Label>
+                <Form.Label>
+                  Municipio <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   name="municipio_id"
                   value={domicilio.municipio_id}
@@ -457,7 +520,9 @@ export default function NewClientModal({
                 </Form.Select>
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Calle</Form.Label>
+                <Form.Label>
+                  Calle <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Select
                   name="calle_id"
                   value={domicilio.calle_id}
@@ -474,54 +539,66 @@ export default function NewClientModal({
                 </Button>
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Altura</Form.Label>
+                <Form.Label>
+                  Altura <span className="text-muted">(opcional)</span>
+                </Form.Label>
                 <Form.Control
                   type="number"
                   name="altura"
                   value={domicilio.altura}
                   onChange={handleDomicilioChange}
+                  placeholder="Ej: 123"
+                  min={0}
                 />
+                <Form.Text muted>Dejar vacío si la dirección no tiene numeración.</Form.Text>
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Código Postal</Form.Label>
+                <Form.Label>
+                  Código Postal <span className="text-muted">(opcional)</span>
+                </Form.Label>
                 <Form.Control
                   type="number"
                   name="codigo_postal"
                   value={domicilio.codigo_postal}
                   onChange={handleDomicilioChange}
+                  placeholder="Ej: 8340"
+                  min={0}
                 />
               </Form.Group>
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>N° Casa (opc.)</Form.Label>
+                    <Form.Label>N° Casa <span className="text-muted">(opcional)</span></Form.Label>
                     <Form.Control
                       type="number"
                       name="n_casa"
                       value={domicilio.n_casa}
                       onChange={handleDomicilioChange}
+                      min={0}
                     />
                   </Form.Group>
                 </Col>
                 <Col md={3}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Piso (opc.)</Form.Label>
+                    <Form.Label>Piso <span className="text-muted">(opcional)</span></Form.Label>
                     <Form.Control
                       type="number"
                       name="n_piso"
                       value={domicilio.n_piso}
                       onChange={handleDomicilioChange}
+                      min={0}
                     />
                   </Form.Group>
                 </Col>
                 <Col md={3}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Depto (opc.)</Form.Label>
+                    <Form.Label>Depto <span className="text-muted">(opcional)</span></Form.Label>
                     <Form.Control
                       type="number"
                       name="n_departamento"
                       value={domicilio.n_departamento}
                       onChange={handleDomicilioChange}
+                      min={0}
                     />
                   </Form.Group>
                 </Col>
@@ -551,11 +628,12 @@ export default function NewClientModal({
                 </Form.Group>
               )}
               <Form.Group className="mb-3">
-                <Form.Label>Referencia (opc.)</Form.Label>
+                <Form.Label>Referencia <span className="text-muted">(opcional)</span></Form.Label>
                 <Form.Control
                   name="referencia"
                   value={domicilio.referencia}
                   onChange={handleDomicilioChange}
+                  placeholder="Indicaciones adicionales"
                 />
               </Form.Group>
               <div className="d-flex justify-content-between">
