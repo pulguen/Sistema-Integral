@@ -89,11 +89,17 @@ export const CajaProvider = ({ children }) => {
   });
 
   // NUEVA función fetchRecibos exportada
-  const fetchRecibos = useCallback(async (params) => {
+const fetchRecibos = useCallback(async (params) => {
+  try {
     const query = qs.stringify(params, { arrayFormat: "brackets" });
     const response = await customFetch(`/recibos${query ? '?' + query : ''}`, "GET");
     return adaptarRecibos(response);
-  }, []);
+  } catch (error) {
+    // Devuelvo array vacío si falla (no explota el componente)
+    return [];
+  }
+}, []);
+
 
   // Búsqueda rápida por número de recibo, siempre retorna array
   const buscarReciboRapido = useCallback(async (numeroRecibo) => {
