@@ -1,0 +1,11 @@
+1.-
+ssh ricardo@10.0.200.31
+password
+
+2.-
+ricardo@Ubuntu20:~/frontend$ docker-compose down
+
+3.-
+ricardo@Ubuntu20:~/frontend$ docker-compose up -d --build
+
+exit

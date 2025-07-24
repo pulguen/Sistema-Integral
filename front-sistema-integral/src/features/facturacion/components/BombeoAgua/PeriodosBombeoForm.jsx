@@ -19,6 +19,7 @@ import CommonTable from "../../../../components/common/table/table.jsx";
 import "../../../../styles/PeriodosBombeoForm.css";
 import { formatDateToDMY } from "../../../../utils/dateUtils";
 import ValorModuloInfo from "../../../../components/common/moduloInfo/ValorModuloInfo.jsx";
+import formatNumber from "../../../../utils/formatNumber.js";
 
 const TRIBUTO_ID = 1;
 const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
@@ -120,8 +121,8 @@ export default function PeriodosBombeoForm() {
         arr.map(p => {
           const d  = parseFloat(p.i_debito) || 0;
           const ds = parseFloat(p.i_descuento) || 0;
-          const r  = parseFloat(p.i_recargo_actualizado ?? p.i_recargo ?? 0) || 0;
-          return { ...p, i_recargo_actualizado: r, total: d - ds + r };
+          const r  = parseFloat(p.i_recargo_a_hoy ?? p.i_recargo ?? 0) || 0;
+          return { ...p, i_recargo_a_hoy: r, total: d - ds + r };
         })
       );
       if (arr.length === 0) {
@@ -169,7 +170,7 @@ export default function PeriodosBombeoForm() {
     setYear(new Date().getFullYear());
     setVencimiento("");
     setTotalModules(0);
-    setTotalInPesos(0);
+    setTotalInPesos(0); 
     setShowClientList(true);
   };
 
@@ -228,10 +229,38 @@ export default function PeriodosBombeoForm() {
     { Header: "Cuota",       accessor: "cuota" },
     { Header: "Volumen (m³)",accessor: "cantidad" },
     { Header: "Servicio",    accessor: "servicio.nombre" },
-    { Header: "Importe",     accessor: "i_debito",              Cell: ({value}) => Number(value).toFixed(2) },
-    { Header: "Descuento",   accessor: "i_descuento",           Cell: ({value}) => Number(value).toFixed(2) },
-    { Header: "Recargo",     accessor: "i_recargo_actualizado", Cell: ({value}) => Number(value).toFixed(2) },
-    { Header: "Total",       accessor: "total",                 Cell: ({value}) => Number(value).toFixed(2) },
+    {
+      Header: "Importe",
+      accessor: "i_debito",
+      Cell: ({ value }) => formatNumber(value),
+    },
+    {
+      Header: "Descuento",
+      accessor: "i_descuento",
+      Cell: ({ value }) => (
+        <span className="text-success">{formatNumber(value)}</span>
+      ),
+    },
+    {
+      Header: "Recargo",
+      accessor: "i_recargo_a_hoy",
+      Cell: ({ value, row }) => {
+        const venc = row.original.f_vencimiento;
+        return (
+          <span
+            className={Number(value) > 0 ? "text-danger fw-semibold" : ""}
+            title={Number(value) > 0 ? `Venció el ${formatDDMMYYYY(venc?.split("T")[0])}` : ""}
+          >
+            {formatNumber(value)}
+          </span>
+        );
+      },
+    },
+    {
+      Header: "Total",
+      accessor: "total",
+      Cell: ({ value }) => <strong>{formatNumber(value)}</strong>,
+    },
     {
       Header: "Vencimiento",
       accessor: "f_vencimiento",

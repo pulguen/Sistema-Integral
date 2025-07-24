@@ -6,12 +6,12 @@ import { AuthContext } from "../../../../context/AuthContext";
 
 const facturacionModules = [
   {
-    key: 'alquilerterminal',
-    permission: 'alquilerterminal.access',
-    title: "Alquiler Terminal",
-    description: "Gestiona el alquiler de terminales, controla contratos y realiza seguimiento de pagos.",
-    buttonText: "Ir a Alquiler Terminal",
-    route: "/facturacion/alquiler-terminal",
+    key: 'alquilerplataforma',
+    permission: 'alquilerplataforma.access',
+    title: "Alquiler Plataforma",
+    description: "Gestiona el alquiler de Plataformas, controla contratos y realiza seguimiento de pagos.",
+    buttonText: "Ir a Alquiler Plataforma",
+    route: "/facturacion/alquiler-plataforma",
     variant: "primary",
   },
   {

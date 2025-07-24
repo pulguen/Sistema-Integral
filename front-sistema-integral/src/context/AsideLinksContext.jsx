@@ -73,8 +73,8 @@ export const AsideLinksProvider = ({ children }) => {
           </>
         )
       },
-      hasPermission('alquilerterminal.access') && {
-        href: '/facturacion/Terminal',
+      hasPermission('alquilerplataforma.access') && {
+        href: '/facturacion/alquiler-plataforma',
         label: (
           <>
             <FontAwesomeIcon
@@ -82,7 +82,7 @@ export const AsideLinksProvider = ({ children }) => {
               size="1x"
               className="me-2"
             />
-            Alquiler Terminal
+            Alquiler Plataforma
           </>
         )
       },

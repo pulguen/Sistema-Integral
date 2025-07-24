@@ -181,22 +181,32 @@ export default function NewClientModal({
     }
     return true;
   };
-  const validateStep2 = () => {
-    const { provincia_id, municipio_id, calle_id, altura, codigo_postal } = domicilio;
-    if (!provincia_id || !municipio_id || !calle_id) {
-      Swal.fire('Campos incompletos', 'Completa la dirección.', 'warning');
-      return false;
-    }
-    if (altura !== '' && Number(altura) <= 0) {
-      Swal.fire('Error', 'Si indicás altura debe ser un valor positivo.', 'error');
-      return false;
-    }
-    if (codigo_postal !== '' && !/^\d+$/.test(codigo_postal)) {
-      Swal.fire('Error', 'Código postal solo números.', 'error');
-      return false;
-    }
-    return true;
-  };
+
+const validateStep2 = () => {
+  const { provincia_id, municipio_id, calle_id, altura, codigo_postal, referencia } = domicilio;
+
+  if (!provincia_id || !municipio_id || !calle_id) {
+    Swal.fire('Campos incompletos', 'Completa la dirección.', 'warning');
+    return false;
+  }
+
+  if (altura === '' && !referencia.trim()) {
+    Swal.fire('Referencia requerida', 'Si no indicás altura, debés ingresar una referencia.', 'warning');
+    return false;
+  }
+
+  if (altura !== '' && Number(altura) <= 0) {
+    Swal.fire('Error', 'Si indicás altura debe ser un valor positivo.', 'error');
+    return false;
+  }
+
+  if (codigo_postal !== '' && !/^\d+$/.test(codigo_postal)) {
+    Swal.fire('Error', 'Código postal solo números.', 'error');
+    return false;
+  }
+
+  return true;
+};
 
   // Navegación
   const goNext = () => {
@@ -540,7 +550,7 @@ export default function NewClientModal({
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>
-                  Altura <span className="text-muted">(opcional)</span>
+                  Altura <span className="text-muted">(Si no hay altura, agregar referencia)</span>
                 </Form.Label>
                 <Form.Control
                   type="number"

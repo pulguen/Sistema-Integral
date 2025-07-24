@@ -17,6 +17,7 @@ import MainLayout   from './components/layout/MainLayout/MainLayout';
 import FacturacionRoutes from './routes/FacturacionRoutes';
 import UsuariosRoutes    from './routes/UsuariosRoutes';
 import CajaRoutes        from './routes/CajaRoutes';
+import AlquilerRoutes from './routes/AlquilerPlataformaRoutes';
 
 import { ClientProvider } from './context/ClientContext'; // ⬅️ Importante
 
@@ -61,6 +62,9 @@ export default function App() {
             {/* Caja (usa su propio GlobalLayout dentro de CajaRoutes) */}
             <Route path="/caja/*" element={<CajaRoutes />} />
           </Route>
+
+          {/* 🚗 Alquiler de Plataforma */}
+          <Route path="/alquiler/*" element={<AlquilerRoutes />} />
 
           {/* Otras públicas, también con GlobalLayout */}
           <Route

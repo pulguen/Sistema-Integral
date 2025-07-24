@@ -19,6 +19,7 @@ import { FacturacionContext } from "../../../../context/FacturacionContext";
 import TotalAPagarInfo from "../../../../components/common/TotalAPagarInfo/TotalAPagarInfo.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {faFileInvoiceDollar} from '@fortawesome/free-solid-svg-icons';
+import formatNumber from "../../../../utils/formatNumber.js";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
@@ -81,6 +82,7 @@ export default function RecibosBombeoForm() {
         p => Number(p.condicion_pago_id) === Number(noPagoCond?.id)
       );
       setPeriodos(impagos);
+      console.log("Periodos impagos:", impagos);
       if (!impagos.length) {
         Swal.fire(
           "Sin períodos",
@@ -120,7 +122,7 @@ export default function RecibosBombeoForm() {
       const sum = next.reduce((acc, cur) => {
         const d = parseFloat(cur.i_debito) || 0;
         const ds = parseFloat(cur.i_descuento) || 0;
-        const r = parseFloat(cur.i_recargo_actualizado) || 0;
+        const r = parseFloat(cur.i_recargo_a_hoy) || 0;
         return acc + (d - ds + r);
       }, 0);
       setTotalAmount(sum);
@@ -129,58 +131,76 @@ export default function RecibosBombeoForm() {
   }, []);
 
   // ---- COLUMNAS DE LA TABLA ----
-  const columns = useMemo(
-    () => [
-      { Header: "#", id: "idx", Cell: ({ row }) => row.index + 1 },
-      { Header: "Año", accessor: "año" },
-      { Header: "Mes", accessor: "mes" },
-      { Header: "Cuota", accessor: "cuota" },
-      { Header: "Volumen (m³)", accessor: "cantidad" },
-      {
-        Header: "Importe",
-        accessor: "i_debito",
-        Cell: ({ value }) => Number(value).toFixed(2),
+const columns = useMemo(
+  () => [
+    { Header: "#", id: "idx", Cell: ({ row }) => row.index + 1 },
+    { Header: "Año", accessor: "año" },
+    { Header: "Mes", accessor: "mes" },
+    { Header: "Cuota", accessor: "cuota" },
+    {
+      Header: "Volumen (m³)",
+      accessor: "cantidad",
+      Cell: ({ value }) => formatNumber(value, { decimals: 0 }),
+    },
+    {
+      Header: "Importe",
+      accessor: "i_debito",
+      Cell: ({ value }) => formatNumber(value),
+    },
+    {
+      Header: "Descuento",
+      accessor: "i_descuento",
+      Cell: ({ value }) => (
+        <span className="text-success">{formatNumber(value)}</span>
+      ),
+    },
+    {
+      Header: "Recargo",
+      accessor: "i_recargo_a_hoy",
+      Cell: ({ value, row }) => {
+        const venc = row.original.f_vencimiento;
+        return (
+          <span
+            className={Number(value) > 0 ? "text-danger fw-semibold" : ""}
+            title={Number(value) > 0 ? `Venció el ${formatDateToDMY(venc)}` : ""}
+          >
+            {formatNumber(value)}
+          </span>
+        );
       },
-      {
-        Header: "Descuento",
-        accessor: "i_descuento",
-        Cell: ({ value }) => Number(value).toFixed(2),
+    },
+    {
+      Header: "Total",
+      id: "total",
+      Cell: ({ row }) => {
+        const d = parseFloat(row.original.i_debito) || 0;
+        const ds = parseFloat(row.original.i_descuento) || 0;
+        const r = parseFloat(row.original.i_recargo_a_hoy) || 0;
+        const total = d - ds + r;
+        return <strong>{formatNumber(total)}</strong>;
       },
-      {
-        Header: "Recargo",
-        accessor: "i_recargo_actualizado",
-        Cell: ({ value }) => Number(value).toFixed(2),
-      },
-      {
-        Header: "Total",
-        id: "total",
-        Cell: ({ row }) => {
-          const d = parseFloat(row.original.i_debito) || 0;
-          const ds = parseFloat(row.original.i_descuento) || 0;
-          const r = parseFloat(row.original.i_recargo_actualizado) || 0;
-          return (d - ds + r).toFixed(2);
-        },
-      },
-      {
-        Header: "Vencimiento",
-        accessor: "f_vencimiento",
-        Cell: ({ value }) => formatDateToDMY(value),
-      },
-      { Header: "Recibo gen.", accessor: "n_recibo_generado" },
-      {
-        Header: "Seleccionar",
-        id: "select",
-        Cell: ({ row }) => (
-          <Form.Check
-            type="checkbox"
-            checked={selectedPeriodos.includes(row.original)}
-            onChange={() => togglePeriodo(row.original)}
-          />
-        ),
-      },
-    ],
-    [selectedPeriodos, togglePeriodo]
-  );
+    },
+    {
+      Header: "Vencimiento",
+      accessor: "f_vencimiento",
+      Cell: ({ value }) => formatDateToDMY(value),
+    },
+    { Header: "Recibo gen.", accessor: "n_recibo_generado" },
+    {
+      Header: "Seleccionar",
+      id: "select",
+      Cell: ({ row }) => (
+        <Form.Check
+          type="checkbox"
+          checked={selectedPeriodos.includes(row.original)}
+          onChange={() => togglePeriodo(row.original)}
+        />
+      ),
+    },
+  ],
+  [selectedPeriodos, togglePeriodo]
+);
+
 
   // ---- Vencimiento y observaciones ----
   const getTodayDate = () => {

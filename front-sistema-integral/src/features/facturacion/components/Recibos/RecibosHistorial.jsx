@@ -18,11 +18,13 @@ import { FacturacionContext } from "../../../../context/FacturacionContext";
 import { AuthContext } from "../../../../context/AuthContext.jsx";
 import CommonTable from "../../../../components/common/table/table.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaEye } from "react-icons/fa";
 import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
 import { Link } from "react-router-dom";
 import ClientSearch from "../../../../components/common/clienteSearch/ClientSearch.jsx";
 import { ClientContext } from "../../../../context/ClientContext";
+import formatNumber from "../../../../utils/formatNumber.js";
+import DetalleReciboModal from '../../../../components/common/modals/DetalleReciboModal.jsx';
 
 const PAGE_SIZE_OPTIONS = [15, 30, 45, 60];
 
@@ -40,7 +42,6 @@ const RecibosHistorial = () => {
   const canShowTributo = user?.permissions.includes("tributos.show.clientes");
   const canShowServicio = user?.permissions.includes("servicios.show.clientes");
 
-  // Estado
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [tributosMap, setTributosMap] = useState([]);
   const [selectedTributo, setSelectedTributo] = useState(null);
@@ -49,10 +50,13 @@ const RecibosHistorial = () => {
   const [recibos, setRecibos] = useState([]);
   const [loadingRecibos, setLoadingRecibos] = useState(false);
 
-  // Paginación
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
   const totalPages = Math.ceil(recibos.length / pageSize);
+
+  // Modal detalle
+  const [showDetalleModal, setShowDetalleModal] = useState(false);
+  const [reciboSeleccionado, setReciboSeleccionado] = useState(null);
 
   const fetchPage = useCallback(({ page, per_page }) => {
     setPageIndex(page - 1);
@@ -64,7 +68,6 @@ const RecibosHistorial = () => {
     return recibos.slice(start, start + pageSize);
   }, [recibos, pageIndex, pageSize]);
 
-  // Al seleccionar cliente
   useEffect(() => {
     if (!selectedCliente) return;
     (async () => {
@@ -79,7 +82,6 @@ const RecibosHistorial = () => {
           setRecibos([]);
           return;
         }
-        // Map tributos y servicios
         const map = {};
         arr.forEach((e) => {
           const tId = e.tributo_id;
@@ -105,7 +107,6 @@ const RecibosHistorial = () => {
     })();
   }, [selectedCliente, fetchClienteById]);
 
-  // Selección de tributo
   const handleTributoSelect = e => {
     const id = parseInt(e.target.value, 10);
     setSelectedTributo(id);
@@ -115,7 +116,6 @@ const RecibosHistorial = () => {
     setRecibos([]);
   };
 
-  // Selección de servicio → cargar recibos
   const handleServicioSelect = async (e) => {
     const id = parseInt(e.target.value, 10);
     const serv = servicios.find((s) => s.id === id);
@@ -125,6 +125,7 @@ const RecibosHistorial = () => {
     setLoadingRecibos(true);
 
     try {
+      // Fetch de recibos reales
       const all = await fetchRecibosByCliente(selectedCliente.id, false);
 
       // Helpers por si los IDs pueden venir a primer nivel o dentro de detalles
@@ -159,7 +160,6 @@ const RecibosHistorial = () => {
     }
   };
 
-  // Reset
   const handleReset = useCallback(() => {
     setSelectedCliente(null);
     setTributosMap([]);
@@ -169,7 +169,6 @@ const RecibosHistorial = () => {
     setRecibos([]);
   }, []);
 
-  // Anulación de recibo
   const handleAnular = useCallback((recibo) => {
     Swal.fire({
       title: "Anular Recibo",
@@ -198,62 +197,88 @@ const RecibosHistorial = () => {
     });
   }, []);
 
-  // Solo se puede anular si no está pagado, vencido o anulado
   const puedeAnularRecibo = (recibo) => {
     if (recibo.f_pago) return false;
     const hoy = new Date();
-    if (recibo.f_vencimiento && new Date(recibo.f_vencimiento) < hoy && !recibo.f_pago) {
-      return false;
-    }
+    if (recibo.f_vencimiento && new Date(recibo.f_vencimiento) < hoy) return false;
     if (recibo.anulado || recibo.estado === "anulado" || recibo.cancelado) return false;
     return true;
-  };  
+  };
 
-  // Columnas de la tabla
-  const columns = useMemo(
-    () => [
-      { Header: "N° Recibo", accessor: "n_recibo" },
-      { Header: "Emisor", accessor: "emisor", Cell: ({ value }) => value?.name || "N/A" },
-      {
-        Header: "Importe",
-        accessor: "i_debito",
-        Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+  const verDetalleRecibo = (recibo) => {
+    setReciboSeleccionado(recibo);
+    setShowDetalleModal(true);
+  };
+
+  const columns = useMemo(() => [
+    { Header: "N° Recibo", accessor: "n_recibo" },
+    { Header: "Emisor", accessor: "emisor", Cell: ({ value }) => value?.name || "N/A" },
+    {
+      Header: "Importe",
+      accessor: "i_debito",
+      Cell: ({ value }) => `$ ${formatNumber(value)}`,
+    },
+    {
+      Header: "Recargo",
+      accessor: "i_recargo",
+      Cell: ({ value, row }) => {
+        const venc = row.original.f_vencimiento;
+        return (
+          <span
+            className={value > 0 ? "text-danger fw-semibold" : ""}
+            title={value > 0 && venc ? `Venció el ${new Date(venc).toLocaleDateString("es-AR")}` : ""}
+          >
+            $ {formatNumber(value)}
+          </span>
+        );
       },
-      {
-        Header: "Recargo",
-        accessor: "i_recargo",
-        Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
+    },
+    {
+      Header: "Total",
+      accessor: "i_total",
+      Cell: ({ value }) => <strong>$ {formatNumber(value)}</strong>,
+    },
+    {
+      Header: "Vencimiento",
+      accessor: "f_vencimiento",
+      Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+    {
+      Header: "Condición",
+      accessor: "condicion_pago_id",
+      Cell: ({ value }) => {
+        const c = condicionesPago.find((x) => x.id === value);
+        return c?.nombre || "Impago";
       },
-      {
-        Header: "Total",
-        accessor: "i_total",
-        Cell: ({ value }) => `$ ${parseFloat(value || 0).toFixed(2)}`
-      },
-      {
-        Header: "Vencimiento",
-        accessor: "f_vencimiento",
-        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A"
-      },
-      {
-        Header: "Condición",
-        accessor: "condicion_pago_id",
-        Cell: ({ value }) => {
-          const c = condicionesPago.find((x) => x.id === value);
-          return c?.nombre || "Impago";
-        }
-      },
-      {
-        Header: "Fecha Pago",
-        accessor: "f_pago",
-        Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A"
-      },
-      { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
-      {
-        Header: "Acciones",
-        id: "acciones",
-        Cell: ({ row }) => {
-          const recibo = row.original;
-          return (
+    },
+    {
+      Header: "Fecha Pago",
+      accessor: "f_pago",
+      Cell: ({ value }) => value ? new Date(value).toLocaleDateString() : "N/A",
+    },
+    { Header: "Cajero", accessor: "cajero", Cell: ({ value }) => value?.name || "N/A" },
+    {
+      Header: "Acciones",
+      id: "acciones",
+      Cell: ({ row }) => {
+        const recibo = row.original;
+        return (
+          <div className="d-flex gap-2">
+            <OverlayTrigger
+              placement="top"
+              overlay={<Tooltip>Ver detalle del recibo</Tooltip>}
+            >
+              <span className="d-inline-block">
+                <CustomButton
+                  variant="info"
+                  size="sm"
+                  onClick={() => verDetalleRecibo(recibo)}
+                >
+                  <FaEye />
+                </CustomButton>
+              </span>
+            </OverlayTrigger>
+
             <OverlayTrigger
               placement="top"
               overlay={
@@ -274,20 +299,16 @@ const RecibosHistorial = () => {
                 </CustomButton>
               </span>
             </OverlayTrigger>
-          );
-        }
+          </div>
+        );
       }
-    ],
-    [condicionesPago, canDeleteRecibo, handleAnular]
-  );
+    }
+  ], [condicionesPago, canDeleteRecibo, handleAnular]);
 
-  // Render
   return (
     <Card className="shadow-sm p-4 mt-4">
       <Breadcrumb>
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-          Inicio
-        </Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>Inicio</Breadcrumb.Item>
         <Breadcrumb.Item>Facturación</Breadcrumb.Item>
         <Breadcrumb.Item active>Historial de Recibos</Breadcrumb.Item>
       </Breadcrumb>
@@ -299,7 +320,6 @@ const RecibosHistorial = () => {
 
       <Card className="mb-4 shadow-sm">
         <Card.Body>
-          {/* Buscador de cliente reutilizable */}
           <Form.Group controlId="cliente" className="mb-3">
             <Form.Label>Buscar Cliente</Form.Label>
             <ClientSearch
@@ -311,7 +331,6 @@ const RecibosHistorial = () => {
             />
           </Form.Group>
 
-          {/* Tributo */}
           {selectedCliente && (
             <Form.Group controlId="tributo" className="mb-3">
               <Form.Label>Seleccionar Tributo</Form.Label>
@@ -322,15 +341,12 @@ const RecibosHistorial = () => {
               >
                 <option value="">-- elige un tributo --</option>
                 {tributosMap.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
               </Form.Select>
             </Form.Group>
           )}
 
-          {/* Servicio */}
           {selectedTributo && (
             <Form.Group controlId="servicio" className="mb-3">
               <Form.Label>Seleccionar Servicio</Form.Label>
@@ -341,9 +357,7 @@ const RecibosHistorial = () => {
               >
                 <option value="">-- elige un servicio --</option>
                 {servicios.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
               </Form.Select>
             </Form.Group>
@@ -351,7 +365,6 @@ const RecibosHistorial = () => {
         </Card.Body>
       </Card>
 
-      {/* Tabla de recibos */}
       {selectedServicio && (
         loadingRecibos ? (
           <div className="text-center py-5">
@@ -360,9 +373,7 @@ const RecibosHistorial = () => {
         ) : (
           <>
             <div className="d-flex justify-content-between mb-3">
-              <small className="text-muted">
-                Total recibos: {recibos.length}
-              </small>
+              <small className="text-muted">Total recibos: {recibos.length}</small>
               <CustomButton variant="outline-secondary" onClick={handleReset}>
                 Limpiar Filtros
               </CustomButton>
@@ -376,10 +387,17 @@ const RecibosHistorial = () => {
               initialPageIndex={pageIndex}
               initialPageSize={pageSize}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
+              emptyMessage="No hay recibos para este cliente y servicio."
             />
           </>
         )
       )}
+
+      <DetalleReciboModal
+        show={showDetalleModal}
+        handleClose={() => setShowDetalleModal(false)}
+        recibo={reciboSeleccionado}
+      />
     </Card>
   );
 };

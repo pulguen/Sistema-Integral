@@ -3,6 +3,7 @@ import { Container, Row } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import CommonCard from '../../components/common/Cards/Cards';
 import { AuthContext } from '../../context/AuthContext';
+import Footer from '../../components/layout/Footer/Footer';
 
 const systems = [
   {
@@ -69,6 +70,7 @@ const Home = () => {
   };
 
   return (
+    <>
     <Container className="mt-5">
       <h2 className="text-center mb-4 fw-bold">
         Bienvenido al Sistema Integral de la Municipalidad de Zapala
@@ -90,7 +92,12 @@ const Home = () => {
           />
         ))}
       </Row>
+      
+      {/* Siempre muestra el Footer */}      
     </Container>
+    <Footer />
+    </>
+    
   );
 };
 
