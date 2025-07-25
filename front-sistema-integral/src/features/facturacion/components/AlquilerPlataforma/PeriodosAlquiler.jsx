@@ -1,3 +1,3 @@
-export default function AlquilerHome() {
-  return <div>Bienvenido al módulo de Alquiler de Terminal</div>;
+export default function AlquilerPeriodo() {
+  return <div>Periodos de Alquiler de Terminal</div>;
 }

@@ -20,7 +20,7 @@ const AlquilerPlataforma = () => {
 
   const handleSelect = (k) => {
     setKey(k);
-    navigate(`/alquiler/${k}`);
+    navigate(`/facturacion/alquiler-plataforma/${k}`);
   };
 
   const tabTitles = {
@@ -36,7 +36,10 @@ const AlquilerPlataforma = () => {
           <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>
             Inicio
           </Breadcrumb.Item>
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/alquiler' }}>
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/facturacion' }}>
+            Facturación
+          </Breadcrumb.Item>
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/facturacion/alquiler-plataforma' }}>
             Alquiler Plataforma
           </Breadcrumb.Item>
           {key && key !== 'home' && (
@@ -44,7 +47,7 @@ const AlquilerPlataforma = () => {
           )}
         </Breadcrumb>
 
-        <h1>Gestión de Alquiler de Terminal</h1>
+        <h1>Facturación - Alquiler de Terminal</h1>
 
         <Tabs id="alquiler-tabs" activeKey={key} onSelect={handleSelect} className="mb-3">
           <Tab eventKey="home" title="Inicio" />

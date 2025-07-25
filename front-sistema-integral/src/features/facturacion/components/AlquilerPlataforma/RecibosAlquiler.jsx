@@ -1,3 +1,3 @@
 export default function RecibosAlquiler() {
-  return <div>Listado de Recibos de Alquiler</div>;
+  return <div>Recibos de Alquiler de Plataforma</div>;
 }

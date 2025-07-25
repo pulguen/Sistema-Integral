@@ -64,7 +64,7 @@ export default function App() {
           </Route>
 
           {/* 🚗 Alquiler de Plataforma */}
-          <Route path="/alquiler/*" element={<AlquilerRoutes />} />
+          <Route path="/alquiler-plataforma/*" element={<AlquilerRoutes />} />
 
           {/* Otras públicas, también con GlobalLayout */}
           <Route

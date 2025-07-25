@@ -13,6 +13,8 @@ import PeriodosHistorial from '../features/facturacion/components/Periodos/Perio
 import RecibosHistorial from '../features/facturacion/components/Recibos/RecibosHistorial';
 import BombeoAgua from '../features/facturacion/components/BombeoAgua/BombeoAgua';
 import { BombeoAguaProvider } from '../context/BombeoAguaContext';
+import AlquilerPlataforma from '../features/facturacion/components/AlquilerPlataforma/AlquilerPlataforma';
+import { AlquilerPlataformaProvider } from '../context/AlquilerPlataformaContext';
 
 function FacturacionLayout() {
   return (
@@ -41,6 +43,14 @@ export default function FacturacionRoutes() {
             <BombeoAguaProvider>
               <BombeoAgua />
             </BombeoAguaProvider>
+          }
+        />
+        <Route
+          path="alquiler-plataforma/*"
+          element={
+            <AlquilerPlataformaProvider>
+              <AlquilerPlataforma />
+            </AlquilerPlataformaProvider>
           }
         />
       </Route>
