@@ -13,7 +13,7 @@ import Swal from "sweetalert2";
 import customFetch from "../../../../context/CustomFetch.js";
 import { BombeoAguaContext } from "../../../../context/BombeoAguaContext.jsx";
 import { FacturacionContext } from "../../../../context/FacturacionContext";
-import ClientSearch from "./ClientSearch";
+import ClientSearch from "../Common/ClientSearch.jsx";
 import NewPeriodoForm from "./NewPeriodoForm";
 import CommonTable from "../../../../components/common/table/table.jsx";
 import "../../../../styles/PeriodosBombeoForm.css";

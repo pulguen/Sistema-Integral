@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Breadcrumb, Tabs, Tab } from 'react-bootstrap';
 import { Link, useLocation, useNavigate, Routes, Route } from 'react-router-dom';
 import { AlquilerPlataformaProvider } from '../../../../context/AlquilerPlataformaContext';
-import AlquilerHome from './AlquilerHome';
-import PeriodosAlquiler from './PeriodosAlquiler';
+import AlquilerHome from './HomeAlquilerPlataforma';
+import PeriodosAlquiler from './PeriodosAlquilerForm';
 import RecibosAlquiler from './RecibosAlquiler';
 
 const AlquilerPlataforma = () => {

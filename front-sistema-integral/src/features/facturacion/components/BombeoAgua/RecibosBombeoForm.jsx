@@ -9,7 +9,7 @@ import React, {
 import { Form, Row, Col, Card, Spinner } from "react-bootstrap";
 import Swal from "sweetalert2";
 import CustomButton from "../../../../components/common/botons/CustomButton.jsx";
-import ClientSearch from "./ClientSearch";
+import ClientSearch from "../Common/ClientSearch.jsx";
 import CommonTable from "../../../../components/common/table/table.jsx";
 import customFetch from "../../../../context/CustomFetch.js";
 import { AuthContext } from "../../../../context/AuthContext";
