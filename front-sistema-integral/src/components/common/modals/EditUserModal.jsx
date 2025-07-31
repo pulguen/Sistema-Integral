@@ -109,7 +109,7 @@ export default function EditUserModal({ show, handleClose, handleSubmit, userDat
 
       // Cambiar contraseña (CORREGIDO: agregando user_id)
       if (passwordCambiada) {
-        await customFetch('/users/password/modificar-password', 'POST', {
+        await customFetch('/users/password/modificar', 'POST', {
           password: newUser.password,
           password_confirmation: newUser.confirmPassword,
           user_id: userData.id,

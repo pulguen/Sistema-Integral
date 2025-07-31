@@ -95,7 +95,7 @@ export const AsideLinksProvider = ({ children }) => {
               size="1x"
               className="me-2"
             />
-            Periodos
+            Historial de Periodos
           </>
         )
       },
@@ -108,7 +108,7 @@ export const AsideLinksProvider = ({ children }) => {
               size="1x"
               className="me-2"
             />
-            Recibos
+            Historial de Recibos
           </>
         )
       },
